@@ -91,7 +91,7 @@ export function TenantsManagement({ plans, onEditTenant, onNewTenant }: TenantsM
 
       <div className="grid grid-cols-1 gap-4">
         {filteredTenants.map((tenant) => (
-          <Card key={tenant.id} className={`hover:shadow-md transition-shadow ${tenant.active === false ? 'opacity-60' : ''}`}>
+          <Card key={tenant.id} className={`hover:border-primary/40 transition-colors ${tenant.active === false ? 'opacity-60' : ''}`}>
             <CardContent className="p-6">
               <div className="flex items-start gap-6">
                 <div className="w-16 h-16 rounded-xl bg-muted flex items-center justify-center text-3xl shrink-0">
@@ -177,7 +177,7 @@ export function TenantsManagement({ plans, onEditTenant, onNewTenant }: TenantsM
 
       {filteredTenants.length === 0 && (
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">🔍</div>
+          <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">Nenhuma pizzaria encontrada</h3>
           <p className="text-muted-foreground">
             Tente ajustar a busca ou crie uma nova pizzaria

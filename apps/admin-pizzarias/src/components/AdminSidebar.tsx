@@ -39,7 +39,7 @@ export function AdminSidebar({ activePage, onNavigate }: AdminSidebarProps) {
               className={cn(
                 'w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all',
                 activePage === item.id
-                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
             >

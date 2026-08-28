@@ -99,14 +99,14 @@ export function Dashboard() {
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={salesData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
-                <XAxis dataKey="day" stroke="#737373" />
-                <YAxis stroke="#737373" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
+                <XAxis dataKey="day" stroke="#777777" />
+                <YAxis stroke="#777777" />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e5e5', borderRadius: '8px' }}
+                  contentStyle={{ backgroundColor: '#1F1F1F', border: '1px solid #2A2A2A', borderRadius: '8px', color: '#F5F0E8' }}
                   formatter={(value) => formatCurrency(Number(value))}
                 />
-                <Bar dataKey="value" fill="#e84118" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="value" fill="#C9A84C" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -119,13 +119,13 @@ export function Dashboard() {
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={ordersData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
-                <XAxis dataKey="hour" stroke="#737373" />
-                <YAxis stroke="#737373" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
+                <XAxis dataKey="hour" stroke="#777777" />
+                <YAxis stroke="#777777" />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e5e5', borderRadius: '8px' }}
+                  contentStyle={{ backgroundColor: '#1F1F1F', border: '1px solid #2A2A2A', borderRadius: '8px', color: '#F5F0E8' }}
                 />
-                <Line type="monotone" dataKey="orders" stroke="#e84118" strokeWidth={2} dot={{ fill: '#e84118' }} />
+                <Line type="monotone" dataKey="orders" stroke="#C9A84C" strokeWidth={2} dot={{ fill: '#C9A84C' }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>

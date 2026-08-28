@@ -12,9 +12,9 @@ const monthlyRevenue = [
 ];
 
 const tenantsByPlan = [
-  { name: 'Basic', value: 45, color: '#3b82f6' },
-  { name: 'Pro', value: 28, color: '#e84118' },
-  { name: 'Enterprise', value: 12, color: '#10b981' },
+  { name: 'Basic', value: 45, color: '#457b9d' },
+  { name: 'Pro', value: 28, color: '#c9a84c' },
+  { name: 'Enterprise', value: 12, color: '#34d399' },
 ];
 
 export function AdminDashboard() {
@@ -95,14 +95,14 @@ export function AdminDashboard() {
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={monthlyRevenue}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
-                <XAxis dataKey="month" stroke="#737373" />
-                <YAxis stroke="#737373" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
+                <XAxis dataKey="month" stroke="#777777" />
+                <YAxis stroke="#777777" />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e5e5', borderRadius: '8px' }}
+                  contentStyle={{ backgroundColor: '#1F1F1F', border: '1px solid #2A2A2A', borderRadius: '8px', color: '#F5F0E8' }}
                   formatter={(value) => formatCurrency(Number(value))}
                 />
-                <Bar dataKey="value" fill="#e84118" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="value" fill="#C9A84C" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -128,7 +128,7 @@ export function AdminDashboard() {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip contentStyle={{ backgroundColor: '#1F1F1F', border: '1px solid #2A2A2A', borderRadius: '8px', color: '#F5F0E8' }} />
               </PieChart>
             </ResponsiveContainer>
             <div className="mt-4 space-y-2">

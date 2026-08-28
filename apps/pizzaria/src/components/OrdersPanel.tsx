@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, Phone, MapPin, DollarSign } from 'lucide-react';
+import { Clock, Phone, MapPin, DollarSign, Inbox } from 'lucide-react';
 import { mockOrders } from '../data/repository';
 import { Order } from '@pizza/types';
 import { Card, CardContent, Badge, formatCurrency, formatTime } from '@pizza/ui';
@@ -88,7 +88,7 @@ export function OrdersPanel({ onViewOrder }: OrdersPanelProps) {
           return (
             <Card
               key={order.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className="cursor-pointer hover:border-primary/40 transition-colors"
               onClick={() => onViewOrder(order)}
             >
               <CardContent className="p-5 space-y-4">
@@ -133,7 +133,7 @@ export function OrdersPanel({ onViewOrder }: OrdersPanelProps) {
 
       {filteredOrders.length === 0 && (
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">📦</div>
+          <Inbox className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">Nenhum pedido encontrado</h3>
           <p className="text-muted-foreground">
             {statusFilter === 'all'

@@ -120,7 +120,7 @@ export function MenuManagement({ categories, onCreateCategory, onEditProduct, on
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredPizzas.map((pizza) => (
-          <Card key={pizza.id} className="overflow-hidden hover:shadow-md transition-shadow">
+          <Card key={pizza.id} className="overflow-hidden hover:border-primary/40 transition-colors">
             <div className="aspect-video w-full overflow-hidden bg-muted">
               <img src={pizza.image} alt={pizza.name} className="w-full h-full object-cover" />
             </div>
@@ -160,7 +160,7 @@ export function MenuManagement({ categories, onCreateCategory, onEditProduct, on
 
       {filteredPizzas.length === 0 && (
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">🔍</div>
+          <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">Nenhum produto encontrado</h3>
           <p className="text-muted-foreground">
             Tente ajustar os filtros ou criar um novo produto
