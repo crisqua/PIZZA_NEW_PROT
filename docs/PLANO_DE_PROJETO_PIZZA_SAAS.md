@@ -33,14 +33,14 @@ Ter uma base segura onde é possível criar um tenant (pizzaria), criar usuário
 
 ### Entregáveis técnicos
 - [ ] Repositório backend (NestJS ou stack definida) com estrutura modular: `auth/`, `tenants/`, `users/` já isolados como módulos.
-- [ ] PostgreSQL provisionado (IaC/Terraform) com schema inicial: `tenants`, `users`, `roles`, `permissions`.
+- [ ] PostgreSQL provisionado via Supabase com schema inicial: `tenants`, `users`, `roles`, `permissions` (ver `ARQUITETURA_SISTEMA_PIZZA_SAAS.md` seção 5 e 11 — stack de infra revisada em 2026-08-27).
 - [ ] **RLS habilitada** em todas as tabelas com `tenant_id` desde o primeiro schema (não "adicionar depois").
 - [ ] Middleware de resolução de tenant por subdomínio, injeta `tenant_id` no contexto de request.
 - [ ] Serviço de Auth: JWT curto (15 min) + refresh rotativo em cookie `httpOnly/Secure/SameSite=Strict`.
 - [ ] Hash de senha Argon2id + verificação contra base de senha vazada.
 - [ ] MFA (TOTP) obrigatório para papéis `tenant_owner`, `tenant_staff`, `platform_*`.
 - [ ] Pipeline CI: lint — testes unitários — SAST (Semgrep) — SCA (Dependabot/Snyk) — build.
-- [ ] Ambientes dev/staging/produção provisionados via Terraform, secrets em vault gerenciado (não `.env`).
+- [ ] Ambientes dev/staging/produção provisionados via Supabase (banco) + Render (backend) + Vercel (frontends), secrets nas variáveis de ambiente do próprio provedor (não `.env` versionado).
 - [ ] Audit log (tabela append-only) já registrando: criação de tenant, login, criação de usuário, mudança de papel.
 
 ### Critérios de aceite

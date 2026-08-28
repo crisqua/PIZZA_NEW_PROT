@@ -37,6 +37,12 @@ Tudo isso com isolamento multi-tenant real (RLS) e autenticação/autorização 
 | 7 | Cliente faz checkout com endereço + pagamento na entrega (dinheiro/maquininha física) | Cliente |
 | 8 | Pizzaria vê pedido novo no painel (via polling, não WebSocket) e atualiza status (`pendente — preparo — entrega — concluído`) | Pizzaria |
 | 9 | Cliente acompanha status do próprio pedido (via polling) | Cliente |
+| 10 | Superadmin gerencia o catálogo de planos (Trial/Pro/Enterprise: preço, limite, módulos inclusos) | Plataforma |
+| 11 | Superadmin atribui um plano a cada tenant e pode ativar/desativar o acesso de um tenant | Plataforma |
+| 12 | Pizzaria com plano que inclui o módulo usa Controle de Estoque (ingredientes/insumos, alerta de estoque baixo) | Pizzaria |
+| 13 | Pizzaria com plano que inclui o módulo usa Controle Financeiro (receita dos pedidos x despesas lançadas, saldo do período) | Pizzaria |
+
+**Nota (adicionada após validação de protótipo, 2026-08-28):** os itens 10–13 nasceram de um protótipo funcional (mock, sem backend) já validado com o usuário nas telas reais do App do Cliente, Painel da Pizzaria e Admin-Pizzarias — ver `MVP_SPRINTS.md` Sprints 4, 6 e 8 para o desenho de como isso vira backend real. Estoque e Financeiro são módulos pagos opcionais (add-on por plano ou avulso), não incluídos por padrão em todo tenant — daí exigirem o módulo `plans` (item 3 abaixo) para o enforcement de acesso.
 
 ---
 
@@ -47,9 +53,11 @@ Tudo isso com isolamento multi-tenant real (RLS) e autenticação/autorização 
 - [ ] **Auth:** JWT de curta duração (15 min) + refresh rotativo em cookie `httpOnly/Secure/SameSite=Strict`. Sem MFA no MVP.
 - [ ] Hash de senha com **Argon2id**.
 - [ ] **RBAC básico:** papéis `platform_superadmin`, `tenant_owner`, `tenant_staff`, `customer`, com enforcement no backend (nunca só no frontend).
-- [ ] Backend estruturado como **modular monolith** (módulos `auth/`, `tenants/`, `users/`, `catalog/`, `orders/`), preparado para extração futura, mas sem microsserviços agora.
-- [ ] Módulo `catalog/`: CRUD de produtos/categorias, imagem via upload assinado para Object Storage (S3), nunca upload direto no servidor de app.
+- [ ] Backend estruturado como **modular monolith** (módulos `auth/`, `tenants/`, `plans/`, `users/`, `catalog/`, `inventory/`, `orders/`, `financial/`), preparado para extração futura, mas sem microsserviços agora — `Billing`/`plans` já constava no diagrama de módulos da arquitetura original, isto só o torna concreto.
+- [ ] Módulo `catalog/`: CRUD de produtos/**categorias dinâmicas por tenant** (não um enum fixo — cada pizzaria cadastra as próprias categorias de sabor), imagem via upload assinado para Object Storage (S3), nunca upload direto no servidor de app.
 - [ ] Módulo `orders/`: máquina de estados de pedido validada no backend, idempotência na criação (chave de idempotência no header).
+- [ ] Módulo `plans/`: catálogo de planos (`Plan`: código imutável, nome, preço nullable = negociado, módulos opcionais inclusos) — global, **RLS-exempt** como `tenants` (seção 3.1/6.3 da arquitetura); `Subscription` liga 1 tenant a 1 plano — esta sim tenant-scoped, RLS normal. Guard/decorator de feature-gating (`@RequiresModule('estoque' | 'financeiro')`) aplicado no backend, nunca só escondido no frontend.
+- [ ] Módulos `inventory/` e `financial/`: add-ons opcionais pagos, cada rota protegida pelo guard de módulo acima; `financial/` depende de `orders/` para a agregação de receita por período.
 - [ ] **Atualização de status via polling** no painel da pizzaria e na tela do cliente (WebSocket fica para pós-MVP).
 - [ ] Rate limiting básico por tenant e por IP no endpoint público de criação de pedido.
 - [ ] Correção dos débitos técnicos do protótipo identificados na avaliação: adicionar `tsconfig.json`, resolver referências de assets do Figma para pasta inexistente, remover usos de `any` em pontos-chave de navegação, corrigir geração de ID propensa a colisão.
@@ -92,17 +100,22 @@ Mesmo cortando escopo, os seguintes pontos continuam obrigatórios porque são e
 
 ---
 
-## 6. Cronograma estimado (6–7 semanas)
+## 6. Cronograma estimado (9–10 semanas)
+
+**Atualizado em 2026-08-28** — o escopo cresceu 4 sprints (`plans`, `inventory`, `financial` + ativação/desativação de tenant) em relação à estimativa original de 6–7 semanas, depois de validar esses módulos como protótipo funcional. Ver `MVP_SPRINTS.md` para o detalhe sprint a sprint (0–11).
 
 | Semana | Foco |
 |---|---|
 | 1 | Setup de infra (staging, CI mínimo, vault de secrets), schema inicial + RLS, módulo `auth/` |
-| 2 | `tenants/`, `users/`, RBAC básico, resolução de tenant por subdomínio |
-| 3 | Módulo `catalog/` (CRUD produtos/categorias, upload de imagem) |
-| 4 | Módulo `orders/` (criação, máquina de estados, idempotência) |
-| 5 | Integração dos 3 frontends com API real (substituição de `mockData.ts`), correção dos débitos técnicos do protótipo |
-| 6 | Polling de status (cliente e painel), audit log, rate limiting básico, testes de isolamento tenant A / tenant B |
-| 7 | Buffer, ajustes com tenant piloto, hardening básico, deploy em staging |
+| 2 | `tenants/` (incl. ativar/desativar), `users/`, RBAC básico, resolução de tenant por subdomínio |
+| 3 | Módulo `plans/` (catálogo de planos + assinatura por tenant + guard de feature-gating) |
+| 4 | Módulo `catalog/` (CRUD produtos/categorias dinâmicas, upload de imagem) |
+| 5 | Módulo `inventory/` (Estoque, add-on pago, gated pelo plano) |
+| 6 | Módulo `orders/` (criação, máquina de estados, idempotência) |
+| 7 | Módulo `financial/` (Financeiro, add-on pago — depende de `orders/` pra receita) |
+| 8 | Integração dos 3 frontends com API real (substituição de `mockData.ts`), correção dos débitos técnicos do protótipo |
+| 9 | Polling de status (cliente e painel), audit log, rate limiting básico, testes de isolamento tenant A / tenant B, teste de bloqueio de acesso por módulo/plano |
+| 10 | Buffer, ajustes com tenant piloto, hardening básico, deploy em staging |
 
 ---
 
@@ -114,6 +127,8 @@ Mesmo cortando escopo, os seguintes pontos continuam obrigatórios porque são e
 - Nenhum secret em código-fonte (checagem automatizada).
 - `tsconfig.json` presente, sem uso de `any` nos pontos de navegação identificados, IDs sem colisão.
 - Tenant piloto consegue cadastrar cardápio real e um pedido de ponta a ponta funciona em staging.
+- Um tenant cujo plano **não** inclui um módulo (ex.: Financeiro) recebe 403 ao chamar a rota diretamente, mesmo com JWT válido e manipulando a requisição — o bloqueio é no backend, não só a tela escondida no frontend.
+- Desativar um tenant (superadmin) bloqueia login de `tenant_owner`/`tenant_staff` desse tenant imediatamente, não é só uma badge visual.
 
 ---
 

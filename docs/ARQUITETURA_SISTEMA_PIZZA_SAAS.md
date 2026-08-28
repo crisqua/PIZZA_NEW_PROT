@@ -1,6 +1,8 @@
 # Arquitetura de Sistema — SaaS White-Label para Pizzarias
 ### Documento técnico: Arquitetura, Engenharia e Segurança
 
+**Revisão (2026-08-27):** seções 3, 4, 5 e 11 atualizadas com base no projeto irmão **Barberaria** (`C:\Users\crist\BARBEARIA`), mesmo modelo de negócio (Incubadora → Tenant → Cliente final) já com backend real construído e testado em sprints. Mudanças: (1) mecanismo concreto de RLS + connection pooling via transação interativa + `SET LOCAL` (seção 3.1) — resolve o ponto que este documento deixava em aberto ("a aplicação seta `app.current_tenant`" sem especificar como, sob pooling); (2) FKs compostas para integridade referencial cross-tenant (seção 4.1); (3) stack de infraestrutura trocada de Kubernetes/Terraform/AWS para **Supabase + Render + Vercel** (seção 5 e 11) — mais leve e validada para o estágio de MVP, sem provisionar conta AWS; (4) ORM travado em **Prisma** (compatibilidade com o mecanismo da seção 3.1, mínimo 4.7+); (5) lista de testes obrigatórios de isolamento (seção 3.2); (6) resolução de tenant por subdomínio simplificada para o MVP (seção 3.3) — o Barberaria documenta essa mesma resolução como pendente por decisão de infra (DNS wildcard), não por falta de prioridade.
+
 ---
 
 ## 1. Visão geral e premissas
@@ -79,9 +81,45 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON orders
   USING (tenant_id = current_setting('app.current_tenant')::uuid);
 ```
-A aplicação seta `app.current_tenant` a cada requisição, a partir do JWT validado — nunca a partir de parâmetro de URL/body não verificado.
+A aplicação seta `app.current_tenant` a cada requisição, a partir do JWT validado — nunca a partir de parâmetro de URL/body não verificado. O mecanismo exato para fazer isso com segurança sob connection pooling está na seção 3.1.
 
-**Resolução de tenant:** subdomínio (`pizzariaX.suapizza.com.br`) resolvido no gateway, que injeta o `tenant_id` no contexto da requisição antes mesmo de chegar na lógica de negócio.
+### 3.1 Mecanismo RLS + connection pooling (obrigatório, não opcional)
+
+`current_setting('app.current_tenant')` é uma variável de **sessão** do Postgres. Como o Prisma (e qualquer client) usa pool de conexões, a mesma conexão física é reaproveitada entre tenants diferentes. Um `SET` simples (escopo de sessão) deixaria a variável vazando para a próxima requisição que reaproveitar aquela conexão — isso anula a proteção da RLS sem que ninguém perceba em teste manual (que roda uma requisição de cada vez). Este é o ponto de maior risco técnico de todo o sistema e é bloqueante para o Definition of Done da primeira sprint de backend.
+
+**Implementação obrigatória** (validada no Barberaria, mesmo modelo de negócio):
+
+1. Toda rota autenticada de tenant (não as rotas `/admin/*` da plataforma) passa por um interceptor (`TenantContextInterceptor`, ou equivalente via Prisma Client Extension) que:
+   - Abre uma **transação interativa**: `prisma.$transaction(async (tx) => { ... })`.
+   - Primeira instrução dentro da transação: `SELECT set_config('app.current_tenant', $1, true)` — **parametrizado (`$1`), nunca concatenação de string**, mesmo o `tenant_id` vindo de um JWT já validado (defesa em profundidade contra SQL injection).
+   - O terceiro argumento `true` do `set_config` equivale a `SET LOCAL` — escopo de **transação**, descartado automaticamente no `COMMIT`/`ROLLBACK`. Nunca usar `SET` simples (escopo de sessão) para isso.
+2. **Toda query de negócio dentro da requisição usa o client transacional (`tx`), nunca o `prisma` global direto** — usar o client errado faz a query escapar do contexto de tenant e do RLS.
+3. O connection pooler (ex. Supabase Supavisor, compatível com PgBouncer) deve estar em **modo transaction pooling obrigatório** — compatível com `SET LOCAL` por transação. Session pooling é incompatível com esta estratégia. `DATABASE_URL` (runtime) aponta para a porta do pooler em modo transaction; `DIRECT_URL` (usada só por `prisma migrate`) aponta para a conexão direta, já que DDL não é confiável através do pooler.
+4. Rotas da plataforma (`/admin/*`) não passam por esse wrapper — usam acesso direto sem tenant context, já que operam sobre múltiplos tenants (ver seção 6.3, Superadmin).
+
+**Exceção deliberada: a tabela `tenants` fica fora da policy de RLS.** Motivo (mesmo do Barberaria): a plataforma precisa enxergar todos os tenants simultaneamente no painel Admin-Pizzarias, o que não combina com um modelo baseado numa única `current_setting` por transação. O isolamento de `tenants` é feito por **separação de rotas e RBAC**, não por RLS:
+- `/v1/admin/tenants/*` — exige `role = platform_superadmin`, sem tenant context, acesso irrestrito a todas as linhas.
+- `/v1/tenants/me` — exige tenant autenticado, sempre filtra `WHERE id = <tenant_id do JWT>`, nunca aceita outro ID via parâmetro.
+
+Implementar como **dois módulos NestJS distintos**, cada um com seu próprio guard — nunca reaproveitar o mesmo controller para os dois casos de uso, para evitar que um erro de roteamento exponha rota de plataforma para admin de tenant.
+
+### 3.2 Testes obrigatórios de isolamento (não pular, mesmo no MVP)
+
+1. **Isolamento básico entre tenants:** criar tenant A e B, autenticar como A, tentar ler/escrever dado de B → deve sempre falhar.
+2. **IDOR via URL:** `GET /orders/{id-do-tenant-B}` autenticado como tenant A → `DENIED`/`NOT FOUND`.
+3. **Manipulação de body:** enviar `{ "tenant_id": "tenant-B" }` no payload de uma requisição autenticada como tenant A → `tenant_id` do body deve ser ignorado, nunca usado.
+4. **Manipulação de query string:** `GET /orders?tenant_id=tenant-B` → `tenant_id` da query não deve alterar o contexto autenticado.
+5. **Associação cruzada em `order_items`:** tentar criar um item de pedido referenciando um `product_id` de outro tenant → deve falhar por violação de FK composta (seção 4.1).
+6. **Vazamento de contexto sob connection pooling:** disparar requisições quase simultâneas de tenants diferentes reaproveitando conexões do pool, e provar que não há vazamento de `tenant_id` entre elas (mecanismo da seção 3.1). Este é mais rigoroso que o teste de isolamento "normal" do item 1 — roda sob concorrência real.
+7. **Idempotência sob concorrência:** disparar duas requisições simultâneas de criação de pedido com a mesma chave de idempotência → apenas um pedido é criado.
+
+Estes testes rodam no CI e bloqueiam merge se falharem — não são um "nice to have" de fase posterior.
+
+### 3.3 Resolução de tenant — simplificado para o MVP
+
+O modelo alvo é subdomínio (`pizzariaX.suapizza.com.br`) resolvido no gateway, que injeta o `tenant_id` no contexto da requisição antes mesmo de chegar na lógica de negócio. **Para o MVP e o piloto**, essa resolução automática por subdomínio real é adiada por decisão de infraestrutura, não de prioridade: implementar corretamente exige domínio próprio + DNS wildcard (`*.suapizza.com.br`) + configuração de wildcard domain no provedor de hosting do frontend — decisões que não têm relação com o código da aplicação e não valem a pena resolver antes de ter o domínio real contratado.
+
+Solução pragmática para o MVP (mesma adotada pelo Barberaria, documentada como débito técnico consciente, não esquecimento): cada frontend aponta para um tenant fixo via variável de ambiente (`VITE_TENANT_SLUG`) resolvida em build time. O código que troca isso por resolução real via `window.location.hostname` é pequeno e pode ser adiantado a qualquer momento — o bloqueio é só a decisão de infra (domínio + DNS).
 
 ---
 
@@ -100,20 +138,45 @@ Entidades principais e relações-chave de segurança:
 
 Todo tabela com dado de tenant tem `tenant_id UUID NOT NULL REFERENCES tenants(id)` + índice composto `(tenant_id, id)` e RLS ativa. Isso é nível arquitetural mínimo inegociável.
 
+### 4.1 FKs compostas — integridade referencial cross-tenant (validado no Barberaria)
+
+RLS impede uma *query* de vazar dado entre tenants, mas não impede, sozinho, que uma FK simples associe duas linhas de tenants diferentes entre si (ex.: um `order_item` do tenant A referenciando um `product_id` que na verdade pertence ao tenant B). Isso é bloqueado **no nível de banco**, não só em validação de aplicação, usando FK composta contra `(tenant_id, id)`:
+
+```sql
+CREATE TABLE order_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  order_id UUID NOT NULL,
+  product_id UUID NOT NULL,
+  quantity INTEGER NOT NULL,
+  unit_price_cents INTEGER NOT NULL,
+
+  -- Garante que order_id pertence ao MESMO tenant_id desta linha, não apenas que existe
+  CONSTRAINT fk_item_order_tenant FOREIGN KEY (tenant_id, order_id)
+    REFERENCES orders (tenant_id, id),
+  -- Mesma garantia para product_id
+  CONSTRAINT fk_item_product_tenant FOREIGN KEY (tenant_id, product_id)
+    REFERENCES products (tenant_id, id)
+);
+```
+
+Isso exige que `orders` e `products` tenham `UNIQUE (tenant_id, id)` (além da PK simples em `id`), para que a FK composta tenha uma chave única para referenciar. Aplicar o mesmo padrão em toda associação entre entidades que poderiam, por engano ou ataque, pertencer a tenants diferentes — não depender só de checagem em código para isso (teste obrigatório correspondente: seção 3.2, item 5).
+
 ---
 
 ## 5. Stack tecnológica sugerida
 
 | Camada | Escolha | Justificativa |
 |---|---|---|
-| Frontend | React + TS + Vite (já existente), 3 builds separados com code-splitting por rota | Reaproveita o protótipo já feito |
-| BFF/API | Node.js (NestJS) ou similar tipado, com módulos por domínio | Facilita RBAC, DTO validation, testabilidade |
-| Banco relacional | PostgreSQL 16+ (RLS, particionamento por `tenant_id`/data em `orders`) | Consistência forte é essencial para pedidos/pagamentos |
-| Cache/filas | Redis (cache de cardápio, filas de notificação, rate limiting) | Baixa latência, suporte a pub/sub para realtime |
+| Frontend | React + TS + Vite (já existente), 3 apps separados (`cliente`, `pizzaria`, `admin-pizzarias`) — ver `PLANO_SEPARACAO_FRONTENDS.md` | Reaproveita o protótipo já feito |
+| BFF/API | **NestJS + TypeScript**, com módulos por domínio | Facilita RBAC, DTO validation, testabilidade |
+| ORM | **Prisma** (mínimo 4.7+, necessário para transação interativa — seção 3.1) | Compatível com o mecanismo obrigatório de RLS + connection pooling |
+| Banco relacional | PostgreSQL (RLS nativo, particionamento por `tenant_id`/data em `orders` quando o volume justificar) | Consistência forte é essencial para pedidos/pagamentos |
+| Cache/filas | Redis (cache de cardápio, filas de notificação, rate limiting) — provedor compatível com Render/Vercel (ex. Upstash) | Baixa latência, suporte a pub/sub para realtime |
 | Realtime | WebSocket (Socket.IO) ou SSE para status de pedido ao vivo no painel da pizzaria | UX crítica: pizzaria precisa ver pedido novo instantaneamente |
-| Storage de arquivos | S3-compatible (imagens de produto/logo), com URLs assinadas | Nunca servir uploads direto do servidor de app |
+| Storage de arquivos | Supabase Storage (S3-compatible), com URLs assinadas | Nunca servir uploads direto do servidor de app |
 | Pagamentos | Gateway PCI-compliant (Stripe, Pagar.me, Mercado Pago) via tokenização | **Nunca tocar em dado de cartão cru** |
-| Infra | Kubernetes ou serviço gerenciado (ECS/Cloud Run) + IaC (Terraform) | Reprodutibilidade e revisão de infraestrutura como código |
+| Infra | **Supabase** (Postgres gerenciado + pooler Supavisor, compatível com PgBouncer em modo transaction) + **Render** (backend NestJS) + **Vercel** (os 3 frontends) | Infra leve o suficiente para o estágio de MVP, sem provisionar conta AWS nem Terraform — decisão validada no Barberaria |
 | Observabilidade | OpenTelemetry + Grafana/Datadog, logs estruturados | Rastreamento cross-tenant deve ser auditável |
 
 ---
@@ -200,12 +263,13 @@ Além disso, específico deste domínio:
 
 ## 11. Infraestrutura e deploy
 
-- **IaC (Terraform)** — toda infra versionada e revisada via PR, nunca criada manualmente no console.
+- **Supabase + Render + Vercel**, sem Terraform/AWS nesta fase (seção 5) — decisão consciente para reduzir complexidade operacional no estágio de MVP, validada no Barberaria. Reavaliar Terraform/IaC formal só se/quando a plataforma crescer além do que esses três provedores gerenciados suportam confortavelmente.
 - **Ambientes separados**: dev / staging / produção, com dados sintéticos em dev/staging (nunca cópia de produção com PII real sem anonimização).
 - **CI/CD** com pipeline obrigatório: lint — testes — SAST (ex. Semgrep) — SCA (dependências) — build — deploy com aprovação manual para produção.
-- **Secrets** em vault gerenciado (AWS Secrets Manager / HashiCorp Vault) — nunca em `.env` versionado ou variável hardcoded (o protótipo atual não tem isso, mas é ponto zero ao sair de mock para real).
-- **Backups** automáticos do Postgres com teste periódico de restore (backup não testado não é backup).
-- **Multi-AZ** para banco e serviços críticos (Orders/Payments) — este é o caminho crítico do negócio, cai = pizzaria para de vender.
+- **Gate de RLS no CI**: a cada migration nova, um step do pipeline consulta o catálogo do Postgres e confere se toda tabela com coluna `tenant_id` tem `relrowsecurity = true` (exceto `tenants`, exceção documentada na seção 3.1 — a plataforma precisa enxergar todos os tenants). Se uma tabela nova não tiver RLS ativo, o build quebra. Vale desde a primeira sprint de backend, não depois.
+- **Secrets** nas variáveis de ambiente/secrets do próprio provedor (Render para o backend, Vercel para os frontends, Supabase para credenciais de banco) — nunca em `.env` versionado ou variável hardcoded. `.env.example` sem valores reais pode ir para o repositório.
+- **Backups** automáticos do Postgres (gerenciados pelo Supabase) com teste periódico de restore (backup não testado não é backup).
+- **Resiliência do caminho crítico** (Orders/Payments): Render e Supabase oferecem redundância gerenciada nesse estágio; Multi-AZ dedicado só vira decisão própria de infra se/quando o volume justificar migrar para além do que esses provedores cobrem.
 
 ---
 
