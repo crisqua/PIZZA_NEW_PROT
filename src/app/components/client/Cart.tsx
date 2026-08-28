@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { ArrowLeft, Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
 import { CartItem, mockTenant } from '../../data/mockData';
 import { Card, CardContent } from '../Card';

@@ -8,10 +8,11 @@ interface OrderConfirmationProps {
   orderId: string;
   total: number;
   estimatedTime: string;
+  customerName?: string;
   onBackToMenu: () => void;
 }
 
-export function OrderConfirmation({ orderId, total, estimatedTime, onBackToMenu }: OrderConfirmationProps) {
+export function OrderConfirmation({ orderId, total, estimatedTime, customerName, onBackToMenu }: OrderConfirmationProps) {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full space-y-6">
@@ -19,7 +20,9 @@ export function OrderConfirmation({ orderId, total, estimatedTime, onBackToMenu 
           <div className="w-20 h-20 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="w-12 h-12 text-success" />
           </div>
-          <h1 className="text-2xl font-bold mb-2">Pedido Confirmado!</h1>
+          <h1 className="text-2xl font-bold mb-2">
+            {customerName ? `Valeu, ${customerName}!` : 'Pedido Confirmado!'}
+          </h1>
           <p className="text-muted-foreground">
             Seu pedido foi enviado com sucesso via WhatsApp
           </p>

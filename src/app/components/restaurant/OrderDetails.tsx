@@ -1,4 +1,4 @@
-import { ArrowLeft, Phone, MapPin, Clock, CreditCard, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Phone, MapPin, CreditCard, CheckCircle2 } from 'lucide-react';
 import { Order } from '../../data/mockData';
 import { Card, CardContent, CardHeader, CardTitle } from '../Card';
 import { Button } from '../Button';
@@ -16,8 +16,8 @@ export function OrderDetails({ order, onBack, onUpdateStatus }: OrderDetailsProp
     pending: { label: 'Pendente', variant: 'warning' as const, next: 'preparing' as const, nextLabel: 'Iniciar Preparo' },
     preparing: { label: 'Preparando', variant: 'info' as const, next: 'delivery' as const, nextLabel: 'Saiu para Entrega' },
     delivery: { label: 'Saiu para entrega', variant: 'default' as const, next: 'completed' as const, nextLabel: 'Marcar como Entregue' },
-    completed: { label: 'Entregue', variant: 'success' as const },
-    cancelled: { label: 'Cancelado', variant: 'destructive' as const },
+    completed: { label: 'Entregue', variant: 'success' as const, next: undefined, nextLabel: undefined },
+    cancelled: { label: 'Cancelado', variant: 'destructive' as const, next: undefined, nextLabel: undefined },
   };
 
   const config = statusConfig[order.status];

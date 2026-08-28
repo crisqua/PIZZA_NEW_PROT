@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Edit, Trash2, MoreVertical } from 'lucide-react';
+import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { mockPizzas, Pizza } from '../../data/mockData';
 import { Card, CardContent } from '../Card';
 import { Button } from '../Button';

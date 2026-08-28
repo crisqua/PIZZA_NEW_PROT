@@ -27,11 +27,13 @@ export interface Order {
   createdAt: Date;
 }
 
+export type PizzaSizeId = 'pequena' | 'média' | 'grande' | 'gigante';
+
 export interface CartItem {
   id: string;
   type: 'pizza' | 'drink';
   pizza?: {
-    size: 'pequena' | 'média' | 'grande' | 'gigante';
+    size: PizzaSizeId;
     flavors: Pizza[];
   };
   drink?: Drink;
@@ -194,7 +196,7 @@ export const mockTenant: Tenant = {
   minOrder: 30.00,
 };
 
-export const pizzaSizes = [
+export const pizzaSizes: { id: PizzaSizeId; name: string; slices: number; multiplier: number }[] = [
   { id: 'pequena', name: 'Pequena', slices: 4, multiplier: 0.75 },
   { id: 'média', name: 'Média', slices: 6, multiplier: 1 },
   { id: 'grande', name: 'Grande', slices: 8, multiplier: 1.35 },

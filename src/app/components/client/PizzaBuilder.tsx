@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Check, Plus, ShoppingBag } from 'lucide-react';
-import { Pizza, pizzaSizes } from '../../data/mockData';
+import { Pizza, PizzaSizeId, pizzaSizes, mockPizzas } from '../../data/mockData';
 import { Card, CardContent } from '../Card';
 import { Button } from '../Button';
 import { Badge } from '../Badge';
@@ -9,7 +9,7 @@ import { formatCurrency } from '../../lib/utils';
 interface PizzaBuilderProps {
   initialPizza: Pizza;
   onBack: () => void;
-  onAddToCart: (pizza: { size: string; flavors: Pizza[]; price: number }) => void;
+  onAddToCart: (pizza: { size: PizzaSizeId; flavors: Pizza[]; price: number }) => void;
 }
 
 export function PizzaBuilder({ initialPizza, onBack, onAddToCart }: PizzaBuilderProps) {
@@ -195,11 +195,9 @@ function FlavorSelector({ selectedFlavors, onSelect, onBack }: {
 }) {
   const [pizzas, setPizzas] = useState<Pizza[]>([]);
 
-  useState(() => {
-    import('../../data/mockData').then(({ mockPizzas }) => {
-      setPizzas(mockPizzas);
-    });
-  });
+  useEffect(() => {
+    setPizzas(mockPizzas);
+  }, []);
 
   return (
     <div className="min-h-screen bg-muted/30 pb-10">

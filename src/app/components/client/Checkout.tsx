@@ -4,7 +4,6 @@ import { CartItem, mockTenant } from '../../data/mockData';
 import { Card, CardContent } from '../Card';
 import { Button } from '../Button';
 import { Input } from '../Input';
-import { Textarea } from '../Textarea';
 import { formatCurrency } from '../../lib/utils';
 
 interface CheckoutProps {

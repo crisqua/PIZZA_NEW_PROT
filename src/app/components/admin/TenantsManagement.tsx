@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Edit, Trash2, Eye, MoreVertical, ExternalLink } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Eye, ExternalLink } from 'lucide-react';
 import { Tenant } from '../../data/mockData';
 import { Card, CardContent } from '../Card';
 import { Button } from '../Button';

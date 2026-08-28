@@ -1,4 +1,4 @@
-import { Save, Clock, DollarSign, MapPin, Phone, Palette } from 'lucide-react';
+import { Save, Clock, DollarSign, MapPin, Palette } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../Card';
 import { Button } from '../Button';
 import { Input } from '../Input';

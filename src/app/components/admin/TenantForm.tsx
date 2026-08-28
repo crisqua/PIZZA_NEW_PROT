@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { ArrowLeft, Upload, Globe } from 'lucide-react';
+import { ArrowLeft, Globe } from 'lucide-react';
 import { Tenant } from '../../data/mockData';
 import { Card, CardContent } from '../Card';
 import { Button } from '../Button';
 import { Input } from '../Input';
-import { Textarea } from '../Textarea';
 
 interface TenantFormProps {
   tenant?: Tenant;
