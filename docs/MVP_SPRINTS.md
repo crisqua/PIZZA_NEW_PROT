@@ -34,8 +34,9 @@ Este documento traduz o escopo do `MVP.md` e a arquitetura do `ARQUITETURA_SISTE
 | 10 | Conectar `admin-pizzarias` (CRUD de tenants, planos, onboarding, dashboard) ao backend real | Sprint 4 (não precisa esperar Sprint 6/7/8) |
 | 11 | Piloto com 1 pizzaria real — ajustes | Sprints 1–10 |
 
-Status: Sprint 0 **✅ concluída em 2026-08-28**. Sprint 1 **🔶 em andamento (código pronto,
-verificado em 2026-08-29)** — ver nota logo abaixo da sprint. Sprints 2–11 **⏳ não
+Status: Sprint 0 **✅ concluída em 2026-08-28**. Sprint 1 **🔶 quase concluída (mecanismo
+de RLS + CI verificados em 2026-08-29; só falta o deploy no Render)** — ver nota logo
+abaixo da sprint. Sprints 2–11 **⏳ não
 iniciadas** — os 3 apps frontend rodam isolados (`apps/cliente`, `apps/pizzaria`,
 `apps/admin-pizzarias`) mas ainda com dados mockados locais
 (`apps/<app>/src/data/mockData.ts`), sem consumir a API real ainda (isso é Sprint 7/9/10).
@@ -92,12 +93,12 @@ app nunca roda como a role `postgres` do Supabase). Os dois testes de isolamento
 teste de vazamento sob pooling) rodaram contra o Supabase real, como a role restrita, e
 passaram (depois disso os dados de teste seedados foram removidos do homolog). `GET
 /health` confirmado local apontando pro Supabase real.
-**Pendente pra fechar 100% a sprint:** (1) CI (`.github/workflows/ci.yml`) foi escrito
-mas ainda não rodou de verdade no GitHub Actions — só validado localmente/manualmente
-até aqui; confirmar que fica verde após o push. (2) Deploy real no Render — o texto do
-entregável menciona, mas exige criar conta/serviço no Render (mesma dependência de ação
-do usuário que o Supabase teve); tratado como próximo passo, não bloqueia o mecanismo
-de RLS em si, que é o critério real do Definition of Done acima.
+CI (`.github/workflows/ci.yml`) rodou verde no primeiro push (`8c36e0e`, Postgres efêmero
++ gate de RLS + testes de isolamento como role restrita) — https://github.com/crisqua/PIZZA_NEW_PROT/actions/runs/33230877167.
+**Único pendente:** deploy real no Render — o texto do entregável menciona, mas exige
+criar conta/serviço no Render (mesma dependência de ação do usuário que o Supabase teve);
+tratado como próximo passo, não bloqueia o mecanismo de RLS em si, que é o critério real
+do Definition of Done acima.
 
 ---
 
