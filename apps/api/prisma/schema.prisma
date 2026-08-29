@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Tenant {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(120)
+  slug      String   @unique @db.VarChar(60)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("tenants")
+}
+
+// role: 'platform_superadmin' | 'tenant_owner' | 'tenant_staff' | 'customer'
+// (validado em código, não em CHECK de banco — mesmo padrão do Barberaria).
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String?  @map("tenant_id") @db.Uuid
+  email     String   @db.VarChar(160)
+  name      String   @db.VarChar(120)
+  role      String   @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, email])
+  @@unique([tenantId, id])
+  @@index([tenantId, role], map: "idx_users_tenant")
+  @@map("users")
+}

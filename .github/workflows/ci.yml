@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pizza_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pizza_ci
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/pizza_ci
+      APP_DB_ROLE: pizza_app
+      APP_DB_PASSWORD: pizza_app_ci_password
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies (workspace root)
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        working-directory: apps/api
+        run: pnpm prisma:generate
+
+      - name: Run migrations (schema + RLS + CHECK)
+        working-directory: apps/api
+        run: pnpm prisma:migrate:deploy
+
+      - name: RLS gate — fail build if any tenant_id table lacks ENABLE+FORCE RLS
+        run: psql "$DIRECT_URL" -v ON_ERROR_STOP=1 -f scripts/check-rls.sql
+
+      - name: Create restricted app role (NOSUPERUSER NOBYPASSRLS)
+        working-directory: apps/api
+        run: pnpm db:setup-role
+
+      - name: Isolation / e2e tests — run as the restricted role, never as superuser
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://pizza_app:pizza_app_ci_password@localhost:5432/pizza_ci
+        run: pnpm test:e2e
+
+      - name: Unit tests
+        working-directory: apps/api
+        run: pnpm test

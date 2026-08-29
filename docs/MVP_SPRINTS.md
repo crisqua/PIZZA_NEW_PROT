@@ -9,6 +9,8 @@ Este documento traduz o escopo do `MVP.md` e a arquitetura do `ARQUITETURA_SISTE
 
 **Não pule etapas nem antecipe escopo fora do MVP** (`MVP.md` seção 4) sem confirmar antes — mesma regra que o Barberaria usa.
 
+**Atualização de 2026-08-28 (Sprint 1 — escopo de dados e testes, achado ao detalhar a implementação):** dois ajustes de escopo: (1) o texto original da Sprint 1 mencionava `schema.prisma inicial: tenants, users, roles/permissions`, sugerindo tabelas normalizadas de papéis/permissões; a implementação segue o padrão já validado no Barberaria — `role` como coluna `VARCHAR(20)` simples em `users`, validada em código contra os 4 papéis fixos do RBAC (`platform_superadmin`, `tenant_owner`, `tenant_staff`, `customer`), sem tabela `roles`/`permissions` própria. Texto da Sprint 1 corrigido abaixo. (2) os testes dos itens 2–4 da seção 3.2 da arquitetura (IDOR via URL, manipulação de `tenant_id` no body, manipulação de `tenant_id` na query) exigem uma rota HTTP real protegida por um guard que extraia `tenant_id` de um JWT validado — que só existe a partir da Sprint 2 (Auth). Criar uma rota que confia num header/param pra simular isso na Sprint 1 testaria scaffolding descartável, não o mecanismo real. Sprint 1 entrega só os itens 1 e 6 da seção 3.2 (isolamento básico e vazamento sob pooling — ambos testáveis diretamente no `TenantContextService`, sem HTTP/guard) + o gate de RLS no CI. Itens 2–4 movidos para o Definition of Done da Sprint 2.
+
 **Atualização de 2026-08-28 (correção):** as telas de Login/Cadastro (email/senha) dos 3 papéis de frontend (`customer` no app Cliente, `tenant_owner`/`tenant_staff` no Painel da Pizzaria, `platform_superadmin` no Admin-Pizzarias) já eram escopo do MVP (`MVP.md`, itens 2 e 3 da tabela de escopo funcional) mas não estavam explícitas como entregável em nenhuma sprint — só o serviço de Auth *backend* (Sprint 2) e uma menção solta a "login de platform_superadmin" dentro do texto da Sprint 10. Nenhum dos 3 apps do protótipo tem hoje uma tela de login (cada um abre direto na tela principal). Corrigido: cada sprint que conecta um frontend à API real (7 = Cliente, 9 = Pizzaria, 10 = Admin-Pizzarias) agora lista a tela de Login/Cadastro daquele papel como entregável explícito, já que é ali que o Auth da Sprint 2 passa a ser consumido pela primeira vez em cada app.
 
 **Atualização de 2026-08-28:** as Sprints 4, 6 e 8 (`plans`, `inventory`, `financial`) são novas em relação à primeira versão deste documento — nasceram de um protótipo funcional (mock, sem backend, `useState` local) já validado com o usuário nas telas reais do App do Cliente (`Menu.tsx`), do Painel da Pizzaria (`Inventory.tsx`, `Financial.tsx`, `Settings.tsx`) e do Admin-Pizzarias (`PlansManagement.tsx`, `TenantsManagement.tsx`). O desenho de dados abaixo (`Plan`/`Subscription`) segue o mesmo padrão já em produção local no Barberaria (`admin-plans.controller.ts`, `admin-subscriptions.service.ts`) — ver seção 2 de cada sprint nova para o mapeamento exato mock → real.
@@ -32,9 +34,11 @@ Este documento traduz o escopo do `MVP.md` e a arquitetura do `ARQUITETURA_SISTE
 | 10 | Conectar `admin-pizzarias` (CRUD de tenants, planos, onboarding, dashboard) ao backend real | Sprint 4 (não precisa esperar Sprint 6/7/8) |
 | 11 | Piloto com 1 pizzaria real — ajustes | Sprints 1–10 |
 
-Status: Sprint 0 **✅ concluída em 2026-08-28**. Sprints 1–11 **⏳ não iniciadas** — cada
-app já roda isolado (`apps/cliente`, `apps/pizzaria`, `apps/admin-pizzarias`), mas ainda
-com dados mockados locais (`apps/<app>/src/data/mockData.ts`), sem backend real.
+Status: Sprint 0 **✅ concluída em 2026-08-28**. Sprint 1 **🔶 em andamento (código pronto,
+verificado em 2026-08-29)** — ver nota logo abaixo da sprint. Sprints 2–11 **⏳ não
+iniciadas** — os 3 apps frontend rodam isolados (`apps/cliente`, `apps/pizzaria`,
+`apps/admin-pizzarias`) mas ainda com dados mockados locais
+(`apps/<app>/src/data/mockData.ts`), sem consumir a API real ainda (isso é Sprint 7/9/10).
 
 ---
 
@@ -67,13 +71,33 @@ dependências radix pra 3). `apps/cliente` roda em 5173, `apps/pizzaria` em 5174
 
 **Entregável:**
 - Projeto Supabase (Postgres gerenciado) + serviço Render (backend NestJS) + CI/CD no GitHub Actions.
-- `schema.prisma` inicial: `tenants`, `users`, `roles`/`permissions`, com `CHECK` garantindo que só `platform_superadmin` tem `tenant_id NULL` (mesmo padrão do Barberaria para `super_admin`).
+- `schema.prisma` inicial: `tenants`, `users` (papel do usuário como coluna `role VARCHAR(20)`, sem tabela `roles`/`permissions` separada — ver nota de 2026-08-28 no topo deste documento), com `CHECK` garantindo que só `platform_superadmin` tem `tenant_id NULL` (mesmo padrão do Barberaria para `super_admin`).
 - Migration inicial já incluindo as policies de RLS (exceto `tenants`, que fica de fora por design — seção 3.1/6.3 da arquitetura) — **RLS não é tarefa separada, nasce na mesma migration da tabela.**
 - `TenantContextInterceptor` (ou Prisma Client Extension) implementando o mecanismo da seção 3.1: transação interativa por requisição, `set_config` parametrizado com escopo `LOCAL`, uso obrigatório do client transacional (`tx`) em todos os repositórios.
 - Pipeline de CI com o gate de RLS (seção 11 da arquitetura): quebra o build se alguma tabela com `tenant_id` não tiver `relrowsecurity = true`.
-- Testes automatizados dos itens 1–4 e 6 da seção 3.2 da arquitetura (isolamento básico, IDOR, manipulação de body/query, vazamento sob connection pooling). Os itens 5 e 7 (FK composta, idempotência) entram nas Sprints 5 e 7, quando essas tabelas existirem.
+- Testes automatizados dos itens 1 e 6 da seção 3.2 da arquitetura (isolamento básico e vazamento de contexto sob connection pooling), executados diretamente contra o `TenantContextService` (sem HTTP, já que não há Auth ainda nesta sprint — ver nota de 2026-08-28 no topo deste documento). Os itens 2–4 (IDOR via URL, manipulação de `tenant_id` via body/query) exigem guard real de JWT e foram movidos para o Definition of Done da Sprint 2. Os itens 5 e 7 (FK composta, idempotência) entram nas Sprints 5 e 7, quando essas tabelas existirem.
 
 **Definition of Done:** **não é considerada concluída sem o mecanismo de `SET LOCAL` implementado e testado sob concorrência real** (teste de vazamento de contexto, não só isolamento sequencial) — RLS "ligado" sem esse mecanismo testado gera falsa sensação de segurança. Mesmo critério usado no Barberaria Sprint 1.
+
+**🔶 Status em 2026-08-29:** `apps/api` (NestJS + Prisma) criado — `schema.prisma`
+(`tenants`/`users`), migration com CHECK + RLS/FORCE RLS + policy `tenant_isolation`
+(já na versão que trata `tenant_id IS NULL` corretamente, evitando o bug que o Barberaria
+bateu antes de chegar nessa versão), `TenantContextService`/`TenantContextInterceptor`/
+`@CurrentTenant()`. Aplicado de verdade no Supabase de homologação (não só local):
+migration rodada via `prisma migrate deploy`, gate de RLS (`scripts/check-rls.sql`)
+confirmado OK contra o banco real, role restrita `pizza_app` (`NOSUPERUSER NOBYPASSRLS`)
+criada via `scripts/setup-app-role.ts` e promovida a `DATABASE_URL` padrão do `.env` (a
+app nunca roda como a role `postgres` do Supabase). Os dois testes de isolamento
+(`test/isolation/*.e2e-spec.ts` — isolamento básico + os 40 disparos concorrentes do
+teste de vazamento sob pooling) rodaram contra o Supabase real, como a role restrita, e
+passaram (depois disso os dados de teste seedados foram removidos do homolog). `GET
+/health` confirmado local apontando pro Supabase real.
+**Pendente pra fechar 100% a sprint:** (1) CI (`.github/workflows/ci.yml`) foi escrito
+mas ainda não rodou de verdade no GitHub Actions — só validado localmente/manualmente
+até aqui; confirmar que fica verde após o push. (2) Deploy real no Render — o texto do
+entregável menciona, mas exige criar conta/serviço no Render (mesma dependência de ação
+do usuário que o Supabase teve); tratado como próximo passo, não bloqueia o mecanismo
+de RLS em si, que é o critério real do Definition of Done acima.
 
 ---
 
@@ -85,7 +109,7 @@ dependências radix pra 3). `apps/cliente` roda em 5173, `apps/pizzaria` em 5174
 - RBAC: papéis `platform_superadmin`, `tenant_owner`, `tenant_staff`, `customer`, checados via guard — nunca checagem manual dentro de controller.
 - `tenant_id` extraído **somente** do JWT validado, nunca de URL/query/body (regra não-negociável, seção 6.1 da arquitetura).
 
-**Definition of Done:** login funcional para os 4 papéis; teste automatizado provando que manipular `tenant_id` no body/query de uma requisição autenticada não tem efeito algum.
+**Definition of Done:** login funcional para os 4 papéis; teste automatizado provando que manipular `tenant_id` no body/query de uma requisição autenticada não tem efeito algum; testes automatizados dos itens 2–4 da seção 3.2 da arquitetura (IDOR via rota HTTP real protegida por `JwtAuthGuard`, manipulação de `tenant_id` no body, manipulação de `tenant_id` na query) — movidos da Sprint 1 porque dependem de guard real de JWT (ver nota de 2026-08-28 no topo do documento).
 
 ---
 

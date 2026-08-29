@@ -8,6 +8,8 @@
     "dev:admin": "pnpm --filter @pizza/admin-pizzarias dev",
     "build:cliente": "pnpm --filter @pizza/cliente build",
     "build:pizzaria": "pnpm --filter @pizza/pizzaria build",
-    "build:admin": "pnpm --filter @pizza/admin-pizzarias build"
+    "build:admin": "pnpm --filter @pizza/admin-pizzarias build",
+    "dev:api": "pnpm --filter @pizza/api start:dev",
+    "build:api": "pnpm --filter @pizza/api build"
   }
 }
