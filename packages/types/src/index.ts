@@ -21,6 +21,16 @@ export interface Drink {
   size: string;
 }
 
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  address?: string;
+  addressNumber?: string;
+  complement?: string;
+  neighborhood?: string;
+}
+
 export interface Order {
   id: string;
   customerName: string;

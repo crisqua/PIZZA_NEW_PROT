@@ -1,8 +1,20 @@
 import { useState } from 'react';
-import { ArrowLeft, CreditCard, Banknote, Smartphone, MessageCircle } from 'lucide-react';
-import { mockTenant } from '../data/repository';
+import { ArrowLeft, CreditCard, Banknote, MessageCircle } from 'lucide-react';
+import { mockTenant, mockCustomer } from '../data/repository';
 import { CartItem } from '@pizza/types';
 import { Card, CardContent, Button, Input, formatCurrency } from '@pizza/ui';
+
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  const ddd = digits.slice(0, 2);
+  const rest = digits.slice(2);
+  if (!ddd) return '';
+  if (!rest) return `(${ddd}`;
+  const splitAt = digits.length > 10 ? 5 : 4;
+  const prefix = rest.slice(0, splitAt);
+  const suffix = rest.slice(splitAt);
+  return suffix ? `(${ddd}) ${prefix}-${suffix}` : `(${ddd}) ${prefix}`;
+}
 
 interface CheckoutProps {
   items: CartItem[];
@@ -24,12 +36,12 @@ export interface CheckoutData {
 
 export function Checkout({ items, total, onBack, onConfirm }: CheckoutProps) {
   const [formData, setFormData] = useState<CheckoutData>({
-    name: '',
-    phone: '',
-    address: '',
-    addressNumber: '',
-    complement: '',
-    neighborhood: '',
+    name: mockCustomer?.name ?? '',
+    phone: mockCustomer?.phone ?? '',
+    address: mockCustomer?.address ?? '',
+    addressNumber: mockCustomer?.addressNumber ?? '',
+    complement: mockCustomer?.complement ?? '',
+    neighborhood: mockCustomer?.neighborhood ?? '',
     paymentMethod: '',
     changeFor: '',
   });
@@ -38,9 +50,7 @@ export function Checkout({ items, total, onBack, onConfirm }: CheckoutProps) {
 
   const paymentMethods = [
     { id: 'dinheiro', name: 'Dinheiro', icon: Banknote },
-    { id: 'cartao-debito', name: 'Cartão de Débito', icon: CreditCard },
-    { id: 'cartao-credito', name: 'Cartão de Crédito', icon: CreditCard },
-    { id: 'pix', name: 'PIX', icon: Smartphone },
+    { id: 'cartao', name: 'Cartão', subtitle: 'Débito ou Crédito', icon: CreditCard },
   ];
 
   const validate = () => {
@@ -95,8 +105,11 @@ export function Checkout({ items, total, onBack, onConfirm }: CheckoutProps) {
             <Input
               label="Telefone / WhatsApp"
               placeholder="(00) 00000-0000"
+              type="tel"
+              inputMode="tel"
+              maxLength={16}
               value={formData.phone}
-              onChange={(e) => updateField('phone', e.target.value)}
+              onChange={(e) => updateField('phone', formatPhone(e.target.value))}
               error={errors.phone}
             />
           </div>
@@ -159,6 +172,9 @@ export function Checkout({ items, total, onBack, onConfirm }: CheckoutProps) {
                 >
                   <Icon className="w-6 h-6 mb-2 mx-auto" />
                   <span className="text-sm font-semibold block">{method.name}</span>
+                  {method.subtitle && (
+                    <span className="text-xs font-normal block mt-0.5 opacity-80">{method.subtitle}</span>
+                  )}
                 </button>
               );
             })}

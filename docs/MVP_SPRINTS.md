@@ -9,6 +9,8 @@ Este documento traduz o escopo do `MVP.md` e a arquitetura do `ARQUITETURA_SISTE
 
 **Não pule etapas nem antecipe escopo fora do MVP** (`MVP.md` seção 4) sem confirmar antes — mesma regra que o Barberaria usa.
 
+**Atualização de 2026-08-28 (correção):** as telas de Login/Cadastro (email/senha) dos 3 papéis de frontend (`customer` no app Cliente, `tenant_owner`/`tenant_staff` no Painel da Pizzaria, `platform_superadmin` no Admin-Pizzarias) já eram escopo do MVP (`MVP.md`, itens 2 e 3 da tabela de escopo funcional) mas não estavam explícitas como entregável em nenhuma sprint — só o serviço de Auth *backend* (Sprint 2) e uma menção solta a "login de platform_superadmin" dentro do texto da Sprint 10. Nenhum dos 3 apps do protótipo tem hoje uma tela de login (cada um abre direto na tela principal). Corrigido: cada sprint que conecta um frontend à API real (7 = Cliente, 9 = Pizzaria, 10 = Admin-Pizzarias) agora lista a tela de Login/Cadastro daquele papel como entregável explícito, já que é ali que o Auth da Sprint 2 passa a ser consumido pela primeira vez em cada app.
+
 **Atualização de 2026-08-28:** as Sprints 4, 6 e 8 (`plans`, `inventory`, `financial`) são novas em relação à primeira versão deste documento — nasceram de um protótipo funcional (mock, sem backend, `useState` local) já validado com o usuário nas telas reais do App do Cliente (`Menu.tsx`), do Painel da Pizzaria (`Inventory.tsx`, `Financial.tsx`, `Settings.tsx`) e do Admin-Pizzarias (`PlansManagement.tsx`, `TenantsManagement.tsx`). O desenho de dados abaixo (`Plan`/`Subscription`) segue o mesmo padrão já em produção local no Barberaria (`admin-plans.controller.ts`, `admin-subscriptions.service.ts`) — ver seção 2 de cada sprint nova para o mapeamento exato mock → real.
 
 ---
@@ -168,9 +170,10 @@ dependências radix pra 3). `apps/cliente` roda em 5173, `apps/pizzaria` em 5174
 - Criação de pedido, máquina de estados (`pending → preparing → delivery → completed / cancelled`) validada no backend — nunca aceitar status arbitrário vindo do cliente.
 - Idempotência na criação (chave de idempotência no header) — teste do item 7 da seção 3.2.
 - `order_items` com FK composta contra `orders` e `products` (seção 4.1 da arquitetura).
+- **Tela de Cadastro + Login (email/senha) do cliente final** (`MVP.md` item 3 do escopo funcional) — hoje não existe no protótipo (`apps/cliente/src/App.tsx` abre direto no `Menu`, sem tela de autenticação); nasce nesta sprint, consumindo o Auth da Sprint 2. Após login, o Checkout deixa de usar o `mockCustomer` fixo (`data/mockData.ts`) e passa a pré-preencher nome/telefone/endereço a partir do cadastro real do cliente autenticado — mesmo comportamento já prototipado, dado real em vez de mock.
 - `apps/cliente` (Sprint 0) conectado à API real, substituindo `mockData.ts` na camada de repositório já isolada.
 
-**Definition of Done:** cliente monta pedido (inclusive meio a meio), faz checkout com pagamento na entrega, pedido é persistido; duas requisições simultâneas com a mesma chave de idempotência geram só 1 pedido.
+**Definition of Done:** cliente cria conta, faz login, monta pedido (inclusive meio a meio), faz checkout com endereço pré-carregado do próprio cadastro e pagamento na entrega, pedido é persistido; duas requisições simultâneas com a mesma chave de idempotência geram só 1 pedido.
 
 ---
 
@@ -190,17 +193,19 @@ dependências radix pra 3). `apps/cliente` roda em 5173, `apps/pizzaria` em 5174
 ## Sprint 9 — Conectar painel `pizzaria`
 
 **Entregável:**
+- **Tela de Login (email/senha) de owner/staff da pizzaria** (`MVP.md` item 2 do escopo funcional) — hoje não existe no protótipo (`apps/pizzaria` abre direto no painel, sem autenticação); nasce nesta sprint, consumindo o Auth da Sprint 2. Sessão expirada/token inválido redireciona pra essa tela, não deixa a SPA num estado quebrado.
 - `apps/pizzaria` (Sprint 0) conectado à API real: CRUD de cardápio, visualização de pedidos novos via **polling** (não WebSocket — fora do MVP, ver `MVP.md` seção 4), atualização de status.
 - Telas de Estoque (Sprint 6) e Financeiro (Sprint 8) conectadas à API real, com o estado de cadeado/upsell (`AddonUpsell.tsx`, já prototipado) refletindo `subscription.plan.modules` de verdade em vez do `useState` local de demonstração.
 
-**Definition of Done:** pedido criado pelo cliente aparece no painel da pizzaria via polling em tempo hábil; status é atualizável e reflete no acompanhamento do cliente; Estoque/Financeiro aparecem liberados ou bloqueados de acordo com o plano real do tenant, não mais um toggle manual em Configurações.
+**Definition of Done:** owner/staff faz login e só enxerga dados do próprio tenant; pedido criado pelo cliente aparece no painel da pizzaria via polling em tempo hábil; status é atualizável e reflete no acompanhamento do cliente; Estoque/Financeiro aparecem liberados ou bloqueados de acordo com o plano real do tenant, não mais um toggle manual em Configurações.
 
 ---
 
 ## Sprint 10 — Conectar `admin-pizzarias`
 
 **Entregável:**
-- `apps/admin-pizzarias` (Sprint 0) conectado à API real: login de `platform_superadmin`, CRUD de tenants (`/v1/admin/tenants`, já existente desde a Sprint 3), onboarding de nova pizzaria (cria tenant + admin + assinatura numa única transação — mesmo padrão usado no Barberaria para onboarding de barbearia).
+- **Tela de Login (email/senha) do `platform_superadmin`** — hoje não existe no protótipo (`apps/admin-pizzarias` abre direto no painel, sem autenticação); nasce nesta sprint, consumindo o Auth da Sprint 2.
+- `apps/admin-pizzarias` (Sprint 0) conectado à API real: CRUD de tenants (`/v1/admin/tenants`, já existente desde a Sprint 3), onboarding de nova pizzaria (cria tenant + admin + assinatura numa única transação — mesmo padrão usado no Barberaria para onboarding de barbearia).
 - Tela **Planos & Preços** (`PlansManagement.tsx`, já prototipada) conectada a `/v1/admin/plans` (Sprint 4) — CRUD real de planos, não mais `useState` local.
 - Ativar/desativar tenant (`TenantsManagement.tsx`, já prototipado) conectado a `/v1/admin/tenants/:id/active` (Sprint 3) — passa a bloquear login de verdade, não só trocar a badge.
 - Dashboard básico: contagem de tenants, pedidos do mês — sem métricas financeiras de plataforma (billing da própria DesenvolvaINC fica fora do MVP, `MVP.md` seção 4; billing é o que o *tenant* paga à plataforma, já coberto pelo módulo `plans`).

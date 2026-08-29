@@ -1,4 +1,4 @@
-import { Pizza, Drink, Category, Tenant, PizzaSizeId } from '@pizza/types';
+import { Pizza, Drink, Category, Tenant, Customer, PizzaSizeId } from '@pizza/types';
 
 export const mockCategories: Category[] = [
   { id: 'classicas', name: 'Clássicas' },
@@ -106,6 +106,20 @@ export const mockTenant: Tenant = {
   minOrder: 30.00,
   active: true,
   planId: 'plan-pro',
+};
+
+// Simula o cliente já autenticado (login/senha) com cadastro salvo de uma
+// visita anterior. Quando o login real existir (Sprint 2, MVP_SPRINTS.md),
+// isso vem da sessão/API em vez de um mock fixo; `null` representa um
+// cliente novo, sem cadastro, cujo checkout deve nascer em branco.
+export const mockCustomer: Customer | null = {
+  id: 'customer-1',
+  name: 'Ana Beatriz Souza',
+  phone: '(11) 98877-6655',
+  address: 'Av. Paulista',
+  addressNumber: '1200',
+  complement: 'Apto 45',
+  neighborhood: 'Bela Vista',
 };
 
 export const pizzaSizes: { id: PizzaSizeId; name: string; slices: number; multiplier: number }[] = [

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, ShoppingBag } from 'lucide-react';
-import { pizzaSizes, mockPizzas } from '../data/repository';
+import { useState } from 'react';
+import { ArrowLeft, Plus, ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react';
+import { pizzaSizes, mockPizzas, mockCategories } from '../data/repository';
 import { Pizza, PizzaSizeId } from '@pizza/types';
 import { Card, CardContent, Button, Badge, formatCurrency } from '@pizza/ui';
 
@@ -163,11 +163,17 @@ function FlavorSelector({ selectedFlavors, onSelect, onBack }: {
   onSelect: (pizza: Pizza) => void;
   onBack: () => void;
 }) {
-  const [pizzas, setPizzas] = useState<Pizza[]>([]);
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    mockCategories.forEach((category, index) => {
+      initial[category.id] = index === 0;
+    });
+    return initial;
+  });
 
-  useEffect(() => {
-    setPizzas(mockPizzas);
-  }, []);
+  const toggleCategory = (id: string) => {
+    setOpenCategories((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   return (
     <div className="min-h-screen bg-background pb-10">
@@ -181,28 +187,60 @@ function FlavorSelector({ selectedFlavors, onSelect, onBack }: {
       </div>
 
       <div className="p-5 max-w-md mx-auto space-y-3">
-        {pizzas.map((pizza) => {
-          const isSelected = selectedFlavors.find(f => f.id === pizza.id);
+        {mockCategories.map((category) => {
+          const pizzas = mockPizzas.filter((p) => p.category === category.id);
+          if (pizzas.length === 0) return null;
+          const isOpen = !!openCategories[category.id];
+
           return (
-            <Card
-              key={pizza.id}
-              className={`rounded-xl overflow-hidden transition-opacity ${
-                isSelected ? 'opacity-40 pointer-events-none' : 'cursor-pointer hover:border-primary/40'
-              }`}
-              onClick={() => onSelect(pizza)}
-            >
-              <div className="flex items-center gap-3 p-3">
-                <img
-                  src={pizza.image}
-                  alt={pizza.name}
-                  className="w-[76px] h-[76px] rounded-lg object-cover shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-foreground">{pizza.name}</h3>
-                  <p className="text-sm text-muted-foreground line-clamp-2">{pizza.description}</p>
-                  {isSelected && <Badge variant="success" className="mt-2">Selecionado</Badge>}
+            <Card key={category.id} className="overflow-hidden">
+              <button
+                onClick={() => toggleCategory(category.id)}
+                className="w-full flex items-center justify-between px-4 py-4"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="font-serif text-lg text-foreground">{category.name}</span>
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                    {pizzas.length}
+                  </span>
                 </div>
-              </div>
+                {isOpen ? (
+                  <ChevronUp className="w-5 h-5 text-primary shrink-0" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-muted-foreground shrink-0" />
+                )}
+              </button>
+
+              {isOpen && (
+                <div className="border-t border-border">
+                  {pizzas.map((pizza) => {
+                    const isSelected = selectedFlavors.find((f) => f.id === pizza.id);
+                    return (
+                      <div
+                        key={pizza.id}
+                        onClick={() => onSelect(pizza)}
+                        className={`flex items-center gap-3 px-4 py-3.5 border-b border-border last:border-b-0 transition-opacity ${
+                          isSelected ? 'opacity-40 pointer-events-none' : 'cursor-pointer hover:bg-background/40'
+                        }`}
+                      >
+                        <img
+                          src={pizza.image}
+                          alt={pizza.name}
+                          className="w-11 h-11 rounded-lg object-cover shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-serif text-[15px] text-foreground truncate">{pizza.name}</span>
+                            {pizza.featured && <Badge className="shrink-0">Especial</Badge>}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{pizza.description}</p>
+                          {isSelected && <Badge variant="success" className="mt-1.5">Selecionado</Badge>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </Card>
           );
         })}
