@@ -38,10 +38,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Sem "version:" aqui de proposito — a action le a versao do campo "packageManager"
+      # do package.json raiz. Especificar as duas ao mesmo tempo faz a action recusar
+      # rodar (ERR_PNPM_BAD_PM_VERSION).
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Setup Node
         uses: actions/setup-node@v4
