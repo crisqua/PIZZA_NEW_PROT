@@ -34,9 +34,10 @@ Este documento traduz o escopo do `MVP.md` e a arquitetura do `ARQUITETURA_SISTE
 | 10 | Conectar `admin-pizzarias` (CRUD de tenants, planos, onboarding, dashboard) ao backend real | Sprint 4 (não precisa esperar Sprint 6/7/8) |
 | 11 | Piloto com 1 pizzaria real — ajustes | Sprints 1–10 |
 
-Status: Sprint 0 **✅ concluída em 2026-08-28**. Sprint 1 **🔶 quase concluída (mecanismo
-de RLS + CI verificados em 2026-08-29; só falta o deploy no Render)** — ver nota logo
-abaixo da sprint. Sprints 2–11 **⏳ não
+Status: Sprint 0 **✅ concluída em 2026-08-28**. Sprint 1 **✅ concluída em 2026-08-30**
+(mecanismo de RLS + CI verificados em 2026-08-29; deploy no Render — `pizza-api-homolog`
+— fechado em 2026-08-30). Sprint 2 **✅ concluída em 2026-08-30** — ver nota logo abaixo
+da sprint. Sprints 3–11 **⏳ não
 iniciadas** — os 3 apps frontend rodam isolados (`apps/cliente`, `apps/pizzaria`,
 `apps/admin-pizzarias`) mas ainda com dados mockados locais
 (`apps/<app>/src/data/mockData.ts`), sem consumir a API real ainda (isso é Sprint 7/9/10).
@@ -80,7 +81,7 @@ dependências radix pra 3). `apps/cliente` roda em 5173, `apps/pizzaria` em 5174
 
 **Definition of Done:** **não é considerada concluída sem o mecanismo de `SET LOCAL` implementado e testado sob concorrência real** (teste de vazamento de contexto, não só isolamento sequencial) — RLS "ligado" sem esse mecanismo testado gera falsa sensação de segurança. Mesmo critério usado no Barberaria Sprint 1.
 
-**🔶 Status em 2026-08-29:** `apps/api` (NestJS + Prisma) criado — `schema.prisma`
+**✅ Status em 2026-08-29:** `apps/api` (NestJS + Prisma) criado — `schema.prisma`
 (`tenants`/`users`), migration com CHECK + RLS/FORCE RLS + policy `tenant_isolation`
 (já na versão que trata `tenant_id IS NULL` corretamente, evitando o bug que o Barberaria
 bateu antes de chegar nessa versão), `TenantContextService`/`TenantContextInterceptor`/
@@ -95,10 +96,14 @@ passaram (depois disso os dados de teste seedados foram removidos do homolog). `
 /health` confirmado local apontando pro Supabase real.
 CI (`.github/workflows/ci.yml`) rodou verde no primeiro push (`8c36e0e`, Postgres efêmero
 + gate de RLS + testes de isolamento como role restrita) — https://github.com/crisqua/PIZZA_NEW_PROT/actions/runs/33230877167.
-**Único pendente:** deploy real no Render — o texto do entregável menciona, mas exige
-criar conta/serviço no Render (mesma dependência de ação do usuário que o Supabase teve);
-tratado como próximo passo, não bloqueia o mecanismo de RLS em si, que é o critério real
-do Definition of Done acima.
+**✅ Fechada em 2026-08-30:** deploy real no Render concluído — serviço `pizza-api-homolog`
+(`pizza-api-homolog.onrender.com`) rodando contra o Supabase de homologação, `GET /health`
+confirmado em produção. Dois bugs reais de deploy encontrados e corrigidos nesse processo
+(detalhes na memória de sessão, não repetidos aqui por não serem specíficos deste domínio):
+`pnpm install` sem `--filter` instalava o monorepo inteiro e estourava a memória do Render
+(corrigido escopando o Build Command a `@pizza/api`), e o Corepack resolvia uma versão
+diferente do pnpm entre Build e Start Command (corrigido fixando `"packageManager"` no
+`package.json` raiz).
 
 ---
 
@@ -111,6 +116,37 @@ do Definition of Done acima.
 - `tenant_id` extraído **somente** do JWT validado, nunca de URL/query/body (regra não-negociável, seção 6.1 da arquitetura).
 
 **Definition of Done:** login funcional para os 4 papéis; teste automatizado provando que manipular `tenant_id` no body/query de uma requisição autenticada não tem efeito algum; testes automatizados dos itens 2–4 da seção 3.2 da arquitetura (IDOR via rota HTTP real protegida por `JwtAuthGuard`, manipulação de `tenant_id` no body, manipulação de `tenant_id` na query) — movidos da Sprint 1 porque dependem de guard real de JWT (ver nota de 2026-08-28 no topo do documento).
+
+**✅ Concluída em 2026-08-30.** Pesquisado o padrão já validado no Barberaria
+(`src/auth/*`) antes de desenhar do zero — dois pontos divergem deliberadamente, por
+pedido explícito do usuário, já que a arquitetura deste projeto pede mais do que o
+Barberaria entregou: **Argon2id** (Barberaria usa bcryptjs) e **refresh token rotativo
+com tabela no banco + detecção de reuso** (Barberaria é stateless, sem revogação real).
+Implementado: `AuthModule`/`AuthService`/`JwtAuthGuard`/`RolesGuard` (sem Passport, mesmo
+padrão do Barberaria — `JwtService.verifyAsync` direto), model `RefreshToken` (RLS igual
+`users` + FK composta `(tenant_id, user_id)` pro mesmo padrão da seção 4.1), módulos
+fixture `users`/`admin` (base real do futuro módulo de usuários, não descartável — só
+existiam pra dar uma rota HTTP autenticada real aos testes de IDOR/override do DoD, já
+que não há módulo de produto/pedido antes da Sprint 4/5), prefixo `v1` adotado agora
+(sprints futuras já assumiam esse path). Sem endpoint de registro público — DoD só pede
+login funcional, contas são seedadas via `scripts/seed-auth-users.ts`.
+
+Três bugs reais encontrados e corrigidos durante a implementação (generalizáveis, não
+specíficos deste domínio): (1) `argon2` é um pacote nativo cujo build script o pnpm ignora
+por padrão — adicionado a `onlyBuiltDependencies` no `pnpm-workspace.yaml`, mesma classe de
+problema do Prisma na Sprint 1; (2) `@nestjs/jwt@12.x` (instalado como "latest") é ESM-only
+e quebra o runner CommonJS do Jest — pinado em `11.0.2` (última versão CJS compatível com
+Nest 11), mesmo problema documentado na Sprint 1 pro `@nestjs/*` core; (3) `cookie-parser`
+é CJS puro sem export `.default` e o `tsconfig.json` tinha `allowSyntheticDefaultImports`
+mas não `esModuleInterop` — import default quebrava em runtime mesmo compilando limpo;
+corrigido adicionando `esModuleInterop: true`. Um quarto bug, de lógica (não de tooling):
+o JWT de refresh é determinístico (sem nonce) — duas emissões no mesmo segundo pra
+mesma família/usuário geravam o token byte-a-byte idêntico, colidindo no `UNIQUE` de
+`token_hash`; corrigido adicionando um claim `jti` aleatório a cada emissão. Todos os 4
+bugs foram pegos rodando a suíte de verdade contra o Supabase de homologação antes do
+push (sem Postgres/Docker local disponível no ambiente de desenvolvimento) — os 25 testes
+e2e (7 arquivos novos + os 2 da Sprint 1, agora reparados após o novo campo obrigatório
+`User.passwordHash`) passaram e o homolog foi limpo dos dados de teste depois.
 
 ---
 

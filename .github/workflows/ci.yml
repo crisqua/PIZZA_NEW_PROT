@@ -29,6 +29,10 @@ jobs:
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/pizza_ci
       APP_DB_ROLE: pizza_app
       APP_DB_PASSWORD: pizza_app_ci_password
+      JWT_SECRET: ci_only_access_secret_never_used_outside_ci
+      JWT_REFRESH_SECRET: ci_only_refresh_secret_different_from_access
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
 
     steps:
       - name: Checkout

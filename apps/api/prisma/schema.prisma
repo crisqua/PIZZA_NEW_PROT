@@ -23,18 +23,42 @@ model Tenant {
 // role: 'platform_superadmin' | 'tenant_owner' | 'tenant_staff' | 'customer'
 // (validado em código, não em CHECK de banco — mesmo padrão do Barberaria).
 model User {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String?  @map("tenant_id") @db.Uuid
-  email     String   @db.VarChar(160)
-  name      String   @db.VarChar(120)
-  role      String   @db.VarChar(20)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String?  @map("tenant_id") @db.Uuid
+  email        String   @db.VarChar(160)
+  name         String   @db.VarChar(120)
+  role         String   @db.VarChar(20)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-  tenant Tenant? @relation(fields: [tenantId], references: [id])
+  tenant        Tenant?        @relation(fields: [tenantId], references: [id])
+  refreshTokens RefreshToken[]
 
   @@unique([tenantId, email])
   @@unique([tenantId, id])
   @@index([tenantId, role], map: "idx_users_tenant")
   @@map("users")
+}
+
+// Rotacao de refresh token (Sprint 2, ver docs/MVP_SPRINTS.md): tokenHash e sempre SHA-256
+// do token bruto — nunca Argon2 aqui, o token ja e alta entropia, hash rapido e o correto
+// (Argon2 e deliberadamente lento, faria todo /auth/refresh pagar o custo de hash de senha).
+// familyId agrupa a cadeia de rotacao inteira; reuso de um token ja revogado (revokedAt
+// setado) e tratado como roubo — revoga a familia inteira, nao so o token reutilizado.
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
+  userId    String    @map("user_id") @db.Uuid
+  tenantId  String?   @map("tenant_id") @db.Uuid
+  familyId  String    @map("family_id") @db.Uuid
+  revokedAt DateTime? @map("revoked_at")
+  expiresAt DateTime  @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([familyId], map: "idx_refresh_tokens_family")
+  @@index([tenantId, userId], map: "idx_refresh_tokens_tenant_user")
+  @@map("refresh_tokens")
 }
