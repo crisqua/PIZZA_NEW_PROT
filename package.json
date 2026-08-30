@@ -2,6 +2,7 @@
   "name": "pizza-new-prot",
   "private": true,
   "version": "0.0.1",
+  "packageManager": "pnpm@10.30.3",
   "scripts": {
     "dev:cliente": "pnpm --filter @pizza/cliente dev",
     "dev:pizzaria": "pnpm --filter @pizza/pizzaria dev",
