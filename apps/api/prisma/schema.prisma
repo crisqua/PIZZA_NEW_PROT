@@ -36,6 +36,7 @@ model Tenant {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   users User[]
+  subscription Subscription?
 
   @@map("tenants")
 }
@@ -81,4 +82,53 @@ model RefreshToken {
   @@index([familyId], map: "idx_refresh_tokens_family")
   @@index([tenantId, userId], map: "idx_refresh_tokens_tenant_user")
   @@map("refresh_tokens")
+}
+
+// Catalogo global de planos (Sprint 4) — sem tenant_id, RLS-exempt por omissao (dado da
+// plataforma, nao de um tenant especifico, mesmo racional de "tenants" na secao 3.1/6.3
+// da arquitetura). "code" e' imutavel apos criado — so' enforced no DTO (UpdatePlanDto
+// nao declara o campo, o whitelist global rejeita 400 se vier), sem CHECK de banco,
+// mesmo padrao ja usado pra "role" em User e "active" em Tenant.
+model Plan {
+  id         String   @id @default(uuid()) @db.Uuid
+  code       String   @unique @db.VarChar(20)
+  name       String   @db.VarChar(255)
+  // Decimal(10,2) em reais (nao centavos) — mesma convencao monetaria da Sprint 3
+  // (Tenant.deliveryFee/minOrder), nao a convencao em centavos do Barberaria. null =
+  // "negociado" (plano Enterprise). Mesmo cuidado de serializacao: Prisma.Decimal vira
+  // string via .toJSON(), todo response mapeia .toNumber() explicitamente.
+  price      Decimal? @db.Decimal(10, 2)
+  limitLabel String?  @map("limit_label") @db.VarChar(255)
+  // Array de codigos de modulo opcional incluso ('estoque'|'financeiro') — validado so'
+  // no DTO (@IsIn contra a lista fechada), Postgres so' guarda o JSON sem constraint.
+  modules    Json     @default("[]")
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+// Assinatura de um tenant a um plano (Sprint 4) — tenant-owned de verdade, RLS ligada e
+// forcada (diferente de "plans"/"tenants": isso aqui e' dado por tenant, nao da
+// plataforma). tenantId nunca e' nulo (nao existe assinatura de plataforma) — isso
+// simplifica a policy RLS em relacao a de "users" (sem o branch OR de tenant_id IS NULL).
+// Sem FK composta contra tenants/plans: essas tabelas nao tem tenant_id nenhum pra
+// compor contra (a FK composta do refresh_tokens existe pra garantir consistencia entre
+// duas tabelas RLS-protegidas que compartilham tenant_id — nao se aplica aqui).
+model Subscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @unique @map("tenant_id") @db.Uuid
+  planId    String   @map("plan_id") @db.Uuid
+  status    String   @default("active") @db.VarChar(20)
+  startedAt DateTime @default(now()) @map("started_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  @@map("subscriptions")
 }

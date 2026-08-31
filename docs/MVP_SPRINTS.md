@@ -37,7 +37,8 @@ Este documento traduz o escopo do `MVP.md` e a arquitetura do `ARQUITETURA_SISTE
 Status: Sprint 0 **✅ concluída em 2026-08-28**. Sprint 1 **✅ concluída em 2026-08-30**
 (mecanismo de RLS + CI verificados em 2026-08-29; deploy no Render — `pizza-api-homolog`
 — fechado em 2026-08-30). Sprint 2 **✅ concluída em 2026-08-30**. Sprint 3 **✅ concluída
-em 2026-08-31** — ver nota logo abaixo da sprint. Sprints 4–11 **⏳ não
+em 2026-08-31**. Sprint 4 **✅ concluída em 2026-08-31** — ver nota logo abaixo da
+sprint. Sprints 5–11 **⏳ não
 iniciadas** — os 3 apps frontend rodam isolados (`apps/cliente`, `apps/pizzaria`,
 `apps/admin-pizzarias`) mas ainda com dados mockados locais
 (`apps/<app>/src/data/mockData.ts`), sem consumir a API real ainda (isso é Sprint 7/9/10).
@@ -218,6 +219,52 @@ menos uma vez (sem isso, só o fallback rodaria em qualquer lugar). 48 specs e2e
 - **Guard de feature-gating**: `@RequiresModule('estoque' | 'financeiro')` (decorator + guard) resolve `subscription.plan.modules` do tenant autenticado e retorna 403 se o módulo pedido não estiver incluso. Aplicado nas rotas de `inventory/` (Sprint 6) e `financial/` (Sprint 8) — o bloqueio é sempre no backend, nunca só a tela escondida no frontend (não-negociável, mesma regra do RBAC).
 
 **Definition of Done:** superadmin cria/edita um plano e atribui a um tenant pelo painel; chamar uma rota de módulo pago sem o plano incluir aquele módulo retorna 403 mesmo manipulando a requisição diretamente (teste automatizado, não só verificação manual).
+
+**✅ Concluída em 2026-08-31.** Pesquisado o Barberaria antes de planejar — achado um
+limite real: ele tem CRUD de `Plan`/`Subscription` funcionando, mas **nunca construiu
+guard de feature-gating nenhum** (nunca teve módulo pago pra travar). Só o CRUD teve
+referência validada pra espelhar; o `ModuleGuard` foi desenho novo, sem precedente em
+nenhum dos dois projetos.
+
+Ajustes de escopo sobre o snippet original da doc (copiado do Barberaria sem adaptar às
+convenções já em uso neste schema): `Plan.id`/`Subscription.id` usam `uuid()` (não
+`cuid()` — todo outro model do schema já usa uuid); `Plan.price` é `Decimal(10,2)` em
+reais, não `priceCents Int` em centavos (mesma convenção monetária da Sprint 3,
+`Tenant.deliveryFee`/`minOrder` — evita uma segunda convenção pra um campo só, e bate
+com o protótipo real que já usa `price: number` em reais); sem FK composta entre
+`Subscription` e `Tenant`/`Plan` (o padrão de FK composta do Sprint 2 exige duas tabelas
+RLS-protegidas compartilhando `tenant_id` — não é o caso aqui, `Tenant`/`Plan` não têm
+`tenant_id` nenhum pra compor contra); sem `GET /admin/subscriptions` (lista cross-tenant,
+não pedida pela doc, fica pra quando a Sprint 10 precisar de verdade).
+
+Confirmado com o usuário (`AskUserQuestion`): manter a tabela `Subscription` separada
+(status/data de início), não simplificar pra um `Tenant.planId` direto como o protótipo
+real (`@pizza/types`) sugeriria — custo extra pequeno, abre espaço pra histórico depois.
+`Subscription` nasceu com RLS real desde o início (o Barberaria só percebeu no meio da
+implementação que precisava disso e reverteu a decisão original de deixá-la RLS-exempt
+como `Plan`).
+
+`ModuleGuard` resolvido com um detalhe de ordenamento que não tinha como copiar de
+lugar nenhum: guards rodam ANTES de interceptors no pipeline do Nest, então
+`@CurrentTenant()`/a transação do `TenantContextInterceptor` ainda não existem durante
+`canActivate()` — o guard abre sua própria transação curta via `TenantContextService`
+diretamente. Cacheado via o `CacheService` já existente (chave
+`subscription:tenant:<id>`, TTL 60s — mais curto que o de branding, isso trava acesso
+pago) com um cuidado real: nunca cachear um `null` cru (`CacheService.get()` não
+distingue "não está no cache" de "tenant sem assinatura"), sempre um wrapper
+`{found, status, modules}`. Sem assinatura ou assinatura cancelada → 403, mesmo critério
+de "módulo não incluso". Testado primeiro com um spec unitário (mocks, sem HTTP/banco)
+antes de qualquer wiring HTTP — mesmo padrão usado pra rotação de refresh token na
+Sprint 2.
+
+DoD literal ("teste automatizado... não só verificação manual") satisfeito via uma rota
+fixture claramente temporária (`src/module-gate-fixture/`, comentário explícito pra
+apagar quando `/v1/inventory` nascer na Sprint 6) — `inventory`/`financial` ainda não
+existem, então não fazia sentido antecipar o desenho deles só pra ter uma rota de teste.
+
+68 specs e2e verdes (4 novos arquivos + os 64 das Sprints 1-3), validados contra o
+homolog real antes do push (sem Postgres/Docker local disponível neste ambiente de
+desenvolvimento).
 
 ---
 
