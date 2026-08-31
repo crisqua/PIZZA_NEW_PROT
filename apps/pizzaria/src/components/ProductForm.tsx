@@ -108,7 +108,7 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
                 rows={4}
               />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
                   label="Preço Base (Média)"
                   placeholder="0,00"

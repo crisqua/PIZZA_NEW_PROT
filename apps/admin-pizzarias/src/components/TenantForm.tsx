@@ -133,7 +133,7 @@ export function TenantForm({ tenant, plans, onBack, onSaved }: TenantFormProps) 
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
                   label="Telefone / WhatsApp"
                   placeholder="(00) 00000-0000"
@@ -148,7 +148,7 @@ export function TenantForm({ tenant, plans, onBack, onSaved }: TenantFormProps) 
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
                   label="Taxa de Entrega (R$)"
                   type="number"
@@ -181,7 +181,7 @@ export function TenantForm({ tenant, plans, onBack, onSaved }: TenantFormProps) 
                   onChange={(e) => updateField('ownerName', e.target.value)}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
                     label="E-mail"
                     type="email"

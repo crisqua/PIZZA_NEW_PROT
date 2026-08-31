@@ -1,5 +1,5 @@
 import { LayoutDashboard, Pizza, ShoppingBag, Settings, LogOut, Package, Wallet, Lock } from 'lucide-react';
-import { cn } from '@pizza/ui';
+import { cn, Sidebar as SidebarShell } from '@pizza/ui';
 import { AddonId } from '@pizza/types';
 
 interface SidebarProps {
@@ -22,9 +22,12 @@ export function Sidebar({ activePage, onNavigate, tenantName, tenantLogo, active
   ];
 
   return (
-    <div className="w-72 bg-card border-r border-border h-screen flex flex-col">
-      <div className="p-6 border-b border-border">
-        <div className="flex items-center gap-3">
+    <SidebarShell
+      activePage={activePage}
+      mobileTitle={tenantName}
+      widthClassName="w-72"
+      header={
+        <div className="p-6 flex items-center gap-3">
           <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center text-2xl text-primary-foreground">
             {tenantLogo}
           </div>
@@ -33,41 +36,38 @@ export function Sidebar({ activePage, onNavigate, tenantName, tenantLogo, active
             <p className="text-xs text-muted-foreground">Painel de Gestão</p>
           </div>
         </div>
-      </div>
-
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activePage === item.id;
-          const isLocked = item.addonId ? !activeAddons.includes(item.addonId) : false;
-          return (
-            <button
-              key={item.id}
-              onClick={() => onNavigate(item.id)}
-              className={cn(
-                'w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all',
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              )}
-            >
-              <Icon className="w-5 h-5" />
-              <span className="font-medium flex-1 text-left">{item.name}</span>
-              {isLocked && <Lock className="w-3.5 h-3.5 shrink-0 opacity-60" />}
-            </button>
-          );
-        })}
-      </nav>
-
-      <div className="p-4 border-t border-border">
+      }
+      footer={
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+          className="w-full flex items-center gap-3 px-4 py-3 m-4 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
         >
           <LogOut className="w-5 h-5" />
           <span className="font-medium">Sair</span>
         </button>
-      </div>
-    </div>
+      }
+    >
+      {menuItems.map((item) => {
+        const Icon = item.icon;
+        const isActive = activePage === item.id;
+        const isLocked = item.addonId ? !activeAddons.includes(item.addonId) : false;
+        return (
+          <button
+            key={item.id}
+            onClick={() => onNavigate(item.id)}
+            className={cn(
+              'w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all',
+              isActive
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <Icon className="w-5 h-5" />
+            <span className="font-medium flex-1 text-left">{item.name}</span>
+            {isLocked && <Lock className="w-3.5 h-3.5 shrink-0 opacity-60" />}
+          </button>
+        );
+      })}
+    </SidebarShell>
   );
 }

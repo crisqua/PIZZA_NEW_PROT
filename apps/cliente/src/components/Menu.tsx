@@ -41,7 +41,7 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
   };
 
   return (
-    <div className="min-h-screen bg-background pb-28">
+    <div className="min-h-dvh bg-background pb-28">
       <div className="bg-surface px-6 pt-12 pb-8 border-b border-border">
         <div className="flex items-center gap-4 mb-4">
           <div className="w-14 h-14 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-serif font-semibold text-lg">

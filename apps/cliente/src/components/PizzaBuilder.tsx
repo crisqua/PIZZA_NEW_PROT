@@ -55,7 +55,7 @@ export function PizzaBuilder({ initialPizza, initialSize, onBack, onAddToCart }:
   }
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="min-h-dvh bg-background pb-32">
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border p-4">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="p-2 hover:bg-card text-foreground rounded-full transition-colors">

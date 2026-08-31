@@ -54,13 +54,13 @@ export function Settings() {
             defaultValue="Rua da Pizzaria, 789"
             placeholder="Digite o endereço"
           />
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Input label="Número" defaultValue="789" />
             <div className="col-span-2">
               <Input label="Bairro" defaultValue="Centro" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Cidade" defaultValue="São Paulo" />
             <Input label="Estado" defaultValue="SP" maxLength={2} />
           </div>
@@ -127,7 +127,7 @@ export function Settings() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block mb-2 text-sm font-medium">Cor Primária</label>
               <div className="flex gap-2">

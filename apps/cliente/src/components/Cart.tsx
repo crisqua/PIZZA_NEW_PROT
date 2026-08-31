@@ -44,7 +44,7 @@ export function Cart({ items, onUpdateQuantity, onRemoveItem, onBack, onCheckout
   }
 
   return (
-    <div className="min-h-screen bg-background pb-72">
+    <div className="min-h-dvh bg-background pb-72">
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border p-4">
         <div className="flex items-center gap-3 max-w-md mx-auto">
           <button onClick={onBack} className="p-2 hover:bg-card text-foreground rounded-full transition-colors">
