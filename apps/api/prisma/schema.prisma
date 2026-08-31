@@ -311,3 +311,27 @@ model OrderItem {
   @@index([tenantId, orderId], map: "idx_order_items_tenant_order")
   @@map("order_items")
 }
+
+// Despesa (Sprint 8, add-on Financeiro) — tenant-owned, RLS ligada e forcada, forma
+// estrita (mesma de Category/Product/Subscription/InventoryItem). "category" e' uma
+// lista fechada de 3 valores ('Insumos'|'Fixas'|'Outras', igual o prototipo
+// Financial.tsx), validada so' no DTO via @IsIn, mesmo padrao de Product.type/
+// Plan.modules -- sem CHECK no banco. "amount" e' Decimal(10,2) em reais (nao centavos --
+// correcao do texto original do MVP_SPRINTS.md, mesma categoria da correcao de Plan.price
+// na Sprint 4), quinta aplicacao dessa convencao monetaria do schema. "date" e' so' a
+// data do lancamento (@db.Date, sem hora), diferente de createdAt/updatedAt. Sem
+// "@relation" pra Tenant, sem FK composta -- nao referencia nenhuma outra tabela
+// tenant-scoped, mesmo raciocinio de InventoryItem.
+model Expense {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  description String   @db.VarChar(255)
+  category    String   @db.VarChar(20)
+  amount      Decimal  @db.Decimal(10, 2)
+  date        DateTime @db.Date
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId, date], map: "idx_expenses_tenant_date")
+  @@map("expenses")
+}

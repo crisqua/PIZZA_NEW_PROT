@@ -427,6 +427,51 @@ de escrever as versões automatizadas.
 
 **Definition of Done:** gráfico Receita × Despesas do painel passa a refletir pedidos e despesas reais do tenant; tenant sem o módulo `financeiro` no plano recebe 403 ao chamar `/v1/financial/*` diretamente.
 
+**✅ Concluída em 2026-08-31.** Sprint bem menor/mais contida que a Sprint 7 — sem
+pesquisa nova no Barbearia (já confirmado desde a Sprint 4 que ele nunca teve nenhum
+módulo pago). Escopo ficou **só backend**, mesmo o texto acima sugerindo "substituindo o
+mock de `Financial.tsx`": a própria Sprint 9 já lista "Telas de Estoque (Sprint 6) **e
+Financeiro (Sprint 8)** conectadas à API real" como entregável dela, confirmando que a
+Sprint 6 (mesma ambiguidade no texto) foi backend-only e a conexão do painel ficou pra
+lá — mesmo padrão aplicado aqui.
+
+**Correção de escopo** (mesma categoria da correção de `Plan.price` na Sprint 4): o texto
+original listava `amount_cents` — cópia do padrão em centavos do Barbearia. `Expense.
+amount` é `Decimal(10,2)` em reais, quinta aplicação dessa convenção (depois de
+`Tenant.deliveryFee`/`minOrder`, `Plan.price`, `Product.price`,
+`InventoryItem.quantity`/`minQuantity`, `Order.total`/`deliveryFee`/`OrderItem.unitPrice`)
+— o próprio protótipo (`Financial.tsx`/`mockData.ts`) já usa `Expense.amount: number` em
+reais, confirmando.
+
+**Decisão confirmada com o usuário**: receita conta só pedidos `status='completed'` —
+pagamento é na entrega, `pending`/`preparing`/`delivery` ainda não é dinheiro que entrou
+de verdade, `cancelled` obviamente não conta.
+
+`Expense` — tenant-owned, RLS estrita (mesma forma de `Category`/`Product`/
+`InventoryItem`), sem FK composta (não referencia nenhuma outra tabela tenant-scoped,
+mesmo caso de `InventoryItem`). `category` é lista fechada de 3 valores
+(`'Insumos'|'Fixas'|'Outras'`, igual o protótipo), validada só no DTO via `@IsIn`, sem
+CHECK no banco (mesmo padrão de `Product.type`). `date` usa `@db.Date` (só a data, sem
+hora), diferente de `createdAt`/`updatedAt`.
+
+`src/financial/` — `ExpensesController`/`RevenueController` no mesmo módulo (mesmo padrão
+multi-controller de `CatalogModule`), guard stack idêntico ao `InventoryController`
+(primeiro precedente real de "recurso único + `ModuleGuard`", Sprint 6):
+`JwtAuthGuard, RolesGuard, ModuleGuard` + `TenantContextInterceptor` + `@Roles('tenant_owner',
+'tenant_staff')` + `@RequiresModule('financeiro')`. `RevenueService.getDailyRevenue`
+agrega em JS (não `$queryRaw`/`groupBy` com `DATE_TRUNC` — primeiro lugar do projeto que
+precisaria de SQL bruto em runtime, desnecessário na escala de uma pizzaria individual),
+preenchendo todo o intervalo pedido com `revenue: 0` nos dias sem pedido `completed`.
+
+Nenhum bug de aplicação encontrado no smoke test manual desta vez — só um erro no próprio
+script de smoke test (tentei trocar a assinatura de UM tenant no meio do teste via Prisma
+direto, sem passar pelo `SubscriptionsAdminService` que invalida o cache do `ModuleGuard`
+— a checagem seguinte bateu no cache de 60s ainda com o resultado antigo. Não é bug do
+app, é o comportamento documentado do guard; corrigido usando tenants separados por
+cenário, mesmo padrão que `inventory-crud.e2e-spec.ts` já usa). 116 specs e2e verdes (13
+novos: `test/financial/{expenses-crud,revenue}.e2e-spec.ts`), validados manualmente
+contra o homolog antes de escrever as versões automatizadas.
+
 ---
 
 ## Sprint 9 — Conectar painel `pizzaria`

@@ -6,6 +6,7 @@ import { CacheModule } from './cache/cache.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { CatalogPublicModule } from './catalog-public/catalog-public.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { FinancialModule } from './financial/financial.module';
 import { HealthController } from './health/health.controller';
 import { InventoryModule } from './inventory/inventory.module';
 import { ModuleGateModule } from './module-gate/module-gate.module';
@@ -35,6 +36,7 @@ import { UsersModule } from './users/users.module';
     CatalogPublicModule,
     InventoryModule,
     OrdersModule,
+    FinancialModule,
   ],
   controllers: [HealthController],
 })
