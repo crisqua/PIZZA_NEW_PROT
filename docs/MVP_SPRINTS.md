@@ -37,8 +37,8 @@ Este documento traduz o escopo do `MVP.md` e a arquitetura do `ARQUITETURA_SISTE
 Status: Sprint 0 **✅ concluída em 2026-08-28**. Sprint 1 **✅ concluída em 2026-08-30**
 (mecanismo de RLS + CI verificados em 2026-08-29; deploy no Render — `pizza-api-homolog`
 — fechado em 2026-08-30). Sprint 2 **✅ concluída em 2026-08-30**. Sprint 3 **✅ concluída
-em 2026-08-31**. Sprint 4 **✅ concluída em 2026-08-31** — ver nota logo abaixo da
-sprint. Sprints 5–11 **⏳ não
+em 2026-08-31**. Sprint 4 **✅ concluída em 2026-08-31**. Sprint 5 **✅ concluída em
+2026-08-31** — ver nota logo abaixo da sprint. Sprints 6–11 **⏳ não
 iniciadas** — os 3 apps frontend rodam isolados (`apps/cliente`, `apps/pizzaria`,
 `apps/admin-pizzarias`) mas ainda com dados mockados locais
 (`apps/<app>/src/data/mockData.ts`), sem consumir a API real ainda (isso é Sprint 7/9/10).
@@ -276,6 +276,35 @@ desenvolvimento).
 - Disponibilidade de item (em falta / disponível).
 
 **Definition of Done:** teste do item 5 da seção 3.2 da arquitetura (FK composta) passando — associar um produto de outro tenant a uma categoria/pedido deve falhar no banco, não só na aplicação.
+
+**✅ Concluída em 2026-08-31.** Pesquisado o Barberaria antes de planejar — ele **não tem
+conceito de categoria nenhum** (catálogo dele, `Service`, é plano), então a metade
+"categorias tenant-scoped" desta sprint não teve nenhuma referência pra espelhar; o que
+ele já validou foi só o mecanismo de FK composta (`professional_services` → `services`),
+confirmando que o padrão já usado no Sprint 2 (`refresh_tokens` → `users`) estava certo
+e é reaplicável sem inventar nada novo.
+
+**Correção de escopo registrada**: o item 5 da §3.2 fala literalmente de
+`order_items` → `products`, mas `orders`/`order_items` só nascem na Sprint 7 — esta
+sprint só constrói a primeira metade da cadeia (`products` → `categories`), com um teste
+dedicado que bypassa de propósito o pre-check de RLS do `ProductsService` (que faz o
+caminho normal da aplicação nunca tocar na FK de verdade) pra provar que a constraint do
+banco em si funciona. A metade `order_items`→`products` fica pra Sprint 7 por
+dependência real.
+
+**Confirmado com o usuário via `AskUserQuestion`**: `image` fica como URL simples (texto),
+não upload real via Supabase Storage — infra nova que não existe no projeto ainda, e nem
+o Barberaria resolveu isso de verdade (só um upload local em disco, marcado como
+gambiarra temporária no código dele). Outros ajustes sem precedente no protótipo: sem
+`Category.slug` (nada busca categoria por slug nesta API, diferente de `Tenant.slug`);
+sem persistência de tamanho/multiplicador de pizza (continua só constante hardcoded no
+frontend); `available` é campo novo sem UI real por trás ainda; sem paginação em
+categories/products (catálogo pequeno por tenant, mesmo raciocínio de `plans`).
+
+`Product.price` é a terceira coluna monetária do schema (`Decimal(10,2)`, mesma
+convenção de `Tenant.deliveryFee`/`minOrder` e `Plan.price`). 85 specs e2e verdes (3
+arquivos novos + os 68 já existentes das Sprints 1-4), validados contra o homolog real
+antes do push.
 
 ---
 

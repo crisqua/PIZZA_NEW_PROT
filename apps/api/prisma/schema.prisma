@@ -132,3 +132,69 @@ model Subscription {
 
   @@map("subscriptions")
 }
+
+// Categoria de cardapio (Sprint 5) — tenant-owned de verdade, RLS ligada e forcada. Cada
+// pizzaria cadastra as proprias categorias (ja validado no protototipo, MenuManagement.tsx/
+// ProductForm.tsx). Sem "slug": nada nesta API busca categoria por slug (diferente de
+// Tenant.slug, usado numa rota publica) — selecao e' sempre por id (uuid) num dropdown.
+// Sem "@relation" pra Tenant: tenant sempre vem do JWT/request.tenantId, nada atravessa
+// category.tenant via Prisma (mesmo padrao de RefreshToken.tenantId).
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String   @db.VarChar(120)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+
+  // Da' a chave composta pra "products" referenciar (mesmo papel de User.@@unique acima
+  // pro RefreshToken) — segunda aplicacao real do padrao de FK composta do Sprint 2.
+  @@unique([tenantId, id])
+  @@index([tenantId], map: "idx_categories_tenant")
+  @@map("categories")
+}
+
+// Produto de cardapio (Sprint 5) — tenant-owned de verdade, RLS ligada e forcada.
+model Product {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  categoryId  String   @map("category_id") @db.Uuid
+  name        String   @db.VarChar(160)
+  description String   @default("") @db.VarChar(1000)
+  // Terceira coluna monetaria do schema (estende Tenant.deliveryFee/minOrder e
+  // Plan.price) — Decimal(10,2) em reais, nunca centavos/Float. Mesmo cuidado de sempre:
+  // Prisma.Decimal vira string via .toJSON(), response mapeia .toNumber() explicitamente
+  // (ver product-response.util.ts).
+  price       Decimal  @db.Decimal(10, 2)
+  // URL simples, nao upload real — decisao confirmada com o usuario nesta sprint:
+  // Supabase Storage/URL assinada fica pra depois (nao existe infra nenhuma ainda), e o
+  // protototipo (ProductForm.tsx) ja so aceita colar uma URL num input de texto. Default
+  // vazio (nao nullable) — diferente de Plan.price, aqui "vazio" nao carrega significado
+  // de negocio, mesmo padrao de Tenant.logo/phone.
+  image       String   @default("") @db.VarChar(2048)
+  // Lista de ingredientes em texto livre — mesma convencao JSON-array-of-strings de
+  // Plan.modules, mas sem lista fechada no DTO (aqui e' texto livre, nao um enum de 2
+  // valores).
+  ingredients Json     @default("[]")
+  featured    Boolean  @default(false)
+  // "Disponibilidade" do DoD desta sprint — sem precedente real no protototipo (so' um
+  // <Badge> fixo "Ativo" em MenuManagement.tsx, nao ligado a nenhum campo). true =
+  // disponivel, mesmo default-true de Plan.active/Tenant.active.
+  available   Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relacao Prisma normal (coluna unica), igual RefreshToken.user -> User. A FK COMPOSTA
+  // (tenant_id, category_id) contra categories(tenant_id, id) e' uma constraint EXTRA,
+  // hand-written só na migration (Prisma DSL nao expressa FK composta parcial contra
+  // unique nao-PK) — mesmo padrao exato de refresh_tokens/users (Sprint 2), garantindo
+  // que categoryId nunca aponte pra uma categoria de outro tenant, mesmo por bug.
+  category Category @relation(fields: [categoryId], references: [id])
+
+  // Preparado pra ser referenciado por order_items na Sprint 7, mesmo raciocinio de
+  // User.@@unique antes do RefreshToken existir.
+  @@unique([tenantId, id])
+  @@index([tenantId, categoryId], map: "idx_products_tenant_category")
+  @@map("products")
+}

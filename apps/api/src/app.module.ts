@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { CacheModule } from './cache/cache.module';
+import { CatalogModule } from './catalog/catalog.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthController } from './health/health.controller';
 import { ModuleGateModule } from './module-gate/module-gate.module';
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module';
     ModuleGateModule,
     // FIXTURE TEMPORARIO -- remover quando /v1/inventory nascer (Sprint 6).
     ModuleGateFixtureModule,
+    CatalogModule,
   ],
   controllers: [HealthController],
 })
