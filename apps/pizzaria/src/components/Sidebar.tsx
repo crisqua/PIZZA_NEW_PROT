@@ -8,9 +8,10 @@ interface SidebarProps {
   tenantName: string;
   tenantLogo: string;
   activeAddons: AddonId[];
+  onLogout: () => void;
 }
 
-export function Sidebar({ activePage, onNavigate, tenantName, tenantLogo, activeAddons }: SidebarProps) {
+export function Sidebar({ activePage, onNavigate, tenantName, tenantLogo, activeAddons, onLogout }: SidebarProps) {
   const menuItems: { id: string; name: string; icon: typeof LayoutDashboard; addonId?: AddonId }[] = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
     { id: 'orders', name: 'Pedidos', icon: ShoppingBag },
@@ -59,7 +60,10 @@ export function Sidebar({ activePage, onNavigate, tenantName, tenantLogo, active
       </nav>
 
       <div className="p-4 border-t border-border">
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all">
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+        >
           <LogOut className="w-5 h-5" />
           <span className="font-medium">Sair</span>
         </button>

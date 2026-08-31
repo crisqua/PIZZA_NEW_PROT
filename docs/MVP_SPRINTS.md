@@ -483,6 +483,73 @@ contra o homolog antes de escrever as versões automatizadas.
 
 **Definition of Done:** owner/staff faz login e só enxerga dados do próprio tenant; pedido criado pelo cliente aparece no painel da pizzaria via polling em tempo hábil; status é atualizável e reflete no acompanhamento do cliente; Estoque/Financeiro aparecem liberados ou bloqueados de acordo com o plano real do tenant, não mais um toggle manual em Configurações.
 
+**✅ Concluída em 2026-08-31.** Sprint 100% de wiring frontend (`apps/pizzaria`) — nenhum
+módulo de negócio novo no backend, só uma rota pequena que faltava.
+
+**Gap real encontrado na pesquisa**: não existia nenhum endpoint que um `tenant_owner`/
+`tenant_staff` autenticado pudesse chamar pra saber os módulos do próprio plano —
+`/v1/tenants/me` não inclui isso, `/v1/admin/tenants/:id/subscription` é
+`platform_superadmin`-only. Adicionado `GET /v1/tenants/me/subscription` em
+`TenantsController` (`@UseInterceptors(TenantContextInterceptor)` só neste handler, já
+que `Subscription` tem RLS e `Tenant` não — mesmo padrão de guard por método já usado em
+`OrdersController` na Sprint 7). Sem assinatura retorna 200 com `modules:[]` (não 404 —
+estado normal, não erro). `apps/api/.env.example`: `CORS_ORIGIN` ganhou a origem do
+`apps/pizzaria` (porta 5174).
+
+`apps/pizzaria` seguiu o mesmo template da Sprint 7 (`data/api.ts`, `data/tenant.ts`),
+mas com uma diferença real de arquitetura: o truque de "binding `let` reatribuído uma vez
+no boot" do `apps/cliente` só funciona pra dado só-leitura lido antes do primeiro render
+(catálogo de navegação). Aqui o painel faz CRUD de verdade em vários recursos
+(produtos, estoque, despesas) — cada tela (`Inventory.tsx`, `Financial.tsx`,
+`OrdersPanel.tsx`, `Dashboard.tsx`) busca e gerencia seus próprios dados via
+`useEffect`+`useState`, chamando funções assíncronas simples do repository (não bindings
+reatribuídos); só `mockTenant`/`mockCategories`/`mockPizzas`/`unlockedModules` continuam
+como valor inicial de `useState` lifted em `App.tsx` (mesmo papel de sempre, só que agora
+alimentando estado real de categorias/produtos com CRUD, não mais leitura pura).
+
+**Descoberta real durante a implementação**: o formato de pedido do mock antigo
+(`@pizza/types`'s `Order`/`CartItem`, com `pizza.flavors: Pizza[]` completo) não bate com
+o `OrderResponse`/`OrderItemResponse` real da API (Sprint 7) — o backend guarda um
+snapshot achatado (`name` já concatenado tipo "Marguerita + Calabresa", `unitPrice`,
+sem os objetos `Pizza` completos dos sabores, de propósito: preço/nome não podem
+depender de o produto ainda existir/ter o mesmo preço depois). `OrdersPanel.tsx`/
+`OrderDetails.tsx` precisaram de edição de verdade (não só `repository.ts`) pra consumir
+esse formato mais simples — mesmo precedente já visto na Sprint 7 (`Checkout.tsx`/
+`OrderConfirmation.tsx` também precisaram de reescrita real, não só a camada de dados).
+Removido de `OrderDetails.tsx`: a taxa de entrega hardcoded (`order.total - 8`, agora usa
+`order.deliveryFee` real) e o card de "Timeline" (dependia de um horário fake tipo
+"18:35" pro passo "Em preparo" — sem dado real equivalente, removido em vez de inventado).
+
+**Escopo mantido no que já existia, sem inventar tela nova**: `MenuManagement.tsx` nunca
+teve gestão de bebida (só pizza) — continua filtrando produtos por `type==='pizza'`,
+gap conhecido e deliberado (conectar o que já existe, não construir UI nova). Campo
+`Product.available` também não ganhou UI nova (já era um gap conhecido desde a Sprint 5).
+
+**`Dashboard.tsx`** — antes 100% dado inventado (nenhum import de `repository`), sem
+pedido explícito no DoD literal desta sprint. Incluído mesmo assim (primeira tela que o
+dono vê pós-login, deixá-la fake seria pior que antes de logar) — derivado 100% dos
+mesmos dados já buscados por `getOrders()`/`getRevenue()`, sem endpoint novo: vendas/
+pedidos/ticket médio/tempo médio de hoje, gráfico semanal (reaproveita `getRevenue()`),
+pedidos por hora (agrupado client-side), produtos mais vendidos (agregado dos itens de
+pedidos `completed`). Percentuais de tendência (`+12%` etc.) removidos — não há período
+anterior real pra comparar, mostrar um número real sem tendência é melhor que fabricar
+uma.
+
+**`Settings.tsx`/`AddonUpsell.tsx`**: card "Pacotes Opcionais" (toggle manual) removido
+por completo — DoD literal confirma. `AddonUpsell`'s botão "Contratar módulo" (que só
+fingia ativar o módulo) virou mensagem informativa — sem fluxo de compra in-app (sem
+pagamento online, fora do MVP), contratar um add-on é ação comercial fora do próprio
+painel do tenant.
+
+Nenhum bug de aplicação no smoke test manual — só a rota nova (seção acima). 121 specs
+e2e verdes (5 novos: `test/tenants/tenants-me-subscription.e2e-spec.ts`). Fluxo completo
+(login → boot → CRUD de cardápio → pedidos → status → estoque → financeiro) validado via
+chamadas HTTP diretas simulando exatamente o que o frontend chama, contra o homolog —
+sem ferramenta de browser neste ambiente (mesma limitação da Sprint 7), servidores
+locais deixados no ar (`apps/api` :3000, `apps/pizzaria` :5174) contra o tenant demo
+`demo-sprint7` (já seedado com assinatura completa, estoque e despesas) pro usuário
+clicar.
+
 ---
 
 ## Sprint 10 — Conectar `admin-pizzarias`

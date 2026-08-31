@@ -1,15 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Clock, Phone, MapPin, DollarSign, Inbox } from 'lucide-react';
-import { mockOrders } from '../data/repository';
-import { Order } from '@pizza/types';
+import { getOrders, ApiOrder } from '../data/repository';
 import { Card, CardContent, Badge, formatCurrency, formatTime } from '@pizza/ui';
 
 interface OrdersPanelProps {
-  onViewOrder: (order: Order) => void;
+  onViewOrder: (order: ApiOrder) => void;
 }
 
+const POLL_INTERVAL_MS = 10_000;
+
+// Pedido criado pelo cliente precisa aparecer aqui "em tempo habil" (DoD da Sprint 9) --
+// polling a cada 10s enquanto a tela estiver montada, mesmo intervalo ja usado em
+// apps/cliente/src/components/OrderConfirmation.tsx (Sprint 7). Sem WebSocket (fora do
+// MVP, docs/MVP.md item 8).
 export function OrdersPanel({ onViewOrder }: OrdersPanelProps) {
-  const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
+  const [orders, setOrders] = useState<ApiOrder[]>([]);
+  const [statusFilter, setStatusFilter] = useState<ApiOrder['status'] | 'all'>('all');
 
   const statusConfig = {
     pending: { label: 'Pendente', variant: 'warning' as const, color: 'bg-warning/10' },
@@ -19,15 +25,30 @@ export function OrdersPanel({ onViewOrder }: OrdersPanelProps) {
     cancelled: { label: 'Cancelado', variant: 'destructive' as const, color: 'bg-destructive/10' },
   };
 
+  useEffect(() => {
+    let cancelled = false;
+    const poll = () => {
+      getOrders()
+        .then((res) => { if (!cancelled) setOrders(res); })
+        .catch(() => undefined);
+    };
+    poll();
+    const interval = setInterval(poll, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
   const filteredOrders = statusFilter === 'all'
-    ? mockOrders
-    : mockOrders.filter(o => o.status === statusFilter);
+    ? orders
+    : orders.filter(o => o.status === statusFilter);
 
   const ordersByStatus = {
-    pending: mockOrders.filter(o => o.status === 'pending').length,
-    preparing: mockOrders.filter(o => o.status === 'preparing').length,
-    delivery: mockOrders.filter(o => o.status === 'delivery').length,
-    completed: mockOrders.filter(o => o.status === 'completed').length,
+    pending: orders.filter(o => o.status === 'pending').length,
+    preparing: orders.filter(o => o.status === 'preparing').length,
+    delivery: orders.filter(o => o.status === 'delivery').length,
+    completed: orders.filter(o => o.status === 'completed').length,
   };
 
   return (
@@ -65,12 +86,12 @@ export function OrdersPanel({ onViewOrder }: OrdersPanelProps) {
               : 'bg-muted text-muted-foreground hover:bg-muted/80'
           }`}
         >
-          Todos ({mockOrders.length})
+          Todos ({orders.length})
         </button>
         {Object.entries(statusConfig).map(([status, config]) => (
           <button
             key={status}
-            onClick={() => setStatusFilter(status as any)}
+            onClick={() => setStatusFilter(status as ApiOrder['status'])}
             className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
               statusFilter === status
                 ? 'bg-primary text-primary-foreground'
@@ -94,10 +115,10 @@ export function OrdersPanel({ onViewOrder }: OrdersPanelProps) {
               <CardContent className="p-5 space-y-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-bold text-lg mb-1">#{order.id}</h3>
+                    <h3 className="font-bold text-lg mb-1">#{order.id.slice(0, 8)}</h3>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Clock className="w-4 h-4" />
-                      {formatTime(order.createdAt)}
+                      {formatTime(new Date(order.createdAt))}
                     </div>
                   </div>
                   <Badge variant={config.variant}>{config.label}</Badge>

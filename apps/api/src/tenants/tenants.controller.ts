@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, NotFoundException, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, NotFoundException, Patch, UseGuards, UseInterceptors } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -7,7 +7,10 @@ import { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { CacheService } from '../cache/cache.service';
 import { tenantBrandingCacheKey } from '../common/tenant-branding-cache-key';
 import { toTenantResponse } from '../common/tenant-response.util';
+import { CurrentTenant } from '../common/decorators/tenant.decorator';
+import { TenantContextInterceptor } from '../common/interceptors/tenant-context.interceptor';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantTx } from '../prisma/tenant-context.service';
 import { UpdateTenantBrandingDto } from './dto/update-tenant-branding.dto';
 
 // "tenants" nao tem RLS -- sem TenantContextInterceptor. Isolamento aqui e' 100%
@@ -28,6 +31,34 @@ export class TenantsController {
     // plano da Sprint 3): sem isso um tenant desativado nao teria como saber o motivo do
     // login parar de funcionar, ja que o token de acesso continua valido ate expirar.
     return toTenantResponse(tenant);
+  }
+
+  // "subscriptions" TEM RLS de verdade (diferente de "tenants") -- so' este handler
+  // precisa do TenantContextInterceptor/@CurrentTenant(), mesmo padrao de guard por
+  // metodo ja usado em OrdersController (Sprint 7). Sem assinatura nenhuma retorna 200
+  // com modules:[] (nao 404) -- "tenant sem plano ainda" e' um estado normal do dono
+  // verificar, nao um erro. Existe pra fechar um gap real: ate a Sprint 8, nenhum
+  // tenant_owner/tenant_staff tinha como saber os modulos do proprio plano sem tentar
+  // uma rota gateada por ModuleGuard e capturar o 403.
+  @Get('me/subscription')
+  @UseInterceptors(TenantContextInterceptor)
+  async getMySubscription(@CurrentUser() user: AuthenticatedUser, @CurrentTenant() tx: TenantTx) {
+    if (!user.tenantId) {
+      throw new ForbiddenException();
+    }
+    const subscription = await tx.subscription.findUnique({
+      where: { tenantId: user.tenantId },
+      include: { plan: true },
+    });
+    if (!subscription) {
+      return { status: null, planCode: null, planName: null, modules: [] };
+    }
+    return {
+      status: subscription.status,
+      planCode: subscription.plan.code,
+      planName: subscription.plan.name,
+      modules: subscription.plan.modules,
+    };
   }
 
   @Patch('me')

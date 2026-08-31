@@ -1,14 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Trash2, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { mockExpenses, mockDailyRevenue } from '../data/repository';
+import { getExpenses, createExpense, deleteExpense, getRevenue, DailyRevenue } from '../data/repository';
 import { Expense } from '@pizza/types';
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, formatCurrency, formatDate } from '@pizza/ui';
 
 const EXPENSE_CATEGORIES = ['Insumos', 'Fixas', 'Outras'];
 
+// mockDailyRevenue (7 dias hardcoded, desconectado de mockOrders) vira getRevenue() de
+// verdade -- fecha o loop que a Sprint 8 deixou pendente (receita real vem de pedidos
+// completed de verdade, agregados no backend em RevenueService).
 export function Financial() {
-  const [expenses, setExpenses] = useState<Expense[]>(mockExpenses);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [dailyRevenue, setDailyRevenue] = useState<DailyRevenue[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [newExpense, setNewExpense] = useState({
     description: '',
@@ -17,28 +21,41 @@ export function Financial() {
     date: new Date().toISOString().slice(0, 10),
   });
 
-  const periodRevenue = mockDailyRevenue.reduce((sum, d) => sum + d.revenue, 0);
+  useEffect(() => {
+    getExpenses().then(setExpenses).catch(() => undefined);
+    getRevenue().then(setDailyRevenue).catch(() => undefined);
+  }, []);
+
+  const periodRevenue = dailyRevenue.reduce((sum, d) => sum + d.revenue, 0);
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const balance = periodRevenue - totalExpenses;
 
-  const chartData = mockDailyRevenue.map((d) => ({
+  const expensesByDate = new Map<string, number>();
+  for (const e of expenses) {
+    expensesByDate.set(e.date, (expensesByDate.get(e.date) ?? 0) + e.amount);
+  }
+  const chartData = dailyRevenue.map((d) => ({
     day: formatDate(d.date).slice(0, 5),
     Receita: d.revenue,
-    Despesas: d.expenses,
+    Despesas: expensesByDate.get(d.date) ?? 0,
   }));
 
-  const handleAddExpense = () => {
+  const handleAddExpense = async () => {
     if (!newExpense.description.trim() || !newExpense.amount) return;
-    setExpenses([
-      { id: `exp-${crypto.randomUUID()}`, description: newExpense.description.trim(), category: newExpense.category, amount: Number(newExpense.amount), date: newExpense.date },
-      ...expenses,
-    ]);
+    const created = await createExpense({
+      description: newExpense.description.trim(),
+      category: newExpense.category,
+      amount: Number(newExpense.amount),
+      date: newExpense.date,
+    });
+    setExpenses((prev) => [created, ...prev]);
     setNewExpense({ description: '', category: EXPENSE_CATEGORIES[0], amount: '', date: new Date().toISOString().slice(0, 10) });
     setIsAdding(false);
   };
 
-  const removeExpense = (id: string) => {
-    setExpenses(expenses.filter((e) => e.id !== id));
+  const removeExpense = async (id: string) => {
+    await deleteExpense(id);
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
   };
 
   return (

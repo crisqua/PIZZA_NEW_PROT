@@ -1,13 +1,16 @@
 import { Lock } from 'lucide-react';
 import { Addon } from '@pizza/types';
-import { Card, CardContent, Button, formatCurrency } from '@pizza/ui';
+import { Card, CardContent, formatCurrency } from '@pizza/ui';
 
 interface AddonUpsellProps {
   addon: Addon;
-  onActivate: () => void;
 }
 
-export function AddonUpsell({ addon, onActivate }: AddonUpsellProps) {
+// Liberacao real agora vem do plano/assinatura de verdade (Sprint 9) -- sem fluxo de
+// compra in-app (sem pagamento online, fora do MVP), entao nao ha' mais um botao que
+// finge ativar o modulo. Contratar/cancelar um add-on e' uma acao comercial, fora do
+// proprio painel do tenant (fica com a plataforma, Sprint 10 admin-pizzarias).
+export function AddonUpsell({ addon }: AddonUpsellProps) {
   return (
     <div className="p-6 flex items-center justify-center min-h-[calc(100vh-2rem)]">
       <Card className="max-w-md w-full rounded-xl">
@@ -21,11 +24,8 @@ export function AddonUpsell({ addon, onActivate }: AddonUpsellProps) {
             <span className="font-serif text-3xl text-primary font-semibold">{formatCurrency(addon.price)}</span>
             <span className="text-muted-foreground mb-1">/mês</span>
           </div>
-          <Button size="lg" fullWidth onClick={onActivate} className="h-12 rounded-lg">
-            Contratar módulo
-          </Button>
-          <p className="text-xs text-muted-foreground mt-4">
-            Pacote opcional, cobrado à parte do seu plano atual. Pode cancelar quando quiser em Configurações.
+          <p className="text-sm text-muted-foreground border border-border rounded-lg px-4 py-3">
+            Módulo não incluído no seu plano atual. Fale com o suporte para contratar.
           </p>
         </CardContent>
       </Card>

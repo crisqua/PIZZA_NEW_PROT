@@ -1,14 +1,22 @@
+import { useState } from 'react';
 import { ArrowLeft, Phone, MapPin, CreditCard, CheckCircle2 } from 'lucide-react';
-import { Order } from '@pizza/types';
+import { ApiOrder, updateOrderStatus } from '../data/repository';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, formatCurrency, formatTime } from '@pizza/ui';
 
 interface OrderDetailsProps {
-  order: Order;
+  order: ApiOrder;
   onBack: () => void;
-  onUpdateStatus: (status: Order['status']) => void;
 }
 
-export function OrderDetails({ order, onBack, onUpdateStatus }: OrderDetailsProps) {
+// Itens aqui vem do formato real da API (OrderItemResponse): "name" ja' e' o snapshot
+// pronto pra exibir (ex. "Marguerita + Calabresa" pro meio a meio, calculado no servidor
+// em OrdersService.create na Sprint 7) -- diferente do mock antigo, que guardava
+// pizza.flavors: Pizza[] completo. "size" e' null pra bebida.
+export function OrderDetails({ order: initialOrder, onBack }: OrderDetailsProps) {
+  const [order, setOrder] = useState(initialOrder);
+  const [updating, setUpdating] = useState(false);
+  const [error, setError] = useState('');
+
   const statusConfig = {
     pending: { label: 'Pendente', variant: 'warning' as const, next: 'preparing' as const, nextLabel: 'Iniciar Preparo' },
     preparing: { label: 'Preparando', variant: 'info' as const, next: 'delivery' as const, nextLabel: 'Saiu para Entrega' },
@@ -18,6 +26,20 @@ export function OrderDetails({ order, onBack, onUpdateStatus }: OrderDetailsProp
   };
 
   const config = statusConfig[order.status];
+  const subtotal = order.total - order.deliveryFee;
+
+  const handleUpdateStatus = async (status: ApiOrder['status']) => {
+    setError('');
+    setUpdating(true);
+    try {
+      const updated = await updateOrderStatus(order.id, status);
+      setOrder(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Nao foi possivel atualizar o status.');
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -31,9 +53,9 @@ export function OrderDetails({ order, onBack, onUpdateStatus }: OrderDetailsProp
         </button>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold mb-1">Pedido #{order.id}</h1>
+            <h1 className="text-2xl font-bold mb-1">Pedido #{order.id.slice(0, 8)}</h1>
             <p className="text-muted-foreground">
-              Realizado em {formatTime(order.createdAt)}
+              Realizado em {formatTime(new Date(order.createdAt))}
             </p>
           </div>
           <Badge variant={config.variant} className="text-base px-4 py-2">
@@ -41,6 +63,8 @@ export function OrderDetails({ order, onBack, onUpdateStatus }: OrderDetailsProp
           </Badge>
         </div>
       </div>
+
+      {error && <p className="text-sm text-destructive mb-4">{error}</p>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -51,51 +75,28 @@ export function OrderDetails({ order, onBack, onUpdateStatus }: OrderDetailsProp
             <CardContent className="space-y-4">
               {order.items.map((item) => (
                 <div key={item.id} className="flex items-start gap-4 pb-4 border-b border-border last:border-0 last:pb-0">
-                  {item.type === 'pizza' && item.pizza && (
-                    <>
-                      <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center text-2xl">
-                        🍕
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold">
-                          Pizza {item.pizza.size.charAt(0).toUpperCase() + item.pizza.size.slice(1)}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {item.pizza.flavors.map(f => f.name).join(' + ')}
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Quantidade: {item.quantity}
-                        </p>
-                      </div>
-                      <span className="font-bold">{formatCurrency(item.price * item.quantity)}</span>
-                    </>
-                  )}
-                  {item.type === 'drink' && item.drink && (
-                    <>
-                      <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center text-2xl">
-                        🥤
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold">{item.drink.name}</h3>
-                        <p className="text-sm text-muted-foreground">{item.drink.size}</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Quantidade: {item.quantity}
-                        </p>
-                      </div>
-                      <span className="font-bold">{formatCurrency(item.price * item.quantity)}</span>
-                    </>
-                  )}
+                  <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center text-2xl">
+                    {item.type === 'pizza' ? '🍕' : '🥤'}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold">
+                      {item.name}
+                      {item.size && <span className="text-muted-foreground font-normal"> · {item.size}</span>}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">Quantidade: {item.quantity}</p>
+                  </div>
+                  <span className="font-bold">{formatCurrency(item.unitPrice * item.quantity)}</span>
                 </div>
               ))}
 
               <div className="pt-4 space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatCurrency(order.total - 8)}</span>
+                  <span>{formatCurrency(subtotal)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Taxa de entrega</span>
-                  <span>{formatCurrency(8)}</span>
+                  <span>{formatCurrency(order.deliveryFee)}</span>
                 </div>
                 <div className="h-px bg-border my-2" />
                 <div className="flex items-center justify-between">
@@ -116,7 +117,7 @@ export function OrderDetails({ order, onBack, onUpdateStatus }: OrderDetailsProp
                       Atualizar status do pedido para a próxima etapa
                     </p>
                   </div>
-                  <Button onClick={() => onUpdateStatus(config.next!)}>
+                  <Button onClick={() => handleUpdateStatus(config.next!)} disabled={updating}>
                     <CheckCircle2 className="w-5 h-5" />
                     {config.nextLabel}
                   </Button>
@@ -152,7 +153,9 @@ export function OrderDetails({ order, onBack, onUpdateStatus }: OrderDetailsProp
             <CardContent>
               <div className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-muted-foreground mt-1 shrink-0" />
-                <p className="text-sm">{order.address}</p>
+                <p className="text-sm">
+                  {[order.address, order.addressNumber, order.complement, order.neighborhood].filter(Boolean).join(', ')}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -165,34 +168,11 @@ export function OrderDetails({ order, onBack, onUpdateStatus }: OrderDetailsProp
               <div className="flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-muted-foreground" />
                 <span className="font-medium">{order.paymentMethod}</span>
-              </div>
-              <Badge variant="warning">Pagamento na Entrega</Badge>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Timeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex gap-3">
-                  <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
-                  <div>
-                    <p className="font-medium text-sm">Pedido recebido</p>
-                    <p className="text-xs text-muted-foreground">{formatTime(order.createdAt)}</p>
-                  </div>
-                </div>
-                {order.status !== 'pending' && (
-                  <div className="flex gap-3">
-                    <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
-                    <div>
-                      <p className="font-medium text-sm">Em preparo</p>
-                      <p className="text-xs text-muted-foreground">18:35</p>
-                    </div>
-                  </div>
+                {order.changeFor && (
+                  <span className="text-sm text-muted-foreground">(troco para {formatCurrency(order.changeFor)})</span>
                 )}
               </div>
+              <Badge variant="warning">Pagamento na Entrega</Badge>
             </CardContent>
           </Card>
 
@@ -200,7 +180,8 @@ export function OrderDetails({ order, onBack, onUpdateStatus }: OrderDetailsProp
             <Button
               variant="destructive"
               fullWidth
-              onClick={() => onUpdateStatus('cancelled')}
+              disabled={updating}
+              onClick={() => handleUpdateStatus('cancelled')}
             >
               Cancelar Pedido
             </Button>

@@ -1,15 +1,7 @@
-import { Save, Clock, DollarSign, MapPin, Palette, Package2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, Button, Input, Textarea, Badge, Switch, formatCurrency } from '@pizza/ui';
-import { mockAddons } from '../data/repository';
-import { AddonId } from '@pizza/types';
+import { Save, Clock, DollarSign, MapPin, Palette } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, Button, Input, Textarea } from '@pizza/ui';
 
-interface SettingsProps {
-  activeAddons: AddonId[];
-  onActivateAddon: (id: AddonId) => void;
-  onDeactivateAddon: (id: AddonId) => void;
-}
-
-export function Settings({ activeAddons, onActivateAddon, onDeactivateAddon }: SettingsProps) {
+export function Settings() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div>
@@ -124,41 +116,6 @@ export function Settings({ activeAddons, onActivateAddon, onDeactivateAddon }: S
             defaultValue="40"
             placeholder="40"
           />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package2 className="w-5 h-5" />
-            Pacotes Opcionais
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {mockAddons.map((addon) => {
-            const isActive = activeAddons.includes(addon.id);
-            return (
-              <div
-                key={addon.id}
-                className="flex items-center justify-between gap-4 p-4 rounded-lg border border-border"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-semibold text-foreground">{addon.name}</h4>
-                    <Badge variant={isActive ? 'success' : 'secondary'}>
-                      {isActive ? 'Ativo' : 'Inativo'}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{addon.description}</p>
-                  <p className="text-sm text-primary font-semibold mt-1">{formatCurrency(addon.price)}/mês</p>
-                </div>
-                <Switch
-                  checked={isActive}
-                  onCheckedChange={(checked) => checked ? onActivateAddon(addon.id) : onDeactivateAddon(addon.id)}
-                />
-              </div>
-            );
-          })}
         </CardContent>
       </Card>
 

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Sidebar } from './components/Sidebar';
+import { Login } from './components/Login';
 import { Dashboard as RestaurantDashboard } from './components/Dashboard';
 import { MenuManagement } from './components/MenuManagement';
-import { ProductForm } from './components/ProductForm';
+import { ProductForm, ProductFormData } from './components/ProductForm';
 import { OrdersPanel } from './components/OrdersPanel';
 import { OrderDetails } from './components/OrderDetails';
 import { Settings } from './components/Settings';
@@ -11,33 +12,67 @@ import { Inventory } from './components/Inventory';
 import { Financial } from './components/Financial';
 import { AddonUpsell } from './components/AddonUpsell';
 
-import { mockTenant, mockCategories, mockAddons, mockPlans } from './data/repository';
-import { Pizza, Order, Category, AddonId } from '@pizza/types';
-import { slugify } from '@pizza/ui';
+import {
+  mockTenant,
+  mockCategories,
+  mockPizzas,
+  unlockedModules,
+  isAuthenticated,
+  tryRestoreSession,
+  loadDashboardBoot,
+  logout,
+  createCategory,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  ApiOrder,
+} from './data/repository';
+import { ADDONS } from './data/addons';
+import { Pizza, Category } from '@pizza/types';
 
-const planModules = mockPlans.find((p) => p.id === mockTenant.planId)?.modules ?? [];
+type RestaurantView = 'dashboard' | 'menu' | 'product-form' | 'orders' | 'order-details' | 'settings' | 'inventory' | 'financial';
 
 export default function App() {
-  type RestaurantView = 'dashboard' | 'menu' | 'product-form' | 'orders' | 'order-details' | 'settings' | 'inventory' | 'financial';
-
+  const [ready, setReady] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
   const [activePage, setActivePage] = useState<RestaurantView>('dashboard');
   const [selectedProduct, setSelectedProduct] = useState<Pizza | null>(null);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
-  const [activeAddons, setActiveAddons] = useState<AddonId[]>(planModules);
+  const [selectedOrder, setSelectedOrder] = useState<ApiOrder | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [pizzas, setPizzas] = useState<Pizza[]>([]);
 
-  const handleActivateAddon = (id: AddonId) => {
-    setActiveAddons((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  const boot = async () => {
+    await tryRestoreSession();
+    if (isAuthenticated()) {
+      await loadDashboardBoot();
+      setCategories(mockCategories);
+      setPizzas(mockPizzas);
+      setAuthenticated(true);
+    }
+    setReady(true);
   };
 
-  const handleDeactivateAddon = (id: AddonId) => {
-    setActiveAddons((prev) => prev.filter((a) => a !== id));
+  useEffect(() => {
+    boot();
+  }, []);
+
+  const handleAuthenticated = async () => {
+    await loadDashboardBoot();
+    setCategories(mockCategories);
+    setPizzas(mockPizzas);
+    setAuthenticated(true);
   };
 
-  const handleCreateCategory = (name: string) => {
-    const id = slugify(name);
-    if (!id || categories.some(c => c.id === id)) return;
-    setCategories([...categories, { id, name: name.trim() }]);
+  const handleLogout = async () => {
+    await logout();
+    setAuthenticated(false);
+    setActivePage('dashboard');
+  };
+
+  const handleCreateCategory = async (name: string): Promise<Category> => {
+    const created = await createCategory(name);
+    setCategories((prev) => [...prev, created]);
+    return created;
   };
 
   const handleNavigate = (page: string) => setActivePage(page as RestaurantView);
@@ -52,10 +87,46 @@ export default function App() {
     setActivePage('product-form');
   };
 
-  const handleViewOrder = (order: Order) => {
+  const handleSaveProduct = async (data: ProductFormData) => {
+    const input = {
+      name: data.name,
+      description: data.description,
+      price: Number(data.price),
+      categoryId: data.category,
+      image: data.image,
+      ingredients: data.ingredients,
+    };
+    if (selectedProduct) {
+      const updated = await updateProduct(selectedProduct.id, input);
+      setPizzas((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    } else {
+      const created = await createProduct(input);
+      setPizzas((prev) => [...prev, created]);
+    }
+    setActivePage('menu');
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    await deleteProduct(id);
+    setPizzas((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const handleViewOrder = (order: ApiOrder) => {
     setSelectedOrder(order);
     setActivePage('order-details');
   };
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Carregando...</p>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <Login onAuthenticated={handleAuthenticated} />;
+  }
 
   return (
     <div className="flex">
@@ -64,16 +135,19 @@ export default function App() {
         onNavigate={handleNavigate}
         tenantName={mockTenant.name}
         tenantLogo={mockTenant.logo}
-        activeAddons={activeAddons}
+        activeAddons={unlockedModules}
+        onLogout={handleLogout}
       />
       <div className="flex-1 min-h-screen bg-background relative">
         {activePage === 'dashboard' && <RestaurantDashboard />}
         {activePage === 'menu' && (
           <MenuManagement
             categories={categories}
+            pizzas={pizzas}
             onCreateCategory={handleCreateCategory}
             onEditProduct={handleEditProduct}
             onNewProduct={handleNewProduct}
+            onDeleteProduct={handleDeleteProduct}
           />
         )}
         {activePage === 'product-form' && (
@@ -82,36 +156,24 @@ export default function App() {
             categories={categories}
             onCreateCategory={handleCreateCategory}
             onBack={() => setActivePage('menu')}
-            onSave={() => setActivePage('menu')}
+            onSave={handleSaveProduct}
           />
         )}
-        {activePage === 'orders' && (
-          <OrdersPanel onViewOrder={handleViewOrder} />
-        )}
+        {activePage === 'orders' && <OrdersPanel onViewOrder={handleViewOrder} />}
         {activePage === 'order-details' && selectedOrder && (
-          <OrderDetails
-            order={selectedOrder}
-            onBack={() => setActivePage('orders')}
-            onUpdateStatus={() => setActivePage('orders')}
-          />
+          <OrderDetails order={selectedOrder} onBack={() => setActivePage('orders')} />
         )}
         {activePage === 'inventory' && (
-          activeAddons.includes('estoque')
+          unlockedModules.includes('estoque')
             ? <Inventory />
-            : <AddonUpsell addon={mockAddons.find(a => a.id === 'estoque')!} onActivate={() => handleActivateAddon('estoque')} />
+            : <AddonUpsell addon={ADDONS.find(a => a.id === 'estoque')!} />
         )}
         {activePage === 'financial' && (
-          activeAddons.includes('financeiro')
+          unlockedModules.includes('financeiro')
             ? <Financial />
-            : <AddonUpsell addon={mockAddons.find(a => a.id === 'financeiro')!} onActivate={() => handleActivateAddon('financeiro')} />
+            : <AddonUpsell addon={ADDONS.find(a => a.id === 'financeiro')!} />
         )}
-        {activePage === 'settings' && (
-          <Settings
-            activeAddons={activeAddons}
-            onActivateAddon={handleActivateAddon}
-            onDeactivateAddon={handleDeactivateAddon}
-          />
-        )}
+        {activePage === 'settings' && <Settings />}
       </div>
     </div>
   );

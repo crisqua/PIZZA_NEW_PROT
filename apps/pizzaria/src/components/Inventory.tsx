@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, Minus, Plus, Trash2, AlertTriangle } from 'lucide-react';
-import { mockInventory } from '../data/repository';
+import { getInventory, createInventoryItem, updateInventoryItem, deleteInventoryItem } from '../data/repository';
 import { InventoryItem } from '@pizza/types';
 import { Card, CardContent, Button, Input, Badge } from '@pizza/ui';
 
@@ -11,10 +11,14 @@ function getStatus(item: InventoryItem): { label: string; variant: 'success' | '
 }
 
 export function Inventory() {
-  const [items, setItems] = useState<InventoryItem[]>(mockInventory);
+  const [items, setItems] = useState<InventoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [newItem, setNewItem] = useState({ name: '', unit: 'kg', quantity: '', minQuantity: '' });
+
+  useEffect(() => {
+    getInventory().then(setItems).catch(() => undefined);
+  }, []);
 
   const filteredItems = items.filter((item) =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -22,25 +26,28 @@ export function Inventory() {
 
   const lowStockCount = items.filter((item) => item.quantity <= item.minQuantity).length;
 
-  const adjustQuantity = (id: string, delta: number) => {
-    setItems(items.map((item) =>
-      item.id === id ? { ...item, quantity: Math.max(0, Math.round((item.quantity + delta) * 100) / 100) } : item
-    ));
+  const adjustQuantity = async (id: string, delta: number) => {
+    const current = items.find((item) => item.id === id);
+    if (!current) return;
+    const quantity = Math.max(0, Math.round((current.quantity + delta) * 100) / 100);
+    const updated = await updateInventoryItem(id, { quantity });
+    setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
   };
 
-  const removeItem = (id: string) => {
-    setItems(items.filter((item) => item.id !== id));
+  const removeItem = async (id: string) => {
+    await deleteInventoryItem(id);
+    setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = async () => {
     if (!newItem.name.trim() || !newItem.quantity || !newItem.minQuantity) return;
-    setItems([...items, {
-      id: `inv-${crypto.randomUUID()}`,
+    const created = await createInventoryItem({
       name: newItem.name.trim(),
       unit: newItem.unit,
       quantity: Number(newItem.quantity),
       minQuantity: Number(newItem.minQuantity),
-    }]);
+    });
+    setItems((prev) => [...prev, created]);
     setNewItem({ name: '', unit: 'kg', quantity: '', minQuantity: '' });
     setIsAdding(false);
   };

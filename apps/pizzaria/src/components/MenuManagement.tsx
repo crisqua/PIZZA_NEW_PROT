@@ -1,23 +1,24 @@
 import { useState } from 'react';
 import { Plus, Search, Edit, Trash2, Check, X } from 'lucide-react';
-import { mockPizzas } from '../data/repository';
 import { Pizza, Category } from '@pizza/types';
 import { Card, CardContent, Button, Input, Badge, formatCurrency } from '@pizza/ui';
 
 interface MenuManagementProps {
   categories: Category[];
+  pizzas: Pizza[];
   onCreateCategory: (name: string) => void;
   onEditProduct: (product: Pizza) => void;
   onNewProduct: () => void;
+  onDeleteProduct: (id: string) => void;
 }
 
-export function MenuManagement({ categories, onCreateCategory, onEditProduct, onNewProduct }: MenuManagementProps) {
+export function MenuManagement({ categories, pizzas, onCreateCategory, onEditProduct, onNewProduct, onDeleteProduct }: MenuManagementProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
 
-  const filteredPizzas = mockPizzas.filter((pizza) => {
+  const filteredPizzas = pizzas.filter((pizza) => {
     const matchesSearch = pizza.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || pizza.category === categoryFilter;
     return matchesSearch && matchesCategory;
@@ -149,7 +150,7 @@ export function MenuManagement({ categories, onCreateCategory, onEditProduct, on
                   <Edit className="w-4 h-4" />
                   Editar
                 </Button>
-                <Button size="sm" variant="ghost" className="shrink-0">
+                <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onDeleteProduct(pizza.id)}>
                   <Trash2 className="w-4 h-4 text-destructive" />
                 </Button>
               </div>

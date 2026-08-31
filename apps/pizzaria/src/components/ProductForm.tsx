@@ -1,18 +1,27 @@
 import { useState } from 'react';
 import { ArrowLeft, Upload, X, Check } from 'lucide-react';
 import { Pizza, Category } from '@pizza/types';
-import { Card, CardContent, Button, Input, Textarea, slugify } from '@pizza/ui';
+import { Card, CardContent, Button, Input, Textarea } from '@pizza/ui';
+
+export interface ProductFormData {
+  name: string;
+  description: string;
+  price: number | string;
+  category: string;
+  ingredients: string[];
+  image: string;
+}
 
 interface ProductFormProps {
   product?: Pizza;
   categories: Category[];
-  onCreateCategory: (name: string) => void;
+  onCreateCategory: (name: string) => Promise<Category>;
   onBack: () => void;
-  onSave: (data: any) => void;
+  onSave: (data: ProductFormData) => Promise<void>;
 }
 
 export function ProductForm({ product, categories, onCreateCategory, onBack, onSave }: ProductFormProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProductFormData>({
     name: product?.name || '',
     description: product?.description || '',
     price: product?.price || '',
@@ -24,8 +33,10 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
   const [newIngredient, setNewIngredient] = useState('');
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const updateField = (field: string, value: any) => {
+  const updateField = <K extends keyof ProductFormData>(field: K, value: ProductFormData[K]) => {
     setFormData({ ...formData, [field]: value });
   };
 
@@ -40,15 +51,22 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
     updateField('ingredients', formData.ingredients.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = () => {
-    onSave(formData);
+  const handleSubmit = async () => {
+    setError('');
+    setSubmitting(true);
+    try {
+      await onSave(formData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Nao foi possivel salvar o produto.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleConfirmNewCategory = () => {
-    const id = slugify(newCategoryName);
-    if (id) {
-      onCreateCategory(newCategoryName);
-      updateField('category', id);
+  const handleConfirmNewCategory = async () => {
+    if (newCategoryName.trim()) {
+      const created = await onCreateCategory(newCategoryName);
+      updateField('category', created.id);
     }
     setNewCategoryName('');
     setIsAddingCategory(false);
@@ -223,9 +241,11 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
             </CardContent>
           </Card>
 
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
           <div className="space-y-3">
-            <Button fullWidth size="lg" onClick={handleSubmit}>
-              {product ? 'Salvar Alterações' : 'Criar Produto'}
+            <Button fullWidth size="lg" onClick={handleSubmit} disabled={submitting}>
+              {submitting ? 'Salvando...' : product ? 'Salvar Alterações' : 'Criar Produto'}
             </Button>
             <Button fullWidth variant="outline" onClick={onBack}>
               Cancelar
