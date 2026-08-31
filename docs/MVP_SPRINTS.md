@@ -351,6 +351,69 @@ spec antigo do fixture removido), validados contra o homolog real antes do push.
 
 **Definition of Done:** cliente cria conta, faz login, monta pedido (inclusive meio a meio), faz checkout com endereço pré-carregado do próprio cadastro e pagamento na entrega, pedido é persistido; duas requisições simultâneas com a mesma chave de idempotência geram só 1 pedido.
 
+**✅ Concluída em 2026-08-31.** Maior sprint até agora — backend (`orders`) e frontend
+(`apps/cliente`) planejados e construídos juntos, por decisão explícita do usuário. Sem
+pesquisa nova no Barbearia pra state machine/idempotência: pesquisa já feita confirmou que
+ele não tem mecanismo de idempotência nenhum (desenho novo) e sua validação de transição é
+só `if` solto por método, sem utilitário compartilhado (aqui optou-se por um mapa de
+transições único, dado que pedido tem mais ramificações que os agendamentos dele).
+
+Decisões e divergências reais:
+- **Perfil do cliente**: `User` estendido com `phone/address/addressNumber/complement/
+  neighborhood` (nullable, só preenchido pra `role:'customer'`) em vez da tabela `Customer`
+  separada que o esboço ER da arquitetura sugere — decisão tomada com o usuário nesta
+  sprint, reaproveitando o self-service `/v1/users/me` (Sprint 2) já pronto para isso
+  (`User.@@unique([tenantId,id])` já tinha sido deixado preparado pra esse reuso).
+- **`order_items`**: primeiro caso do schema com 3 pernas de FK composta hand-written —
+  `(tenant_id,order_id)→orders`, `(tenant_id,product_id)→products`,
+  `(tenant_id,second_product_id)→products` (nullable, meio a meio). `Product` ganhou o
+  campo `type` (`'pizza'|'drink'`) pra `order_items` saber como calcular preço sem
+  casamento frágil por nome de categoria.
+- **Idempotência — bug real encontrado no smoke test manual**: o desenho original
+  (inserir, capturar `P2002`, reconsultar o pedido já existente **na mesma transação**)
+  falhava com `25P02 current transaction is aborted` — Postgres aborta a transação
+  INTEIRA após qualquer erro, então nenhuma query seguinte no mesmo `tx` funciona depois
+  de um `P2002`. Corrigido fazendo `OrdersService.create` abrir as **próprias** transações
+  (via `TenantContextService`, não o `tx` do `TenantContextInterceptor`): a tentativa de
+  inserção numa transação, e — só se colidir — a reconsulta numa transação NOVA. Também
+  descoberto que `err.meta.target` vem `null` no driver Postgres do Prisma dentro de uma
+  transação interativa (mesmo em versões onde outros caminhos populam `target`) — não dá
+  pra distinguir qual `@@unique` disparou por aí; tratado qualquer `P2002` deste insert
+  como a colisão de idempotência (seguro, já que `id` é UUID gerado no servidor).
+- **Catálogo público novo** (`GET /v1/public/tenants/:slug/catalog`, `src/catalog-public/`):
+  resolve tenant por slug (leitura direta, `Tenant` não tem RLS) e abre a própria
+  `runInTenantContext` pra ler `categories`/`products` (que têm RLS) sem JWT nenhum —
+  cache só com TTL curto (60s), sem invalidação ativa, mesmo padrão de `tenants-public`.
+- **Branding público estendido**: `GET /v1/public/tenants/:slug` ganhou `deliveryFee`/
+  `minOrder` (`tenant-response.util.ts`) — divergência do comentário original da Sprint 3
+  ("nunca expor deliveryFee/minOrder"), mas `apps/cliente` precisa desses dois pra montar
+  o total do carrinho antes do checkout confirmar (preço de verdade continua sempre
+  recalculado no servidor). `active/phone/address` continuam de fora.
+- **`POST /v1/auth/register`**: estende `AuthController`/`AuthService` existentes (não
+  módulo novo) — sempre `role:'customer'`, sempre tenant-scoped, auto-login via
+  `issueTokens()` reaproveitado do `login()`.
+- **`apps/cliente`**: `repository.ts` reescrito (único arquivo que muda, por desenho desde
+  a Sprint 0) — `mockTenant/mockCategories/mockPizzas/mockDrinks/mockCustomer` continuam
+  como bindings `let` de nível de módulo (não viraram funções): `loadCatalog()`/login
+  reatribuem esses bindings depois de resolver, e `Menu.tsx`/`PizzaBuilder.tsx`/`Cart.tsx`
+  continuam lendo-os do jeito síncrono de sempre — nenhum desses três precisou mudar.
+  `App.tsx` só renderiza a tela real depois que `loadCatalog()`/`tryRestoreSession()`
+  resolvem. `Checkout.tsx`/`OrderConfirmation.tsx` perderam toda a linguagem de WhatsApp
+  (não é MVP, `docs/MVP.md` linha 23/78) — confirmação agora faz polling real de status
+  (`GET /v1/orders/:id` a cada 10s, item 9 do `MVP.md`). Resolução de tenant
+  (`data/tenant.ts`) usa o primeiro label do hostname em produção (item 5 do `MVP.md`,
+  ainda sem hosting real) com fallback `VITE_TENANT_SLUG` pro Vite dev local.
+- **Risco conhecido, não corrigido nesta sprint**: cookie de refresh é `SameSite=Strict`
+  (decisão da Sprint 2) — funciona testando `apps/cliente` contra uma `apps/api` rodando
+  **localmente** (mesmo domínio registrável, fluxo de dev natural), mas não funcionaria
+  chamando a API já publicada no Render direto do Vite dev local (domínio registrável
+  diferente). Revisitar quando `apps/cliente` ganhar hosting de verdade.
+
+103 specs e2e verdes (13 novos: `test/orders/{orders-crud,idempotency,order-composite-fk}
+.e2e-spec.ts`), incluindo o teste literal de concorrência real (`Promise.all` de 2 POSTs
+idênticos) e o de FK composta cross-tenant, validados manualmente contra o homolog antes
+de escrever as versões automatizadas.
+
 ---
 
 ## Sprint 8 — Módulo `financial` (Financeiro, add-on pago)

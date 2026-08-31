@@ -14,6 +14,7 @@ export interface ProductResponse {
   ingredients: string[];
   featured: boolean;
   available: boolean;
+  type: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +31,7 @@ export function toProductResponse(product: Product): ProductResponse {
     ingredients: product.ingredients as string[],
     featured: product.featured,
     available: product.available,
+    type: product.type,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
   };

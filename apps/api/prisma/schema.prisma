@@ -50,11 +50,23 @@ model User {
   name         String   @db.VarChar(120)
   role         String   @db.VarChar(20)
   passwordHash String   @map("password_hash") @db.VarChar(255)
+  // Perfil de entrega do cliente (Sprint 7) — preenchido de verdade so' pra role:'customer',
+  // vazio pros demais papeis. Decisao tomada com o usuario nesta sprint: estender User em
+  // vez de criar uma tabela Customer separada (o esboco ER da arquitetura sugere separar
+  // PII numa tabela propria, mas User.@@unique([tenantId,id]) ja' foi deixado pronto pra
+  // esse reuso, e o cliente ja' e' User{role:'customer'} desde a Sprint 2 com self-service
+  // funcionando em /v1/users/me — nao vale criar modulo novo so' pra 5 campos de texto).
+  phone         String   @default("") @db.VarChar(20)
+  address       String   @default("") @db.VarChar(255)
+  addressNumber String   @default("") @map("address_number") @db.VarChar(20)
+  complement    String   @default("") @db.VarChar(120)
+  neighborhood  String   @default("") @db.VarChar(120)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   tenant        Tenant?        @relation(fields: [tenantId], references: [id])
   refreshTokens RefreshToken[]
+  orders        Order[]
 
   @@unique([tenantId, email])
   @@unique([tenantId, id])
@@ -182,6 +194,10 @@ model Product {
   // <Badge> fixo "Ativo" em MenuManagement.tsx, nao ligado a nenhum campo). true =
   // disponivel, mesmo default-true de Plan.active/Tenant.active.
   available   Boolean  @default(true)
+  // 'pizza' | 'drink' (Sprint 7) — validado em codigo, mesma convencao de role/status.
+  // Existe pra order_items saber se o preco e' media-de-sabores*multiplicador (pizza) ou
+  // direto (bebida), sem depender de casamento fragil por nome de categoria.
+  type        String   @default("pizza") @db.VarChar(20)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -191,6 +207,8 @@ model Product {
   // unique nao-PK) — mesmo padrao exato de refresh_tokens/users (Sprint 2), garantindo
   // que categoryId nunca aponte pra uma categoria de outro tenant, mesmo por bug.
   category Category @relation(fields: [categoryId], references: [id])
+  orderItemsAsFirst  OrderItem[] @relation("OrderItemProduct")
+  orderItemsAsSecond OrderItem[] @relation("OrderItemSecondProduct")
 
   // Preparado pra ser referenciado por order_items na Sprint 7, mesmo raciocinio de
   // User.@@unique antes do RefreshToken existir.
@@ -219,4 +237,77 @@ model InventoryItem {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("inventory_items")
+}
+
+// Pedido (Sprint 7) — tenant-owned de verdade, RLS ligada e forcada, forma estrita (mesma
+// de Category/Product/Subscription). "status": 'pending'|'preparing'|'delivery'|
+// 'completed'|'cancelled', maquina de transicoes validada em codigo (src/orders/
+// order-status.ts), nunca aceita valor arbitrario do cliente. Campos de entrega/pagamento
+// sao SNAPSHOT do momento da compra (customerName/phone/address/...), nunca relidos do
+// perfil do User depois — endereco pode mudar no /v1/users/me sem afetar pedidos ja
+// feitos. "total"/deliveryFee sao sempre calculados no servidor (OrdersService), nunca
+// confiados do client. idempotencyKey + @@unique([tenantId,idempotencyKey]) e' o
+// mecanismo de idempotencia na criacao (arquitetura secao 3.2 item 7): duas requisicoes
+// concorrentes com a mesma chave batem na mesma constraint, so' uma cria a linha.
+model Order {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  customerId     String   @map("customer_id") @db.Uuid
+  status         String   @default("pending") @db.VarChar(20)
+  idempotencyKey String   @map("idempotency_key") @db.VarChar(255)
+  customerName   String   @map("customer_name") @db.VarChar(120)
+  phone          String   @db.VarChar(20)
+  address        String   @db.VarChar(255)
+  addressNumber  String   @default("") @map("address_number") @db.VarChar(20)
+  complement     String   @default("") @db.VarChar(120)
+  neighborhood   String   @default("") @db.VarChar(120)
+  paymentMethod  String   @map("payment_method") @db.VarChar(20)
+  changeFor      Decimal? @map("change_for") @db.Decimal(10, 2)
+  deliveryFee    Decimal  @map("delivery_fee") @db.Decimal(10, 2)
+  total          Decimal  @db.Decimal(10, 2)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relacao Prisma normal (coluna unica) + FK COMPOSTA hand-written na migration
+  // (tenant_id, customer_id) -> users(tenant_id, id) — mesmo padrao exato de
+  // Product.category (Sprint 5), garante que customerId nunca aponte pra um usuario de
+  // outro tenant, mesmo por bug.
+  customer User        @relation(fields: [customerId], references: [id])
+  items    OrderItem[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, customerId], map: "idx_orders_tenant_customer")
+  @@index([tenantId, status], map: "idx_orders_tenant_status")
+  @@map("orders")
+}
+
+// Item de pedido (Sprint 7) — tenant-owned, RLS ligada e forcada. Primeiro caso do schema
+// com TRES pernas de FK composta hand-written na migration (tenant_id,order_id)->orders,
+// (tenant_id,product_id)->products, (tenant_id,second_product_id)->products — a ultima
+// nullable (meio a meio), MATCH SIMPLE (default do Postgres) satisfaz a constraint
+// automaticamente quando second_product_id IS NULL, mesmo raciocinio ja documentado em
+// refresh_tokens/fk_refresh_token_tenant_matches_user. secondProductId e' o segundo sabor
+// (pizza meio a meio); size (PizzaSizeId) e' null pra bebida. "name"/"unitPrice" sao
+// SNAPSHOT calculados no servidor no momento da criacao (OrdersService) — nunca confiados
+// do client, e sobrevivem a um produto renomeado/apagado depois.
+model OrderItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  orderId         String   @map("order_id") @db.Uuid
+  productId       String   @map("product_id") @db.Uuid
+  secondProductId String?  @map("second_product_id") @db.Uuid
+  type            String   @db.VarChar(20)
+  size            String?  @db.VarChar(20)
+  name            String   @db.VarChar(200)
+  unitPrice       Decimal  @map("unit_price") @db.Decimal(10, 2)
+  quantity        Int      @default(1)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  order         Order   @relation(fields: [orderId], references: [id])
+  product       Product @relation("OrderItemProduct", fields: [productId], references: [id])
+  secondProduct Product? @relation("OrderItemSecondProduct", fields: [secondProductId], references: [id])
+
+  @@index([tenantId, orderId], map: "idx_order_items_tenant_order")
+  @@map("order_items")
 }

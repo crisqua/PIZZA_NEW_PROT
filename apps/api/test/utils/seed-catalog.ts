@@ -33,7 +33,7 @@ export async function seedProduct(
   tenantContext: TenantContextService,
   tenantId: string,
   categoryId: string,
-  overrides: { name?: string; price?: number } = {},
+  overrides: { name?: string; price?: number; type?: string } = {},
 ): Promise<SeededProduct> {
   const product = await tenantContext.runInTenantContext(tenantId, (tx) =>
     tx.product.create({
@@ -42,6 +42,7 @@ export async function seedProduct(
         categoryId,
         name: overrides.name ?? 'Produto Teste',
         price: overrides.price ?? 10,
+        type: overrides.type ?? 'pizza',
       },
     }),
   );

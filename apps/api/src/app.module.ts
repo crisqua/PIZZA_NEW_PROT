@@ -4,10 +4,12 @@ import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { CacheModule } from './cache/cache.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { CatalogPublicModule } from './catalog-public/catalog-public.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthController } from './health/health.controller';
 import { InventoryModule } from './inventory/inventory.module';
 import { ModuleGateModule } from './module-gate/module-gate.module';
+import { OrdersModule } from './orders/orders.module';
 import { PlansAdminModule } from './plans-admin/plans-admin.module';
 import { SubscriptionsAdminModule } from './subscriptions-admin/subscriptions-admin.module';
 import { TenantsAdminModule } from './tenants-admin/tenants-admin.module';
@@ -30,7 +32,9 @@ import { UsersModule } from './users/users.module';
     SubscriptionsAdminModule,
     ModuleGateModule,
     CatalogModule,
+    CatalogPublicModule,
     InventoryModule,
+    OrdersModule,
   ],
   controllers: [HealthController],
 })

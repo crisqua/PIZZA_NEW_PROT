@@ -3,6 +3,7 @@ import type { CookieOptions, Response } from 'express';
 import { RequestWithTenant } from '../common/types/request-with-tenant';
 import { AuthService, TokenPair } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 
 const REFRESH_COOKIE_NAME = process.env.REFRESH_COOKIE_NAME ?? 'pizza_refresh';
 const REFRESH_COOKIE_PATH = '/v1/auth';
@@ -25,6 +26,15 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const user = await this.authService.validateCredentials(dto);
+    const tokens = await this.authService.issueTokens(user);
+    this.setRefreshCookie(res, tokens);
+    return { accessToken: tokens.accessToken, user };
+  }
+
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+    const user = await this.authService.register(dto);
     const tokens = await this.authService.issueTokens(user);
     this.setRefreshCookie(res, tokens);
     return { accessToken: tokens.accessToken, user };

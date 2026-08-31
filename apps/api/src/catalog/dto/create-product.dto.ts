@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 export class CreateProductDto {
   @IsString()
@@ -37,4 +37,10 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   available?: boolean;
+
+  // 'pizza' | 'drink' (Sprint 7) -- so' order_items le' isso pra saber como calcular
+  // preco (media-de-sabores*multiplicador vs. direto). Default 'pizza' no schema.
+  @IsOptional()
+  @IsIn(['pizza', 'drink'])
+  type?: string;
 }

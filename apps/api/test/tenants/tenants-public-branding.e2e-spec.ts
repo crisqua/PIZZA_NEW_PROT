@@ -33,7 +33,10 @@ describe('GET /v1/public/tenants/:slug', () => {
     expect(res.status).toBe(200);
   });
 
-  it('resposta e' + ' exatamente {name,slug,primaryColor,logo} — sem campos internos', async () => {
+  // deliveryFee/minOrder entraram na Sprint 7 (ver tenant-response.util.ts): diferente de
+  // active/phone/address/id (dado operacional/interno, continua fora), sao preco pro
+  // cliente -- apps/cliente precisa deles pra montar o total do carrinho antes do checkout.
+  it('resposta e' + ' exatamente {name,slug,primaryColor,logo,deliveryFee,minOrder} — sem campos internos', async () => {
     const res = await request(app.getHttpServer()).get(`/v1/public/tenants/${slug}`).expect(200);
 
     expect(res.body).toEqual({
@@ -41,12 +44,12 @@ describe('GET /v1/public/tenants/:slug', () => {
       slug,
       primaryColor: '#ABCDEF',
       logo: '🍕',
+      deliveryFee: 0,
+      minOrder: 0,
     });
     expect(res.body).not.toHaveProperty('active');
     expect(res.body).not.toHaveProperty('phone');
     expect(res.body).not.toHaveProperty('address');
-    expect(res.body).not.toHaveProperty('deliveryFee');
-    expect(res.body).not.toHaveProperty('minOrder');
     expect(res.body).not.toHaveProperty('id');
   });
 });

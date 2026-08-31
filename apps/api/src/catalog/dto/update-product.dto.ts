@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 export class UpdateProductDto {
   @IsOptional()
@@ -39,4 +39,8 @@ export class UpdateProductDto {
   @IsOptional()
   @IsBoolean()
   available?: boolean;
+
+  @IsOptional()
+  @IsIn(['pizza', 'drink'])
+  type?: string;
 }

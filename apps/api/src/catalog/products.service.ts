@@ -27,6 +27,7 @@ export class ProductsService {
           ingredients: dto.ingredients ?? [],
           featured: dto.featured ?? false,
           available: dto.available ?? true,
+          type: dto.type ?? 'pizza',
         },
       });
       return toProductResponse(product);

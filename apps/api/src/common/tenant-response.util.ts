@@ -36,19 +36,29 @@ export function toTenantResponse(tenant: Tenant): TenantResponse {
 }
 
 // Formato da rota publica (GET /public/tenants/:slug) -- so' o que e' seguro expor sem
-// autenticacao, nunca active/phone/address/deliveryFee/minOrder.
+// autenticacao, nunca active/phone/address. deliveryFee/minOrder entraram na Sprint 7:
+// diferente de phone/address/active (dado operacional/interno), sao preco pro cliente --
+// apps/cliente precisa deles pra montar o total do carrinho ANTES do checkout confirmar
+// (o servidor recalcula o total de verdade em OrdersService.create de qualquer jeito,
+// isso aqui e' so' preview).
 export interface TenantBrandingResponse {
   name: string;
   slug: string;
   primaryColor: string;
   logo: string;
+  deliveryFee: number;
+  minOrder: number;
 }
 
-export function toTenantBrandingResponse(tenant: Pick<Tenant, 'name' | 'slug' | 'primaryColor' | 'logo'>): TenantBrandingResponse {
+export function toTenantBrandingResponse(
+  tenant: Pick<Tenant, 'name' | 'slug' | 'primaryColor' | 'logo' | 'deliveryFee' | 'minOrder'>,
+): TenantBrandingResponse {
   return {
     name: tenant.name,
     slug: tenant.slug,
     primaryColor: tenant.primaryColor,
     logo: tenant.logo,
+    deliveryFee: tenant.deliveryFee.toNumber(),
+    minOrder: tenant.minOrder.toNumber(),
   };
 }

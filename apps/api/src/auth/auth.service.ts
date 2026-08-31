@@ -1,12 +1,16 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
+import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { verifyPassword } from '../common/password.util';
+import { hashPassword, verifyPassword } from '../common/password.util';
 import { hashRefreshToken } from '../common/refresh-token.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService, TenantTx } from '../prisma/tenant-context.service';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { AuthenticatedUser, UserRole } from './types/authenticated-user';
+
+const PRISMA_UNIQUE_CONSTRAINT = 'P2002';
 
 interface RefreshTokenPayload {
   sub: string;
@@ -82,6 +86,35 @@ export class AuthService {
     }
 
     return { id: user.id, tenantId: null, role: 'platform_superadmin' };
+  }
+
+  // Cadastro publico do cliente final (Sprint 7) -- sempre role:'customer', sempre
+  // tenant-scoped (nao existe cadastro publico de superadmin/staff, esses continuam
+  // seedados via scripts/seed-auth-users.ts). Slug inativo/inexistente e email duplicado
+  // usam mensagens/erros diferentes de proposito (diferente de validateCredentials): aqui
+  // nao ha' risco de enumeracao de credenciais, so' de tenant, e o formulario de cadastro
+  // publico ja precisa saber "esse slug nao existe" pra dar feedback util.
+  async register(dto: RegisterDto): Promise<AuthenticatedUser> {
+    const tenant = await this.prisma.tenant.findUnique({ where: { slug: dto.tenantSlug } });
+    if (!tenant || !tenant.active) {
+      throw new NotFoundException('Pizzaria nao encontrada.');
+    }
+
+    const passwordHash = await hashPassword(dto.password);
+
+    try {
+      const user = await this.tenantContext.runInTenantContext(tenant.id, (tx) =>
+        tx.user.create({
+          data: { tenantId: tenant.id, email: dto.email, name: dto.name, role: 'customer', passwordHash },
+        }),
+      );
+      return { id: user.id, tenantId: user.tenantId, role: user.role as UserRole };
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === PRISMA_UNIQUE_CONSTRAINT) {
+        throw new ConflictException('Ja existe uma conta com este email nesta pizzaria.');
+      }
+      throw err;
+    }
   }
 
   // familyId ausente = login novo (nova cadeia de rotacao); presente = proximo token da

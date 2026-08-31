@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { ArrowLeft, CreditCard, Banknote, MessageCircle } from 'lucide-react';
-import { mockTenant, mockCustomer } from '../data/repository';
+import { useRef, useState } from 'react';
+import { ArrowLeft, CreditCard, Banknote, CheckCircle2 } from 'lucide-react';
+import { buildOrderItems, createOrder, mockTenant, mockCustomer, ApiOrder } from '../data/repository';
 import { CartItem } from '@pizza/types';
 import { Card, CardContent, Button, Input, formatCurrency } from '@pizza/ui';
 
@@ -20,7 +20,7 @@ interface CheckoutProps {
   items: CartItem[];
   total: number;
   onBack: () => void;
-  onConfirm: (data: CheckoutData) => void;
+  onSuccess: (order: ApiOrder) => void;
 }
 
 export interface CheckoutData {
@@ -34,7 +34,7 @@ export interface CheckoutData {
   changeFor?: string;
 }
 
-export function Checkout({ items, total, onBack, onConfirm }: CheckoutProps) {
+export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
   const [formData, setFormData] = useState<CheckoutData>({
     name: mockCustomer?.name ?? '',
     phone: mockCustomer?.phone ?? '',
@@ -47,6 +47,12 @@ export function Checkout({ items, total, onBack, onConfirm }: CheckoutProps) {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  // Gerada UMA vez ao montar a tela e reusada em qualquer reenvio (ex.: falha de rede) --
+  // e' isso que garante que um retry do MESMO checkout nunca vira um segundo pedido
+  // (arquitetura secao 3.2 item 7 / OrdersService.create no backend).
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
 
   const paymentMethods = [
     { id: 'dinheiro', name: 'Dinheiro', icon: Banknote },
@@ -67,9 +73,30 @@ export function Checkout({ items, total, onBack, onConfirm }: CheckoutProps) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
-    if (validate()) {
-      onConfirm(formData);
+  const handleSubmit = async () => {
+    if (!validate()) return;
+
+    setSubmitError('');
+    setSubmitting(true);
+    try {
+      const order = await createOrder(
+        {
+          items: buildOrderItems(items),
+          phone: formData.phone,
+          address: formData.address,
+          addressNumber: formData.addressNumber,
+          complement: formData.complement,
+          neighborhood: formData.neighborhood,
+          paymentMethod: formData.paymentMethod,
+          changeFor: formData.changeFor ? Number(formData.changeFor.replace(',', '.')) || undefined : undefined,
+        },
+        idempotencyKeyRef.current,
+      );
+      onSuccess(order);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Nao foi possivel enviar o pedido. Tente novamente.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -103,7 +130,7 @@ export function Checkout({ items, total, onBack, onConfirm }: CheckoutProps) {
               error={errors.name}
             />
             <Input
-              label="Telefone / WhatsApp"
+              label="Telefone"
               placeholder="(00) 00000-0000"
               type="tel"
               inputMode="tel"
@@ -213,12 +240,20 @@ export function Checkout({ items, total, onBack, onConfirm }: CheckoutProps) {
             </div>
           </CardContent>
         </Card>
+
+        {submitError && <p className="text-sm text-destructive text-center">{submitError}</p>}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border p-4">
-        <Button fullWidth size="lg" onClick={handleSubmit} className="h-14 rounded-lg text-base font-semibold">
-          <MessageCircle className="w-5 h-5" />
-          Enviar Pedido via WhatsApp
+        <Button
+          fullWidth
+          size="lg"
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="h-14 rounded-lg text-base font-semibold"
+        >
+          <CheckCircle2 className="w-5 h-5" />
+          {submitting ? 'Enviando...' : 'Confirmar Pedido'}
         </Button>
       </div>
     </div>

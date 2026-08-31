@@ -26,6 +26,11 @@ const PUBLIC_USER_SELECT = {
   email: true,
   name: true,
   role: true,
+  phone: true,
+  address: true,
+  addressNumber: true,
+  complement: true,
+  neighborhood: true,
   createdAt: true,
   updatedAt: true,
 } as const;
