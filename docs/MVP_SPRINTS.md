@@ -36,8 +36,8 @@ Este documento traduz o escopo do `MVP.md` e a arquitetura do `ARQUITETURA_SISTE
 
 Status: Sprint 0 **✅ concluída em 2026-08-28**. Sprint 1 **✅ concluída em 2026-08-30**
 (mecanismo de RLS + CI verificados em 2026-08-29; deploy no Render — `pizza-api-homolog`
-— fechado em 2026-08-30). Sprint 2 **✅ concluída em 2026-08-30** — ver nota logo abaixo
-da sprint. Sprints 3–11 **⏳ não
+— fechado em 2026-08-30). Sprint 2 **✅ concluída em 2026-08-30**. Sprint 3 **✅ concluída
+em 2026-08-31** — ver nota logo abaixo da sprint. Sprints 4–11 **⏳ não
 iniciadas** — os 3 apps frontend rodam isolados (`apps/cliente`, `apps/pizzaria`,
 `apps/admin-pizzarias`) mas ainda com dados mockados locais
 (`apps/<app>/src/data/mockData.ts`), sem consumir a API real ainda (isso é Sprint 7/9/10).
@@ -160,6 +160,26 @@ e2e (7 arquivos novos + os 2 da Sprint 1, agora reparados após o novo campo obr
 - **Campo `active` (boolean) em `tenants`** — protótipo já valida a UI (`TenantsManagement.tsx`, switch por tenant). `PATCH /v1/admin/tenants/:id/active` (superadmin only) alterna o campo; o guard de auth (Sprint 2) passa a checar `tenant.active === true` no momento do login, não só no cadastro — desativar um tenant precisa bloquear login imediatamente, não é decorativo.
 
 **Definition of Done:** admin da pizzaria só edita o próprio tenant; tentar editar outro `tenant_id` via payload é rejeitado; desativar um tenant via `/v1/admin/tenants/:id/active` faz o próximo login de `tenant_owner`/`tenant_staff` desse tenant falhar com 403.
+
+**✅ Concluída em 2026-08-31.** Três divergências de escopo confirmadas com o usuário
+antes de implementar (`AskUserQuestion`), todas puxando pra design/protótipo já validado
+em vez do texto mais antigo da arquitetura: (1) **uma cor de acento só** (`primaryColor`),
+não "primária/secundária" — bate com `docs/DESIGN_JORNADA_CLIENTE.md` e com o formulário
+real (`TenantForm.tsx` só tem um seletor de cor); (2) **`logo` como emoji curto**, não
+URL/upload — o protótipo trata como `Input maxLength={2}`; (3) **incluídos agora
+`phone`/`address`/`deliveryFee`/`minOrder`** (o protótipo já espera, evita retrabalho de
+migration na Sprint 10) — **`planId` deliberadamente fora** (Sprint 4). Foi adicionada
+também uma quarta rota não prevista no texto original, `GET /v1/public/tenants/:slug`
+(sem auth) — sem ela, nenhuma das duas rotas listadas acima tem tráfego alto o bastante
+pra justificar o próprio requisito de cache Redis do enunciado.
+`Tenant` ganhou as primeiras colunas monetárias do schema (`deliveryFee`/`minOrder`,
+`Decimal(10,2)` — define o padrão pra `products.price` na Sprint 5); todo response
+mapeia `.toNumber()` explicitamente, já que `Prisma.Decimal` serializa como string por
+padrão. `CacheModule` (Redis via `ioredis` com fallback in-memory quando `REDIS_URL` não
+está setada) segue o mesmo padrão do Barberaria — infra opcional, sem exigir Upstash
+agora; CI ganhou um serviço `redis:7` efêmero pra exercitar o caminho real do Redis pelo
+menos uma vez (sem isso, só o fallback rodaria em qualquer lugar). 48 specs e2e verdes
+(5 novos + os 43 das Sprints 1/2), verificados contra o homolog real antes do push.
 
 ---
 
