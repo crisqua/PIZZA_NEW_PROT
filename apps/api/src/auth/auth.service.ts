@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { randomUUID } from 'crypto';
 import { verifyPassword } from '../common/password.util';
@@ -47,6 +47,16 @@ export class AuthService {
       const tenant = await this.prisma.tenant.findUnique({ where: { slug: dto.tenantSlug } });
       if (!tenant) {
         throw new UnauthorizedException('Credenciais invalidas.');
+      }
+
+      // Checado ANTES da senha, de proposito: mais simples e evita pagar o custo de um
+      // Argon2 verify (caro por design) numa tentativa que vai ser rejeitada de qualquer
+      // jeito. 403 (nao 401) e' distinguivel aqui SEM reabrir a enumeracao que o 401
+      // generico acima evita -- aquele esconde se um SLUG existe; este so' dispara depois
+      // do slug ja confirmado existente, e nao revela nada sobre email/senha (Sprint 3,
+      // ver docs/MVP_SPRINTS.md).
+      if (!tenant.active) {
+        throw new ForbiddenException('Tenant desativado.');
       }
 
       const user = await this.tenantContext.runInTenantContext(tenant.id, (tx) =>

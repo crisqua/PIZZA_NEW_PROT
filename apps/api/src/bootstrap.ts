@@ -17,7 +17,10 @@ export function configureApp(app: INestApplication): void {
       .filter(Boolean),
     credentials: true,
   });
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
+  // transform:true e' necessario pra @Type()/@IsInt() em query params (sempre chegam como
+  // string) funcionarem -- ex. ListTenantsQueryDto (Sprint 3). Nao afeta bodies JSON, que
+  // ja chegam com os tipos certos.
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   // 'health' fora do prefixo pra nao quebrar o Health Check Path ja configurado no Render.
   app.setGlobalPrefix('v1', { exclude: ['health'] });
   app.enableShutdownHooks();

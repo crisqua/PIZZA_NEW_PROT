@@ -23,6 +23,19 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # Redis efemero (Sprint 3) -- sem isso, RedisCacheService nunca roda de verdade em
+      # lugar nenhum (o fallback in-memory e' o unico caminho exercitado), e um bug real de
+      # serializacao/TTL so' apareceria em producao. Nao precisa de conta/secret, imagem
+      # padrao sem auth, mesmo padrao "infra efemera barata" do postgres acima.
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pizza_ci
@@ -33,6 +46,7 @@ jobs:
       JWT_REFRESH_SECRET: ci_only_refresh_secret_different_from_access
       JWT_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
+      REDIS_URL: redis://localhost:6379
 
     steps:
       - name: Checkout

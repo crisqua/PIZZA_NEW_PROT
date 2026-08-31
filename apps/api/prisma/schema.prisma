@@ -8,10 +8,30 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// Sem RLS de proposito (Sprint 1, arquitetura secao 3.1/6.3): o painel Admin-Pizzarias
+// precisa enxergar todos os tenants ao mesmo tempo; isolamento aqui e por rota/RBAC, nao
+// RLS. scripts/check-rls.sql ja exclui "tenants" explicitamente por nome.
 model Tenant {
   id        String   @id @default(uuid()) @db.Uuid
   name      String   @db.VarChar(120)
   slug      String   @unique @db.VarChar(60)
+  active    Boolean  @default(true)
+  // Uma cor de acento so' (nao primaria+secundaria) — bate com o design system aprovado
+  // (docs/DESIGN_JORNADA_CLIENTE.md: "accent e' por tenant... campo primary_color") e
+  // com o formulario real (TenantForm.tsx so' tem um seletor de cor).
+  primaryColor String @default("#C9A84C") @map("primary_color") @db.VarChar(7)
+  // Emoji curto, nao URL/upload — TenantForm.tsx trata logo como Input maxLength={2}
+  // rotulado "Logo (Emoji)". VarChar(8) conta code points (nao bytes), cobre com folga
+  // qualquer emoji de 1-2 code points (bandeiras/sequencias ZWJ inclusive).
+  logo         String @default("🍕") @db.VarChar(8)
+  phone        String @default("") @db.VarChar(20)
+  address      String @default("") @db.VarChar(255)
+  // Primeiras colunas monetarias do schema — Decimal(10,2), nao Int centavos nem Float,
+  // estabelece o padrao pra products.price (Sprint 5) e totais de pedido depois. Cuidado:
+  // Prisma.Decimal serializa via .toJSON() como STRING ("8.00"), nao number — todo
+  // response precisa mapear .toNumber() explicitamente antes de devolver ao cliente.
+  deliveryFee Decimal @default(0) @map("delivery_fee") @db.Decimal(10, 2)
+  minOrder    Decimal @default(0) @map("min_order") @db.Decimal(10, 2)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
