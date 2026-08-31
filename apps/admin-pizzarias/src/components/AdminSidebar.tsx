@@ -4,9 +4,10 @@ import { cn } from '@pizza/ui';
 interface AdminSidebarProps {
   activePage: string;
   onNavigate: (page: string) => void;
+  onLogout: () => void;
 }
 
-export function AdminSidebar({ activePage, onNavigate }: AdminSidebarProps) {
+export function AdminSidebar({ activePage, onNavigate, onLogout }: AdminSidebarProps) {
   const menuItems = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
     { id: 'tenants', name: 'Pizzarias', icon: Store },
@@ -51,7 +52,10 @@ export function AdminSidebar({ activePage, onNavigate }: AdminSidebarProps) {
       </nav>
 
       <div className="p-4 border-t border-border">
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all">
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+        >
           <LogOut className="w-5 h-5" />
           <span className="font-medium">Sair</span>
         </button>

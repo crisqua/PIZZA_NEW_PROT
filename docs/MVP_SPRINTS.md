@@ -565,6 +565,65 @@ clicar.
 
 **Nota:** esta sprint só depende da Sprint 4 (módulo `plans`), não precisa esperar Inventory/Orders/Financial — pode ser adiantada em paralelo, mesma flexibilidade que o Barberaria explorou ao construir `admin-desenvolvain` em paralelo aos outros dois frontends.
 
+**✅ Concluída em 2026-08-31.** Última sprint de conexão de frontend antes do piloto
+(Sprint 11).
+
+**Gap real de trabalho novo, não só wiring**: onboarding atômico (tenant + dono +
+assinatura numa transação só) não existia em lugar nenhum do código — `POST
+/v1/admin/tenants` sempre só criou a linha de `Tenant`; não havia endpoint algum pra
+criar um usuário `tenant_owner` fora do `scripts/seed-auth-users.ts` manual; e o único
+precedente de "tenant + dono" (`test/utils/seed-tenant.ts`) faz isso em duas transações
+separadas, não atômico. Construído do zero: `TenantOnboardingService` (módulo
+`TenantsAdminModule`, separado de `TenantsAdminService` — mesmo espírito de separar
+`ExpensesService`/`RevenueService` na Sprint 8) abrindo uma única
+`prisma.$transaction` que cria o tenant, faz `SET LOCAL app.current_tenant_id` pro
+próprio tenant recém-criado **na mesma transação**, e só depois cria o dono
+(`role:'tenant_owner'`) e a assinatura — funciona porque MVCC garante leitura-da-
+própria-escrita dentro de uma transação (RLS/FK enxergam o tenant mesmo ele ainda não
+tendo committado pra fora). Testado explicitamente que um `planId` inválido não deixa
+tenant órfão (a prova real de atomicidade).
+
+**Segundo gap real de pesquisa**: `orders` tem RLS forçada, e a role de banco da
+aplicação (`pizza_app`, `NOSUPERUSER NOBYPASSRLS`) nunca pode ler entre tenants numa
+query só. "Pedidos do mês" da plataforma inteira (`GET /v1/admin/dashboard`, novo em
+`AdminController`) precisa iterar tenant por tenant via `runInTenantContext` e somar —
+não um bug, é o próprio modelo de isolamento funcionando como desenhado; aceitável na
+escala de MVP/piloto (poucos tenants), documentado no código pra quem ler depois.
+
+`GET /v1/admin/tenants` ganhou um resumo de assinatura por tenant (mesmo shape de
+`GET /v1/tenants/me/subscription` da Sprint 9) — sem isso o badge de plano que
+`TenantsManagement.tsx` já mostrava no mock ficaria pior que o protótipo.
+
+Frontend seguiu o mesmo template da Sprint 9 (login, `data/api.ts`, cada tela buscando
+os próprios dados). `TenantForm.tsx` bifurca por modo: **criar** mostra dados do
+proprietário (com o campo de **senha** que o mock nunca teve — login real exige) e
+plano, chamando o onboarding atômico numa chamada só; **editar** esconde a seção de
+dono (sem endpoint pra alterar email/senha de um dono existente, fora de escopo) mas
+mantém a troca de plano, reaproveitando `PATCH /v1/admin/tenants/:tenantId/subscription`
+da Sprint 4 — endpoint que existia desde então mas nunca tinha ganho UI nenhuma.
+`AdminDashboard.tsx` teve o gráfico de receita da plataforma/pizza de planos/ranking de
+tenants por receita **removido**, não conectado — não pedido pelo DoD, e "receita da
+plataforma" nem é um conceito que este projeto modela (a receita real é do *tenant*,
+módulo `financial`).
+
+**Lição operacional, não um bug de aplicação**: a primeira tentativa de rodar a suíte
+e2e completa desta sprint deu 28 falhas (timeouts de hook + violação de FK no cleanup)
+— não era regressão nenhuma, era os 3 servidores locais (`apps/api` +
+`apps/pizzaria` + `apps/admin-pizzarias`, todos conectados ao mesmo pooler do
+Supabase) competindo por conexão com a suíte Jest rodando ao mesmo tempo. Parando os
+servidores locais antes de rodar a suíte, 129/129 passaram de novo. **Lembrete pra
+próxima vez**: nunca rodar a suíte e2e completa com servidores de dev locais abertos
+apontando pro mesmo homolog.
+
+129 specs e2e verdes (8 novos: `test/tenants/admin-tenants-onboard.e2e-spec.ts`,
+`test/admin/admin-dashboard.e2e-spec.ts`), fluxo completo (login superadmin →
+onboarding → login do dono recém-criado em `apps/pizzaria` → módulos liberados →
+editar plano de tenant existente → CRUD de planos → dashboard) validado via chamadas
+HTTP diretas contra o homolog antes das versões automatizadas. Sem ferramenta de
+browser neste ambiente (mesma limitação das Sprints 7/9) — os três servidores locais
+ficaram no ar pro usuário clicar, com o superadmin de QA já seedado
+(`scripts/seed-auth-users.ts`).
+
 ---
 
 ## Sprint 11 — Piloto com pizzaria real

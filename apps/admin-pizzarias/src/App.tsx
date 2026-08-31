@@ -1,29 +1,61 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { AdminSidebar } from './components/AdminSidebar';
+import { Login } from './components/Login';
 import { AdminDashboard } from './components/AdminDashboard';
 import { TenantsManagement } from './components/TenantsManagement';
 import { TenantForm } from './components/TenantForm';
 import { PlansManagement } from './components/PlansManagement';
 
-import { mockPlans } from './data/repository';
+import { getPlans, isAuthenticated, tryRestoreSession, logout, createPlan, updatePlan, PlanInput } from './data/repository';
 import { Tenant, Plan } from '@pizza/types';
 
-export default function App() {
-  type AdminView = 'dashboard' | 'tenants' | 'tenant-form' | 'plans' | 'users' | 'settings';
+type AdminView = 'dashboard' | 'tenants' | 'tenant-form' | 'plans' | 'users' | 'settings';
 
+export default function App() {
+  const [ready, setReady] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
   const [activePage, setActivePage] = useState<AdminView>('dashboard');
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
-  const [plans, setPlans] = useState<Plan[]>(mockPlans);
+  const [plans, setPlans] = useState<Plan[]>([]);
 
-  const handleSavePlan = (plan: Plan) => {
-    setPlans((prev) => prev.some((p) => p.id === plan.id)
-      ? prev.map((p) => p.id === plan.id ? plan : p)
-      : [...prev, plan]);
+  const boot = async () => {
+    await tryRestoreSession();
+    if (isAuthenticated()) {
+      setPlans(await getPlans());
+      setAuthenticated(true);
+    }
+    setReady(true);
   };
 
-  const handleTogglePlanActive = (id: string) => {
-    setPlans((prev) => prev.map((p) => p.id === id ? { ...p, active: !p.active } : p));
+  useEffect(() => {
+    boot();
+  }, []);
+
+  const handleAuthenticated = async () => {
+    setPlans(await getPlans());
+    setAuthenticated(true);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setAuthenticated(false);
+    setActivePage('dashboard');
+  };
+
+  const handleSavePlan = async (id: string | undefined, input: PlanInput) => {
+    if (id) {
+      const updated = await updatePlan(id, input);
+      setPlans((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    } else {
+      const created = await createPlan(input);
+      setPlans((prev) => [...prev, created]);
+    }
+  };
+
+  const handleTogglePlanActive = async (plan: Plan) => {
+    const updated = await updatePlan(plan.id, { active: !plan.active });
+    setPlans((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
   };
 
   const handleNavigate = (page: string) => setActivePage(page as AdminView);
@@ -38,35 +70,36 @@ export default function App() {
     setActivePage('tenant-form');
   };
 
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Carregando...</p>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <Login onAuthenticated={handleAuthenticated} />;
+  }
+
   return (
     <div className="flex">
-      <AdminSidebar
-        activePage={activePage}
-        onNavigate={handleNavigate}
-      />
+      <AdminSidebar activePage={activePage} onNavigate={handleNavigate} onLogout={handleLogout} />
       <div className="flex-1 min-h-screen bg-background relative">
         {activePage === 'dashboard' && <AdminDashboard />}
         {activePage === 'tenants' && (
-          <TenantsManagement
-            plans={plans}
-            onEditTenant={handleEditTenant}
-            onNewTenant={handleNewTenant}
-          />
+          <TenantsManagement onEditTenant={handleEditTenant} onNewTenant={handleNewTenant} />
         )}
         {activePage === 'tenant-form' && (
           <TenantForm
             tenant={selectedTenant ?? undefined}
             plans={plans}
             onBack={() => setActivePage('tenants')}
-            onSave={() => setActivePage('tenants')}
+            onSaved={() => setActivePage('tenants')}
           />
         )}
         {activePage === 'plans' && (
-          <PlansManagement
-            plans={plans}
-            onSavePlan={handleSavePlan}
-            onToggleActive={handleTogglePlanActive}
-          />
+          <PlansManagement plans={plans} onSavePlan={handleSavePlan} onToggleActive={handleTogglePlanActive} />
         )}
       </div>
     </div>

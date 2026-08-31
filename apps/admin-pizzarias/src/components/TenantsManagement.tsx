@@ -1,67 +1,29 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Search, Edit, Trash2, Eye, ExternalLink } from 'lucide-react';
-import { Tenant, Plan } from '@pizza/types';
+import { getTenants, setTenantActive, AdminTenant } from '../data/repository';
 import { Card, CardContent, Button, Input, Badge, Switch, formatCurrency } from '@pizza/ui';
 
 interface TenantsManagementProps {
-  plans: Plan[];
-  onEditTenant: (tenant: Tenant) => void;
+  onEditTenant: (tenant: AdminTenant) => void;
   onNewTenant: () => void;
 }
 
-const initialTenants: Tenant[] = [
-  {
-    id: '1',
-    name: 'Pizza Express',
-    subdomain: 'pizzaexpress',
-    logo: '🍕',
-    primaryColor: '#e84118',
-    phone: '(11) 3333-4444',
-    address: 'Rua da Pizzaria, 789',
-    deliveryFee: 8.00,
-    minOrder: 30.00,
-    active: true,
-    planId: 'plan-pro',
-  },
-  {
-    id: '2',
-    name: 'Bella Napoli',
-    subdomain: 'bellanapoli',
-    logo: '🇮🇹',
-    primaryColor: '#009432',
-    phone: '(11) 2222-3333',
-    address: 'Av. Itália, 456',
-    deliveryFee: 10.00,
-    minOrder: 40.00,
-    active: true,
-    planId: 'plan-enterprise',
-  },
-  {
-    id: '3',
-    name: 'Pizzaria do Bairro',
-    subdomain: 'pizzariadobairro',
-    logo: '🏘️',
-    primaryColor: '#ffa502',
-    phone: '(11) 4444-5555',
-    address: 'Rua Local, 123',
-    deliveryFee: 6.00,
-    minOrder: 25.00,
-    active: true,
-    planId: 'plan-trial',
-  },
-];
-
-export function TenantsManagement({ plans, onEditTenant, onNewTenant }: TenantsManagementProps) {
-  const [tenants, setTenants] = useState<Tenant[]>(initialTenants);
+export function TenantsManagement({ onEditTenant, onNewTenant }: TenantsManagementProps) {
+  const [tenants, setTenants] = useState<AdminTenant[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    getTenants().then(setTenants).catch(() => undefined);
+  }, []);
 
   const filteredTenants = tenants.filter((tenant) =>
     tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     tenant.subdomain.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleToggleActive = (id: string) => {
-    setTenants(tenants.map((t) => t.id === id ? { ...t, active: !t.active } : t));
+  const handleToggleActive = async (tenant: AdminTenant) => {
+    const updated = await setTenantActive(tenant.id, tenant.active === false);
+    setTenants((prev) => prev.map((t) => (t.id === tenant.id ? { ...t, active: updated.active } : t)));
   };
 
   return (
@@ -115,7 +77,7 @@ export function TenantsManagement({ plans, onEditTenant, onNewTenant }: TenantsM
                           {tenant.active === false ? 'Inativo' : 'Ativo'}
                         </Badge>
                         <Badge variant="secondary">
-                          {plans.find((p) => p.id === tenant.planId)?.name ?? 'Sem plano'}
+                          {tenant.subscription?.planName ?? 'Sem plano'}
                         </Badge>
                       </div>
                     </div>
@@ -125,7 +87,7 @@ export function TenantsManagement({ plans, onEditTenant, onNewTenant }: TenantsM
                       </span>
                       <Switch
                         checked={tenant.active !== false}
-                        onCheckedChange={() => handleToggleActive(tenant.id)}
+                        onCheckedChange={() => handleToggleActive(tenant)}
                       />
                     </div>
                   </div>

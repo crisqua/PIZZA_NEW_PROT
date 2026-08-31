@@ -4,8 +4,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { ListTenantsQueryDto } from './dto/list-tenants-query.dto';
+import { OnboardTenantDto } from './dto/onboard-tenant.dto';
 import { ToggleTenantActiveDto } from './dto/toggle-tenant-active.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
+import { TenantOnboardingService } from './tenant-onboarding.service';
 import { TenantsAdminService } from './tenants-admin.service';
 
 // "tenants" nao tem RLS (ver schema.prisma) -- sem TenantContextInterceptor de proposito,
@@ -14,11 +16,21 @@ import { TenantsAdminService } from './tenants-admin.service';
 @Roles('platform_superadmin')
 @Controller('admin/tenants')
 export class TenantsAdminController {
-  constructor(private readonly tenantsAdminService: TenantsAdminService) {}
+  constructor(
+    private readonly tenantsAdminService: TenantsAdminService,
+    private readonly tenantOnboardingService: TenantOnboardingService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreateTenantDto) {
     return this.tenantsAdminService.create(dto);
+  }
+
+  // Rota fixa "onboard" nao colide com "GET/PATCH :id" (metodos HTTP diferentes, e Nest
+  // casa por segmento literal antes de parametro de qualquer forma).
+  @Post('onboard')
+  onboard(@Body() dto: OnboardTenantDto) {
+    return this.tenantOnboardingService.onboard(dto);
   }
 
   @Get()

@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Plus, Check, X, Pencil } from 'lucide-react';
-import { PLAN_CODES, CORE_MODULES, mockAddons } from '../data/repository';
+import { PLAN_CODES, CORE_MODULES, mockAddons, PlanInput } from '../data/repository';
 import { Plan, PlanCode, AddonId } from '@pizza/types';
 import { Card, CardContent, Button, Input, Badge, Switch, formatCurrency } from '@pizza/ui';
 
 interface PlansManagementProps {
   plans: Plan[];
-  onSavePlan: (plan: Plan) => void;
-  onToggleActive: (id: string) => void;
+  onSavePlan: (id: string | undefined, input: PlanInput) => Promise<void>;
+  onToggleActive: (plan: Plan) => Promise<void>;
 }
 
 const emptyFormFor = (code: PlanCode): Omit<Plan, 'id'> => ({
@@ -24,6 +24,8 @@ export function PlansManagement({ plans, onSavePlan, onToggleActive }: PlansMana
   const [isCreating, setIsCreating] = useState(false);
   const [priceInput, setPriceInput] = useState('');
   const [form, setForm] = useState<Omit<Plan, 'id'> | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const availableCodes = PLAN_CODES.filter((code) => !plans.some((p) => p.code === code));
   const orderedPlans = [...plans].sort((a, b) => PLAN_CODES.indexOf(a.code) - PLAN_CODES.indexOf(b.code));
@@ -59,12 +61,23 @@ export function PlansManagement({ plans, onSavePlan, onToggleActive }: PlansMana
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form || !form.name.trim()) return;
-    const price = priceInput.trim() === '' ? null : Number(priceInput);
-    const id = editingId ?? `plan-${form.code}`;
-    onSavePlan({ id, ...form, name: form.name.trim(), price });
-    cancelForm();
+    setError('');
+    setSubmitting(true);
+    try {
+      const price = priceInput.trim() === '' ? null : Number(priceInput);
+      const input: PlanInput = { name: form.name.trim(), price, limitLabel: form.limitLabel, modules: form.modules, active: form.active };
+      if (!editingId) {
+        input.code = form.code;
+      }
+      await onSavePlan(editingId ?? undefined, input);
+      cancelForm();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível salvar o plano.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -150,9 +163,13 @@ export function PlansManagement({ plans, onSavePlan, onToggleActive }: PlansMana
               </div>
             </div>
 
+            {error && <p className="text-sm text-destructive">{error}</p>}
+
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={cancelForm}>Cancelar</Button>
-              <Button onClick={handleSubmit}>{editingId ? 'Salvar Alterações' : 'Criar Plano'}</Button>
+              <Button onClick={handleSubmit} disabled={submitting}>
+                {submitting ? 'Salvando...' : editingId ? 'Salvar Alterações' : 'Criar Plano'}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -167,7 +184,7 @@ export function PlansManagement({ plans, onSavePlan, onToggleActive }: PlansMana
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{plan.code}</span>
                   <h3 className="font-bold text-lg">{plan.name}</h3>
                 </div>
-                <Switch checked={plan.active} onCheckedChange={() => onToggleActive(plan.id)} />
+                <Switch checked={plan.active} onCheckedChange={() => onToggleActive(plan)} />
               </div>
               <p className="text-2xl font-bold text-primary">
                 {plan.price === null ? 'Negociado' : formatCurrency(plan.price)}

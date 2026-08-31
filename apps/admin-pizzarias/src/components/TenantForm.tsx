@@ -1,37 +1,94 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, Globe } from 'lucide-react';
 import { Tenant, Plan } from '@pizza/types';
 import { Card, CardContent, Button, Input, formatCurrency } from '@pizza/ui';
+import { getSubscription, onboardTenant, updateSubscription, updateTenant } from '../data/repository';
 
 interface TenantFormProps {
   tenant?: Tenant;
   plans: Plan[];
   onBack: () => void;
-  onSave: (data: any) => void;
+  onSaved: () => void;
 }
 
-export function TenantForm({ tenant, plans, onBack, onSave }: TenantFormProps) {
+// Bifurca por modo (Sprint 10): CRIAR faz onboarding atomico (tenant+dono+assinatura
+// numa chamada so', endpoint novo desta sprint); EDITAR so' atualiza branding (endpoint
+// da Sprint 3) + troca de plano se mudou (endpoint da Sprint 4, que nunca tinha ganho UI
+// nenhuma ate agora) -- sem secao de "Dados do Proprietario" ao editar, ja que nao existe
+// endpoint pra alterar email/senha de um dono ja existente (fora de escopo).
+export function TenantForm({ tenant, plans, onBack, onSaved }: TenantFormProps) {
   const [formData, setFormData] = useState({
     name: tenant?.name || '',
     subdomain: tenant?.subdomain || '',
     logo: tenant?.logo || '🍕',
-    primaryColor: tenant?.primaryColor || '#e84118',
+    primaryColor: tenant?.primaryColor || '#C9A84C',
     phone: tenant?.phone || '',
     address: tenant?.address || '',
-    deliveryFee: tenant?.deliveryFee || '',
-    minOrder: tenant?.minOrder || '',
-    planId: tenant?.planId || plans[0]?.id || '',
+    deliveryFee: tenant?.deliveryFee ?? '',
+    minOrder: tenant?.minOrder ?? '',
+    planId: plans[0]?.id || '',
     ownerName: '',
     ownerEmail: '',
-    ownerPhone: '',
+    ownerPassword: '',
   });
+  const [originalPlanId, setOriginalPlanId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const updateField = (field: string, value: any) => {
+  useEffect(() => {
+    if (!tenant) return;
+    getSubscription(tenant.id).then((sub) => {
+      if (!sub) return;
+      const plan = plans.find((p) => p.code === sub.planCode);
+      if (plan) {
+        setOriginalPlanId(plan.id);
+        setFormData((prev) => ({ ...prev, planId: plan.id }));
+      }
+    });
+  }, [tenant, plans]);
+
+  const updateField = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
   };
 
-  const handleSubmit = () => {
-    onSave(formData);
+  const handleSubmit = async () => {
+    setError('');
+    setSubmitting(true);
+    try {
+      const branding = {
+        name: formData.name,
+        primaryColor: formData.primaryColor,
+        logo: formData.logo,
+        phone: formData.phone,
+        address: formData.address,
+        deliveryFee: formData.deliveryFee === '' ? undefined : Number(formData.deliveryFee),
+        minOrder: formData.minOrder === '' ? undefined : Number(formData.minOrder),
+      };
+
+      if (tenant) {
+        await updateTenant(tenant.id, branding);
+        if (formData.planId && formData.planId !== originalPlanId) {
+          await updateSubscription(tenant.id, formData.planId);
+        }
+      } else {
+        if (!formData.ownerPassword || formData.ownerPassword.length < 8) {
+          throw new Error('Senha do proprietário precisa ter pelo menos 8 caracteres.');
+        }
+        await onboardTenant({
+          ...branding,
+          slug: formData.subdomain,
+          ownerName: formData.ownerName,
+          ownerEmail: formData.ownerEmail,
+          ownerPassword: formData.ownerPassword,
+          planId: formData.planId,
+        });
+      }
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível salvar.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -67,6 +124,7 @@ export function TenantForm({ tenant, plans, onBack, onSave }: TenantFormProps) {
                   label="Subdomínio"
                   placeholder="pizzaexpress"
                   value={formData.subdomain}
+                  disabled={!!tenant}
                   onChange={(e) => updateField('subdomain', e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
                 />
                 <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
@@ -111,34 +169,37 @@ export function TenantForm({ tenant, plans, onBack, onSave }: TenantFormProps) {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6 space-y-4">
-              <h2 className="font-semibold text-lg">Dados do Proprietário</h2>
+          {!tenant && (
+            <Card>
+              <CardContent className="p-6 space-y-4">
+                <h2 className="font-semibold text-lg">Dados do Proprietário</h2>
 
-              <Input
-                label="Nome Completo"
-                placeholder="Nome do proprietário"
-                value={formData.ownerName}
-                onChange={(e) => updateField('ownerName', e.target.value)}
-              />
+                <Input
+                  label="Nome Completo"
+                  placeholder="Nome do proprietário"
+                  value={formData.ownerName}
+                  onChange={(e) => updateField('ownerName', e.target.value)}
+                />
 
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="E-mail"
-                  type="email"
-                  placeholder="email@exemplo.com"
-                  value={formData.ownerEmail}
-                  onChange={(e) => updateField('ownerEmail', e.target.value)}
-                />
-                <Input
-                  label="Telefone"
-                  placeholder="(00) 00000-0000"
-                  value={formData.ownerPhone}
-                  onChange={(e) => updateField('ownerPhone', e.target.value)}
-                />
-              </div>
-            </CardContent>
-          </Card>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="E-mail"
+                    type="email"
+                    placeholder="email@exemplo.com"
+                    value={formData.ownerEmail}
+                    onChange={(e) => updateField('ownerEmail', e.target.value)}
+                  />
+                  <Input
+                    label="Senha (login inicial)"
+                    type="password"
+                    placeholder="Mínimo 8 caracteres"
+                    value={formData.ownerPassword}
+                    onChange={(e) => updateField('ownerPassword', e.target.value)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -171,7 +232,7 @@ export function TenantForm({ tenant, plans, onBack, onSave }: TenantFormProps) {
                   <Input
                     value={formData.primaryColor}
                     onChange={(e) => updateField('primaryColor', e.target.value)}
-                    placeholder="#e84118"
+                    placeholder="#C9A84C"
                     className="flex-1"
                   />
                 </div>
@@ -215,9 +276,11 @@ export function TenantForm({ tenant, plans, onBack, onSave }: TenantFormProps) {
             </CardContent>
           </Card>
 
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
           <div className="space-y-3">
-            <Button fullWidth size="lg" onClick={handleSubmit}>
-              {tenant ? 'Salvar Alterações' : 'Criar Pizzaria'}
+            <Button fullWidth size="lg" onClick={handleSubmit} disabled={submitting}>
+              {submitting ? 'Salvando...' : tenant ? 'Salvar Alterações' : 'Criar Pizzaria'}
             </Button>
             <Button fullWidth variant="outline" onClick={onBack}>
               Cancelar
