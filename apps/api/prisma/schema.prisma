@@ -198,3 +198,25 @@ model Product {
   @@index([tenantId, categoryId], map: "idx_products_tenant_category")
   @@map("products")
 }
+
+// Item de estoque (Sprint 6) — tenant-owned, RLS ligada e forcada, forma estrita (mesma
+// de Category/Product/Subscription). Sem FK composta: nao referencia nenhuma outra
+// tabela tenant-scoped. "quantity"/"minQuantity" usam Decimal(10,2) mesmo nao sendo
+// dinheiro -- quarta aplicacao dessa convencao (depois de Tenant.deliveryFee/minOrder,
+// Plan.price, Product.price), mesma necessidade de precisao de 2 casas sem drift de
+// Float. Mesmo cuidado de sempre: Decimal.toJSON() vira string, response mapeia
+// .toNumber() (ver inventory-item-response.util.ts). Status ("Critico"/"Baixo"/"OK") e'
+// calculado no frontend a partir de quantity/minQuantity (Inventory.tsx), nunca
+// persistido aqui.
+model InventoryItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  name        String   @db.VarChar(160)
+  unit        String   @db.VarChar(20)
+  quantity    Decimal  @db.Decimal(10, 2)
+  minQuantity Decimal  @map("min_quantity") @db.Decimal(10, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("inventory_items")
+}

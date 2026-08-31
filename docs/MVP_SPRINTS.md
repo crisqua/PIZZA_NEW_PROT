@@ -38,7 +38,8 @@ Status: Sprint 0 **✅ concluída em 2026-08-28**. Sprint 1 **✅ concluída em 
 (mecanismo de RLS + CI verificados em 2026-08-29; deploy no Render — `pizza-api-homolog`
 — fechado em 2026-08-30). Sprint 2 **✅ concluída em 2026-08-30**. Sprint 3 **✅ concluída
 em 2026-08-31**. Sprint 4 **✅ concluída em 2026-08-31**. Sprint 5 **✅ concluída em
-2026-08-31** — ver nota logo abaixo da sprint. Sprints 6–11 **⏳ não
+2026-08-31**. Sprint 6 **✅ concluída em 2026-08-31** — ver nota logo abaixo da sprint.
+Sprints 7–11 **⏳ não
 iniciadas** — os 3 apps frontend rodam isolados (`apps/cliente`, `apps/pizzaria`,
 `apps/admin-pizzarias`) mas ainda com dados mockados locais
 (`apps/<app>/src/data/mockData.ts`), sem consumir a API real ainda (isso é Sprint 7/9/10).
@@ -318,6 +319,24 @@ antes do push.
 - Todas as rotas protegidas por `@RequiresModule('estoque')` (Sprint 4).
 
 **Definition of Done:** tenant sem o módulo `estoque` no plano recebe 403 ao chamar `/v1/inventory` diretamente; UI real (Sprint 9) bate visualmente com o protótipo já aprovado.
+
+**✅ Concluída em 2026-08-31.** Sprint mais simples que as últimas 4 — sem FK composta
+(`inventory_items` não referencia nenhuma outra tabela tenant-scoped), sem decisão de
+infra nova, sem pesquisa adicional no Barbearia (já confirmado na Sprint 4 que ele nunca
+teve módulo pago nenhum). `quantity`/`minQuantity` usam `Decimal(10,2)` mesmo não sendo
+dinheiro — quarta aplicação dessa convenção do schema, mesma necessidade de precisão sem
+drift de `Float`. Status ("Crítico"/"Baixo"/"OK") continua calculado só no frontend
+(`Inventory.tsx`), nunca persistido.
+
+**Primeiro consumidor real do `@RequiresModule('estoque')`** (Sprint 4) — a rota fixture
+temporária `_fixtures/estoque-probe` foi apagada (`src/module-gate-fixture/` inteiro +
+`ModuleGateFixtureModule` do `app.module.ts`), e as asserções de comportamento do guard
+que viviam em `test/plans/module-guard.e2e-spec.ts` migraram pra
+`test/inventory/inventory-crud.e2e-spec.ts`, agora testando contra `/v1/inventory` de
+verdade em vez da fixture — os 4 cenários (200 com módulo, 403 sem módulo, 403 sem
+assinatura, 403 assinatura cancelada) foram reconfirmados manualmente contra o homolog
+antes de escrever a versão automatizada. 90 specs e2e verdes (spec de inventory novo,
+spec antigo do fixture removido), validados contra o homolog real antes do push.
 
 ---
 
