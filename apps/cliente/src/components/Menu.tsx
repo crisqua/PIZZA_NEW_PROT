@@ -12,7 +12,6 @@ interface MenuProps {
   onViewCart: () => void;
 }
 
-const DEFAULT_SIZE_INDEX = 1; // "8 pedaços" — meio-termo entre Brotinho e 12 pedaços
 const BEBIDAS_ID = 'bebidas';
 
 function HalfHalfIcon() {
@@ -24,9 +23,16 @@ function HalfHalfIcon() {
   );
 }
 
+// Preco de lista sempre "a partir de" o menor tamanho (Brotinho, indice 0) -- adicionar
+// rapido tambem cria o item nesse tamanho, nunca um diferente do anunciado no card (sem
+// susto no carrinho). Design "Cardapio Combos Enxuto": sem barra de tamanho no topo,
+// escolher um tamanho maior/meio a meio agora acontece dentro do proprio fluxo de montar
+// pizza (PizzaBuilder.tsx).
+const STARTING_SIZE_ID: PizzaSizeId = 'brotinho';
+const HALF_HALF_DEFAULT_SIZE_ID: PizzaSizeId = 'oito-pedacos';
+
 export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItemsCount, onViewCart }: MenuProps) {
-  const [selectedSizeId, setSelectedSizeId] = useState<PizzaSizeId>(pizzaSizes[DEFAULT_SIZE_INDEX].id);
-  const selectedSize = pizzaSizes.find((s) => s.id === selectedSizeId) ?? pizzaSizes[DEFAULT_SIZE_INDEX];
+  const startingPriceMultiplier = pizzaSizes.find((s) => s.id === STARTING_SIZE_ID)?.multiplier ?? pizzaSizes[0].multiplier;
 
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = { [BEBIDAS_ID]: false };
@@ -58,26 +64,6 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
         <div className="mt-5 flex flex-wrap gap-2">
           <Badge>Pedido mínimo {formatCurrency(mockTenant.minOrder)}</Badge>
           <Badge>Taxa {formatCurrency(mockTenant.deliveryFee)}</Badge>
-        </div>
-      </div>
-
-      <div className="bg-surface px-6 pt-4 pb-4 border-b border-border">
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tamanho</span>
-        <div className="flex gap-2 mt-2">
-          {pizzaSizes.map((size) => (
-            <button
-              key={size.id}
-              onClick={() => setSelectedSizeId(size.id)}
-              className={`flex-1 py-2 px-1 rounded border text-center transition-colors ${
-                selectedSize.id === size.id
-                  ? 'border-primary bg-primary/[.13] text-primary'
-                  : 'border-border text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <span className="block text-xs font-semibold uppercase tracking-wide">{size.name}</span>
-              <span className="block text-[11px] mt-0.5">{size.slices} pedaços</span>
-            </button>
-          ))}
         </div>
       </div>
 
@@ -125,12 +111,12 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">{pizza.description}</p>
                         <span className="block font-serif text-sm text-primary mt-1">
-                          {formatCurrency(pizza.price * selectedSize.multiplier)}
+                          a partir de {formatCurrency(pizza.price * startingPriceMultiplier)}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button
-                          onClick={() => onStartHalfHalf(pizza, selectedSize.id)}
+                          onClick={() => onStartHalfHalf(pizza, HALF_HALF_DEFAULT_SIZE_ID)}
                           title="Meio a meio"
                           aria-label={`Meio a meio com ${pizza.name}`}
                           className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
@@ -138,7 +124,7 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
                           <HalfHalfIcon />
                         </button>
                         <button
-                          onClick={() => onAddSingleFlavor(pizza, selectedSize.id)}
+                          onClick={() => onAddSingleFlavor(pizza, STARTING_SIZE_ID)}
                           title="Adicionar"
                           aria-label={`Adicionar ${pizza.name}`}
                           className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center"

@@ -12,7 +12,13 @@ interface PizzaBuilderProps {
 }
 
 export function PizzaBuilder({ initialPizza, initialSize, onBack, onAddToCart }: PizzaBuilderProps) {
-  const selectedSize = pizzaSizes.find(s => s.id === initialSize) ?? pizzaSizes[1];
+  // Seletor de tamanho inline (design "Cardapio Combos Enxuto"): a barra de tamanho do
+  // Menu foi removida, entao a troca de tamanho -- que antes acontecia voltando pro Menu
+  // e mexendo naquela barra -- agora precisa acontecer aqui dentro, ja' que e' o unico
+  // lugar que ainda oferece controle de tamanho no fluxo de pizza.
+  const [selectedSizeId, setSelectedSizeId] = useState<PizzaSizeId>(initialSize);
+  const selectedSize = pizzaSizes.find(s => s.id === selectedSizeId) ?? pizzaSizes[1];
+  const [showSizePicker, setShowSizePicker] = useState(false);
   const [selectedFlavors, setSelectedFlavors] = useState<Pizza[]>([initialPizza]);
   const [showFlavorSelector, setShowFlavorSelector] = useState(false);
 
@@ -66,15 +72,38 @@ export function PizzaBuilder({ initialPizza, initialSize, onBack, onAddToCart }:
       </div>
 
       <div className="p-5 max-w-md mx-auto space-y-6 mt-2">
-        <button
-          onClick={onBack}
-          className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-card border border-border text-left"
-        >
-          <span className="text-sm text-foreground">
-            Tamanho: <span className="font-semibold">{selectedSize.name}</span>
-          </span>
-          <span className="text-sm text-primary font-semibold">Alterar</span>
-        </button>
+        <div>
+          <button
+            onClick={() => setShowSizePicker((prev) => !prev)}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-card border border-border text-left"
+          >
+            <span className="text-sm text-foreground">
+              Tamanho: <span className="font-semibold">{selectedSize.name}</span>
+            </span>
+            <span className="text-sm text-primary font-semibold">Alterar</span>
+          </button>
+          {showSizePicker && (
+            <div className="flex gap-2 mt-2">
+              {pizzaSizes.map((size) => (
+                <button
+                  key={size.id}
+                  onClick={() => {
+                    setSelectedSizeId(size.id);
+                    setShowSizePicker(false);
+                  }}
+                  className={`flex-1 py-2 px-1 rounded border text-center transition-colors ${
+                    selectedSize.id === size.id
+                      ? 'border-primary bg-primary/[.13] text-primary'
+                      : 'border-border text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <span className="block text-xs font-semibold uppercase tracking-wide">{size.name}</span>
+                  <span className="block text-[11px] mt-0.5">{size.slices} pedaços</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div>
           <div className="flex items-center justify-between mb-3">
