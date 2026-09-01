@@ -11,6 +11,32 @@ interface TenantFormProps {
   onSaved: () => void;
 }
 
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  const ddd = digits.slice(0, 2);
+  const rest = digits.slice(2);
+  if (!ddd) return '';
+  if (!rest) return `(${ddd}`;
+  const splitAt = digits.length > 10 ? 5 : 4;
+  const prefix = rest.slice(0, splitAt);
+  const suffix = rest.slice(splitAt);
+  return suffix ? `(${ddd}) ${prefix}-${suffix}` : `(${ddd}) ${prefix}`;
+}
+
+// Campos de dinheiro guardam os digitos em centavos (string), nunca o valor formatado --
+// mesma logica de "cursor sempre no fim" que uma mascara de moeda BR precisa (digitar da
+// direita pra esquerda). Convertido pra reais so' na hora de montar o payload.
+function centsToDisplay(digitsInCents: string): string {
+  if (!digitsInCents) return '';
+  const cents = parseInt(digitsInCents, 10);
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function reaisToCentsDigits(value: number): string {
+  if (!value) return '';
+  return Math.round(value * 100).toString();
+}
+
 // Bifurca por modo (Sprint 10): CRIAR faz onboarding atomico (tenant+dono+assinatura
 // numa chamada so', endpoint novo desta sprint); EDITAR so' atualiza branding (endpoint
 // da Sprint 3) + troca de plano se mudou (endpoint da Sprint 4, que nunca tinha ganho UI
@@ -22,10 +48,10 @@ export function TenantForm({ tenant, plans, onBack, onSaved }: TenantFormProps) 
     subdomain: tenant?.subdomain || '',
     logo: tenant?.logo || '🍕',
     primaryColor: tenant?.primaryColor || '#C9A84C',
-    phone: tenant?.phone || '',
+    phone: tenant?.phone ? formatPhone(tenant.phone) : '',
     address: tenant?.address || '',
-    deliveryFee: tenant?.deliveryFee ?? '',
-    minOrder: tenant?.minOrder ?? '',
+    deliveryFee: tenant ? reaisToCentsDigits(tenant.deliveryFee) : '',
+    minOrder: tenant ? reaisToCentsDigits(tenant.minOrder) : '',
     planId: plans[0]?.id || '',
     ownerName: '',
     ownerEmail: '',
@@ -61,8 +87,8 @@ export function TenantForm({ tenant, plans, onBack, onSaved }: TenantFormProps) 
         logo: formData.logo,
         phone: formData.phone,
         address: formData.address,
-        deliveryFee: formData.deliveryFee === '' ? undefined : Number(formData.deliveryFee),
-        minOrder: formData.minOrder === '' ? undefined : Number(formData.minOrder),
+        deliveryFee: formData.deliveryFee === '' ? undefined : Number(formData.deliveryFee) / 100,
+        minOrder: formData.minOrder === '' ? undefined : Number(formData.minOrder) / 100,
       };
 
       if (tenant) {
@@ -137,8 +163,11 @@ export function TenantForm({ tenant, plans, onBack, onSaved }: TenantFormProps) 
                 <Input
                   label="Telefone / WhatsApp"
                   placeholder="(00) 00000-0000"
+                  type="tel"
+                  inputMode="tel"
+                  maxLength={16}
                   value={formData.phone}
-                  onChange={(e) => updateField('phone', e.target.value)}
+                  onChange={(e) => updateField('phone', formatPhone(e.target.value))}
                 />
                 <Input
                   label="Endereço"
@@ -150,20 +179,20 @@ export function TenantForm({ tenant, plans, onBack, onSaved }: TenantFormProps) 
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
-                  label="Taxa de Entrega (R$)"
-                  type="number"
-                  step="0.01"
-                  placeholder="8.00"
-                  value={formData.deliveryFee}
-                  onChange={(e) => updateField('deliveryFee', e.target.value)}
+                  label="Taxa de Entrega"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="R$ 0,00"
+                  value={centsToDisplay(formData.deliveryFee)}
+                  onChange={(e) => updateField('deliveryFee', e.target.value.replace(/\D/g, ''))}
                 />
                 <Input
-                  label="Pedido Mínimo (R$)"
-                  type="number"
-                  step="0.01"
-                  placeholder="30.00"
-                  value={formData.minOrder}
-                  onChange={(e) => updateField('minOrder', e.target.value)}
+                  label="Pedido Mínimo"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="R$ 0,00"
+                  value={centsToDisplay(formData.minOrder)}
+                  onChange={(e) => updateField('minOrder', e.target.value.replace(/\D/g, ''))}
                 />
               </div>
             </CardContent>

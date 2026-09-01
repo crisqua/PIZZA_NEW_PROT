@@ -213,6 +213,12 @@ export async function updatePlan(id: string, input: Partial<PlanInput>): Promise
 export interface DashboardStats {
   tenantCount: number;
   ordersThisMonth: number;
+  ordersLastMonth: number;
+  mrr: number;
+  userCount: number;
+  monthlyOrderVolume: { month: string; total: number }[];
+  plansDistribution: { planCode: string; planName: string; tenantCount: number }[];
+  topTenants: { name: string; slug: string; ordersThisMonth: number; revenueThisMonth: number }[];
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {
