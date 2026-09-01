@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Search, Edit, Trash2, Eye, ExternalLink } from 'lucide-react';
 import { getTenants, setTenantActive, AdminTenant } from '../data/repository';
-import { Card, CardContent, Button, Input, Badge, Switch, formatCurrency } from '@pizza/ui';
+import { Card, CardContent, Button, Input, Badge, Switch, formatCurrency, formatPhone } from '@pizza/ui';
 
 interface TenantsManagementProps {
   onEditTenant: (tenant: AdminTenant) => void;
@@ -95,7 +95,7 @@ export function TenantsManagement({ onEditTenant, onNewTenant }: TenantsManageme
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Telefone</p>
-                      <p className="text-sm font-medium">{tenant.phone}</p>
+                      <p className="text-sm font-medium">{formatPhone(tenant.phone)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Taxa de Entrega</p>

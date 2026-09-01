@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Phone, MapPin, CreditCard, CheckCircle2 } from 'lucide-react';
 import { ApiOrder, updateOrderStatus } from '../data/repository';
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge, formatCurrency, formatTime } from '@pizza/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, formatCurrency, formatTime, formatPhone } from '@pizza/ui';
 
 interface OrderDetailsProps {
   order: ApiOrder;
@@ -138,7 +138,7 @@ export function OrderDetails({ order: initialOrder, onBack }: OrderDetailsProps)
                   <Phone className="w-4 h-4" />
                   <span className="text-sm">Telefone</span>
                 </div>
-                <p className="font-medium">{order.phone}</p>
+                <p className="font-medium">{formatPhone(order.phone)}</p>
               </div>
               <div>
                 <p className="font-semibold mb-1">{order.customerName}</p>
