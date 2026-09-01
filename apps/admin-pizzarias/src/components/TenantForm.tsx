@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Globe } from 'lucide-react';
 import { Tenant, Plan } from '@pizza/types';
-import { Card, CardContent, Button, Input, formatCurrency } from '@pizza/ui';
+import { Card, CardContent, Button, Input, formatCurrency, formatPhone, centsToDisplay, reaisToCentsDigits } from '@pizza/ui';
 import { getSubscription, onboardTenant, updateSubscription, updateTenant } from '../data/repository';
 
 interface TenantFormProps {
@@ -9,32 +9,6 @@ interface TenantFormProps {
   plans: Plan[];
   onBack: () => void;
   onSaved: () => void;
-}
-
-function formatPhone(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 11);
-  const ddd = digits.slice(0, 2);
-  const rest = digits.slice(2);
-  if (!ddd) return '';
-  if (!rest) return `(${ddd}`;
-  const splitAt = digits.length > 10 ? 5 : 4;
-  const prefix = rest.slice(0, splitAt);
-  const suffix = rest.slice(splitAt);
-  return suffix ? `(${ddd}) ${prefix}-${suffix}` : `(${ddd}) ${prefix}`;
-}
-
-// Campos de dinheiro guardam os digitos em centavos (string), nunca o valor formatado --
-// mesma logica de "cursor sempre no fim" que uma mascara de moeda BR precisa (digitar da
-// direita pra esquerda). Convertido pra reais so' na hora de montar o payload.
-function centsToDisplay(digitsInCents: string): string {
-  if (!digitsInCents) return '';
-  const cents = parseInt(digitsInCents, 10);
-  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-function reaisToCentsDigits(value: number): string {
-  if (!value) return '';
-  return Math.round(value * 100).toString();
 }
 
 // Bifurca por modo (Sprint 10): CRIAR faz onboarding atomico (tenant+dono+assinatura

@@ -3,7 +3,7 @@ import { Plus, Trash2, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { getExpenses, createExpense, deleteExpense, getRevenue, DailyRevenue } from '../data/repository';
 import { Expense } from '@pizza/types';
-import { Card, CardContent, CardHeader, CardTitle, Button, Input, formatCurrency, formatDate } from '@pizza/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Input, formatCurrency, formatDate, centsToDisplay } from '@pizza/ui';
 
 const EXPENSE_CATEGORIES = ['Insumos', 'Fixas', 'Outras'];
 
@@ -45,7 +45,7 @@ export function Financial() {
     const created = await createExpense({
       description: newExpense.description.trim(),
       category: newExpense.category,
-      amount: Number(newExpense.amount),
+      amount: Number(newExpense.amount) / 100,
       date: newExpense.date,
     });
     setExpenses((prev) => [created, ...prev]);
@@ -150,11 +150,11 @@ export function Financial() {
               </div>
               <Input
                 label="Valor"
-                type="number"
-                step="0.01"
-                placeholder="0,00"
-                value={newExpense.amount}
-                onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                type="text"
+                inputMode="numeric"
+                placeholder="R$ 0,00"
+                value={centsToDisplay(newExpense.amount)}
+                onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value.replace(/\D/g, '') })}
               />
               <Input
                 label="Data"

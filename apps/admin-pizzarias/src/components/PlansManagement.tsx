@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Plus, Check, X, Pencil } from 'lucide-react';
 import { PLAN_CODES, CORE_MODULES, mockAddons, PlanInput } from '../data/repository';
 import { Plan, PlanCode, AddonId } from '@pizza/types';
-import { Card, CardContent, Button, Input, Badge, Switch, formatCurrency } from '@pizza/ui';
+import { Card, CardContent, Button, Input, Badge, Switch, formatCurrency, centsToDisplay, reaisToCentsDigits } from '@pizza/ui';
 
 interface PlansManagementProps {
   plans: Plan[];
@@ -40,7 +40,7 @@ export function PlansManagement({ plans, onSavePlan, onToggleActive }: PlansMana
 
   const startEdit = (plan: Plan) => {
     setForm({ code: plan.code, name: plan.name, price: plan.price, limitLabel: plan.limitLabel, modules: plan.modules, active: plan.active });
-    setPriceInput(plan.price === null ? '' : String(plan.price));
+    setPriceInput(plan.price === null ? '' : reaisToCentsDigits(plan.price));
     setEditingId(plan.id);
     setIsCreating(false);
   };
@@ -66,7 +66,7 @@ export function PlansManagement({ plans, onSavePlan, onToggleActive }: PlansMana
     setError('');
     setSubmitting(true);
     try {
-      const price = priceInput.trim() === '' ? null : Number(priceInput);
+      const price = priceInput === '' ? null : Number(priceInput) / 100;
       const input: PlanInput = { name: form.name.trim(), price, limitLabel: form.limitLabel, modules: form.modules, active: form.active };
       if (!editingId) {
         input.code = form.code;
@@ -123,11 +123,11 @@ export function PlansManagement({ plans, onSavePlan, onToggleActive }: PlansMana
               />
               <Input
                 label="Preço mensal (vazio = negociado)"
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="numeric"
                 placeholder="R$ 0,00"
-                value={priceInput}
-                onChange={(e) => setPriceInput(e.target.value)}
+                value={centsToDisplay(priceInput)}
+                onChange={(e) => setPriceInput(e.target.value.replace(/\D/g, ''))}
               />
             </div>
 

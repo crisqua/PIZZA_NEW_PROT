@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Upload, X, Check } from 'lucide-react';
 import { Pizza, Category } from '@pizza/types';
-import { Card, CardContent, Button, Input, Textarea } from '@pizza/ui';
+import { Card, CardContent, Button, Input, Textarea, centsToDisplay, reaisToCentsDigits } from '@pizza/ui';
 
 export interface ProductFormData {
   name: string;
@@ -24,7 +24,9 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
   const [formData, setFormData] = useState<ProductFormData>({
     name: product?.name || '',
     description: product?.description || '',
-    price: product?.price || '',
+    // Guarda os digitos em centavos (mascara de moeda), nao o valor em reais --
+    // convertido de volta pra reais so' na hora de chamar onSave (handleSubmit).
+    price: product?.price ? reaisToCentsDigits(product.price) : '',
     category: product?.category || categories[0]?.id || '',
     ingredients: product?.ingredients || [],
     image: product?.image || '',
@@ -55,7 +57,7 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
     setError('');
     setSubmitting(true);
     try {
-      await onSave(formData);
+      await onSave({ ...formData, price: formData.price ? Number(formData.price) / 100 : '' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Nao foi possivel salvar o produto.');
     } finally {
@@ -111,11 +113,11 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
                   label="Preço Base (Média)"
-                  placeholder="0,00"
-                  type="number"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={(e) => updateField('price', e.target.value)}
+                  placeholder="R$ 0,00"
+                  type="text"
+                  inputMode="numeric"
+                  value={centsToDisplay(String(formData.price))}
+                  onChange={(e) => updateField('price', e.target.value.replace(/\D/g, ''))}
                 />
 
                 <div>

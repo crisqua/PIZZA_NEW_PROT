@@ -2,19 +2,7 @@ import { useRef, useState } from 'react';
 import { ArrowLeft, CreditCard, Banknote, CheckCircle2 } from 'lucide-react';
 import { buildOrderItems, createOrder, mockTenant, mockCustomer, ApiOrder } from '../data/repository';
 import { CartItem } from '@pizza/types';
-import { Card, CardContent, Button, Input, formatCurrency } from '@pizza/ui';
-
-function formatPhone(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 11);
-  const ddd = digits.slice(0, 2);
-  const rest = digits.slice(2);
-  if (!ddd) return '';
-  if (!rest) return `(${ddd}`;
-  const splitAt = digits.length > 10 ? 5 : 4;
-  const prefix = rest.slice(0, splitAt);
-  const suffix = rest.slice(splitAt);
-  return suffix ? `(${ddd}) ${prefix}-${suffix}` : `(${ddd}) ${prefix}`;
-}
+import { Card, CardContent, Button, Input, formatCurrency, formatPhone, centsToDisplay } from '@pizza/ui';
 
 interface CheckoutProps {
   items: CartItem[];
@@ -88,7 +76,7 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
           complement: formData.complement,
           neighborhood: formData.neighborhood,
           paymentMethod: formData.paymentMethod,
-          changeFor: formData.changeFor ? Number(formData.changeFor.replace(',', '.')) || undefined : undefined,
+          changeFor: formData.changeFor ? Number(formData.changeFor) / 100 : undefined,
         },
         idempotencyKeyRef.current,
       );
@@ -211,9 +199,11 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
             <div className="mt-3">
               <Input
                 label="Troco para quanto?"
+                type="text"
+                inputMode="numeric"
                 placeholder="R$ 0,00"
-                value={formData.changeFor}
-                onChange={(e) => updateField('changeFor', e.target.value)}
+                value={centsToDisplay(formData.changeFor ?? '')}
+                onChange={(e) => updateField('changeFor', e.target.value.replace(/\D/g, ''))}
               />
             </div>
           )}
