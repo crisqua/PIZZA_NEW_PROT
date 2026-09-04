@@ -99,7 +99,7 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
                   {pizzas.map((pizza) => (
                     <div
                       key={pizza.id}
-                      className="flex items-center gap-3 px-4 py-3.5 border-b border-border last:border-b-0"
+                      className="flex items-start gap-3 px-4 py-3.5 border-b border-border last:border-b-0"
                     >
                       <img
                         src={pizza.image}
@@ -130,27 +130,29 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
                             );
                           })}
                         </div>
-                        <span className="block font-serif text-sm text-primary mt-1.5">
-                          {formatCurrency(pizza.price * multiplierFor(pizza.id))}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          onClick={() => onStartHalfHalf(pizza, sizeFor(pizza.id))}
-                          title="Meio a meio"
-                          aria-label={`Meio a meio com ${pizza.name}`}
-                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <HalfHalfIcon />
-                        </button>
-                        <button
-                          onClick={() => onAddSingleFlavor(pizza, sizeFor(pizza.id))}
-                          title="Adicionar"
-                          aria-label={`Adicionar ${pizza.name}`}
-                          className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-between mt-1.5">
+                          <span className="font-serif text-sm text-primary">
+                            {formatCurrency(pizza.price * multiplierFor(pizza.id))}
+                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              onClick={() => onStartHalfHalf(pizza, sizeFor(pizza.id))}
+                              title="Meio a meio"
+                              aria-label={`Meio a meio com ${pizza.name}`}
+                              className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <HalfHalfIcon />
+                            </button>
+                            <button
+                              onClick={() => onAddSingleFlavor(pizza, sizeFor(pizza.id))}
+                              title="Adicionar"
+                              aria-label={`Adicionar ${pizza.name}`}
+                              className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
