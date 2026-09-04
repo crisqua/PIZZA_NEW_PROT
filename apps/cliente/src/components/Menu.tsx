@@ -23,17 +23,18 @@ function HalfHalfIcon() {
   );
 }
 
-// Tamanho padrao unificado (pedido do usuario: padronizar pra pizza de 8 pedacos, igual
-// ao meio a meio) -- preco de lista e' sempre o desse tamanho, e adicionar rapido cria o
-// item nesse mesmo tamanho, nunca um diferente do anunciado no card (sem susto no
-// carrinho). Design "Cardapio Combos Enxuto": sem barra de tamanho no topo, escolher um
-// tamanho diferente (Brotinho/12 pedacos) agora acontece dentro do proprio fluxo de
-// montar pizza (PizzaBuilder.tsx).
-const STARTING_SIZE_ID: PizzaSizeId = 'oito-pedacos';
-const HALF_HALF_DEFAULT_SIZE_ID: PizzaSizeId = 'oito-pedacos';
+// Tamanho padrao de cada card antes do cliente escolher (8 pedacos, o mais comum) --
+// cada pizza tem seu proprio seletor de tamanho no card (pedido do usuario), guardado por
+// id em `selectedSizes`. Adicionar rapido e meio a meio sempre usam o tamanho selecionado
+// naquele card especifico, nunca um diferente do anunciado (sem susto no carrinho).
+const DEFAULT_SIZE_ID: PizzaSizeId = 'oito-pedacos';
 
 export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItemsCount, onViewCart }: MenuProps) {
-  const startingPriceMultiplier = pizzaSizes.find((s) => s.id === STARTING_SIZE_ID)?.multiplier ?? pizzaSizes[0].multiplier;
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, PizzaSizeId>>({});
+
+  const sizeFor = (pizzaId: string): PizzaSizeId => selectedSizes[pizzaId] ?? DEFAULT_SIZE_ID;
+  const multiplierFor = (pizzaId: string): number =>
+    pizzaSizes.find((s) => s.id === sizeFor(pizzaId))?.multiplier ?? 1;
 
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = { [BEBIDAS_ID]: false };
@@ -111,13 +112,31 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
                           {pizza.featured && <Badge className="shrink-0">Especial</Badge>}
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">{pizza.description}</p>
-                        <span className="block font-serif text-sm text-primary mt-1">
-                          a partir de {formatCurrency(pizza.price * startingPriceMultiplier)}
+                        <div className="flex gap-1.5 mt-2">
+                          {pizzaSizes.map((size) => {
+                            const isSelected = sizeFor(pizza.id) === size.id;
+                            return (
+                              <button
+                                key={size.id}
+                                onClick={() => setSelectedSizes((prev) => ({ ...prev, [pizza.id]: size.id }))}
+                                className={`px-2 py-1 rounded border text-[10px] font-semibold uppercase tracking-wide transition-colors ${
+                                  isSelected
+                                    ? 'border-primary bg-primary/[.13] text-primary'
+                                    : 'border-border text-muted-foreground hover:text-foreground'
+                                }`}
+                              >
+                                {size.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <span className="block font-serif text-sm text-primary mt-1.5">
+                          {formatCurrency(pizza.price * multiplierFor(pizza.id))}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button
-                          onClick={() => onStartHalfHalf(pizza, HALF_HALF_DEFAULT_SIZE_ID)}
+                          onClick={() => onStartHalfHalf(pizza, sizeFor(pizza.id))}
                           title="Meio a meio"
                           aria-label={`Meio a meio com ${pizza.name}`}
                           className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
@@ -125,7 +144,7 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
                           <HalfHalfIcon />
                         </button>
                         <button
-                          onClick={() => onAddSingleFlavor(pizza, STARTING_SIZE_ID)}
+                          onClick={() => onAddSingleFlavor(pizza, sizeFor(pizza.id))}
                           title="Adicionar"
                           aria-label={`Adicionar ${pizza.name}`}
                           className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
