@@ -23,12 +23,13 @@ function HalfHalfIcon() {
   );
 }
 
-// Preco de lista sempre "a partir de" o menor tamanho (Brotinho, indice 0) -- adicionar
-// rapido tambem cria o item nesse tamanho, nunca um diferente do anunciado no card (sem
-// susto no carrinho). Design "Cardapio Combos Enxuto": sem barra de tamanho no topo,
-// escolher um tamanho maior/meio a meio agora acontece dentro do proprio fluxo de montar
-// pizza (PizzaBuilder.tsx).
-const STARTING_SIZE_ID: PizzaSizeId = 'brotinho';
+// Tamanho padrao unificado (pedido do usuario: padronizar pra pizza de 8 pedacos, igual
+// ao meio a meio) -- preco de lista e' sempre o desse tamanho, e adicionar rapido cria o
+// item nesse mesmo tamanho, nunca um diferente do anunciado no card (sem susto no
+// carrinho). Design "Cardapio Combos Enxuto": sem barra de tamanho no topo, escolher um
+// tamanho diferente (Brotinho/12 pedacos) agora acontece dentro do proprio fluxo de
+// montar pizza (PizzaBuilder.tsx).
+const STARTING_SIZE_ID: PizzaSizeId = 'oito-pedacos';
 const HALF_HALF_DEFAULT_SIZE_ID: PizzaSizeId = 'oito-pedacos';
 
 export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItemsCount, onViewCart }: MenuProps) {
