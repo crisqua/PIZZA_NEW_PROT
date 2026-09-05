@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ShoppingCart, Plus, ChevronDown, ChevronUp, Lock, User } from 'lucide-react';
 import { mockPizzas, mockDrinks, mockTenant, mockCategories, pizzaSizes } from '../data/repository';
-import { Pizza, Drink, PizzaSizeId } from '@pizza/types';
+import { Pizza, Drink, PizzaSizeId, priceForSize } from '@pizza/types';
 import { Card, Button, Badge, formatCurrency } from '@pizza/ui';
 
 interface MenuProps {
@@ -44,8 +44,6 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
   const [selectedSizes, setSelectedSizes] = useState<Record<string, PizzaSizeId>>({});
 
   const sizeFor = (pizzaId: string): PizzaSizeId => selectedSizes[pizzaId] ?? DEFAULT_SIZE_ID;
-  const multiplierFor = (pizzaId: string): number =>
-    pizzaSizes.find((s) => s.id === sizeFor(pizzaId))?.multiplier ?? 1;
 
   // Acordeao exclusivo (pedido do usuario): abrir uma categoria fecha qualquer outra que
   // estivesse aberta, Bebidas incluso -- guarda so' o id da categoria aberta, nao um mapa
@@ -131,7 +129,7 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
                             {pizza.featured && <Badge className="shrink-0">Especial</Badge>}
                           </div>
                           <span className="font-serif text-sm text-primary shrink-0">
-                            {formatCurrency(pizza.price * multiplierFor(pizza.id))}
+                            {formatCurrency(priceForSize(pizza, sizeFor(pizza.id)))}
                           </span>
                         </div>
                         <p className="text-xs text-primary mt-0.5">{pizza.description}</p>

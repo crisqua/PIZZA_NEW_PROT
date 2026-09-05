@@ -12,11 +12,30 @@ export class UpdateProductDto {
   @MaxLength(1000)
   description?: string;
 
+  // So' bebida usa este campo -- pizza usa os 3 precos por tamanho abaixo.
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(99999999.99)
   price?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(99999999.99)
+  priceBrotinho?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(99999999.99)
+  priceOitoPedacos?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(99999999.99)
+  priceDozePedacos?: number;
 
   @IsOptional()
   @IsUUID()

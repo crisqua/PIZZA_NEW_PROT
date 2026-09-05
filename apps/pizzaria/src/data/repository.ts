@@ -95,7 +95,10 @@ interface ProductResponse {
   categoryId: string;
   name: string;
   description: string;
-  price: number;
+  price: number | null;
+  priceBrotinho: number | null;
+  priceOitoPedacos: number | null;
+  priceDozePedacos: number | null;
   image: string;
   ingredients: string[];
   featured: boolean;
@@ -107,7 +110,9 @@ function toPizza(p: ProductResponse): Pizza {
     id: p.id,
     name: p.name,
     description: p.description,
-    price: p.price,
+    priceBrotinho: p.priceBrotinho ?? 0,
+    priceOitoPedacos: p.priceOitoPedacos ?? 0,
+    priceDozePedacos: p.priceDozePedacos ?? 0,
     category: p.categoryId,
     featured: p.featured,
     image: p.image,
@@ -156,7 +161,9 @@ export async function createCategory(name: string): Promise<Category> {
 export interface ProductInput {
   name: string;
   description?: string;
-  price: number;
+  priceBrotinho: number;
+  priceOitoPedacos: number;
+  priceDozePedacos: number;
   categoryId: string;
   image?: string;
   ingredients?: string[];

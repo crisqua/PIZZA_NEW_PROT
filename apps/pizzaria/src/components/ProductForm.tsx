@@ -6,7 +6,11 @@ import { Card, CardContent, Button, Input, Textarea, centsToDisplay, reaisToCent
 export interface ProductFormData {
   name: string;
   description: string;
-  price: number | string;
+  // Preco explicito por tamanho (revertido de preco-base x multiplicador): o que o
+  // dono digita aqui e' exatamente o que o cliente paga por aquele tamanho.
+  priceBrotinho: number | string;
+  priceOitoPedacos: number | string;
+  priceDozePedacos: number | string;
   category: string;
   ingredients: string[];
   image: string;
@@ -26,7 +30,9 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
     description: product?.description || '',
     // Guarda os digitos em centavos (mascara de moeda), nao o valor em reais --
     // convertido de volta pra reais so' na hora de chamar onSave (handleSubmit).
-    price: product?.price ? reaisToCentsDigits(product.price) : '',
+    priceBrotinho: product?.priceBrotinho ? reaisToCentsDigits(product.priceBrotinho) : '',
+    priceOitoPedacos: product?.priceOitoPedacos ? reaisToCentsDigits(product.priceOitoPedacos) : '',
+    priceDozePedacos: product?.priceDozePedacos ? reaisToCentsDigits(product.priceDozePedacos) : '',
     category: product?.category || categories[0]?.id || '',
     ingredients: product?.ingredients || [],
     image: product?.image || '',
@@ -46,14 +52,16 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
     }
   };
 
-  // Nome, descricao, preco e categoria sao obrigatorios; imagem e ingredientes ficam
-  // opcionais (pedido do usuario) -- mesmo padrao de validate()+fieldErrors ja usado em
-  // Checkout.tsx.
+  // Nome, descricao, os 3 precos por tamanho e categoria sao obrigatorios; imagem e
+  // ingredientes ficam opcionais (pedido do usuario) -- mesmo padrao de
+  // validate()+fieldErrors ja usado em Checkout.tsx.
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!formData.name.trim()) newErrors.name = 'Nome é obrigatório';
     if (!formData.description.trim()) newErrors.description = 'Descrição é obrigatória';
-    if (!formData.price) newErrors.price = 'Preço é obrigatório';
+    if (!formData.priceBrotinho) newErrors.priceBrotinho = 'Obrigatório';
+    if (!formData.priceOitoPedacos) newErrors.priceOitoPedacos = 'Obrigatório';
+    if (!formData.priceDozePedacos) newErrors.priceDozePedacos = 'Obrigatório';
     if (!formData.category) newErrors.category = 'Categoria é obrigatória';
     setFieldErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -75,7 +83,12 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
     if (!validate()) return;
     setSubmitting(true);
     try {
-      await onSave({ ...formData, price: formData.price ? Number(formData.price) / 100 : '' });
+      await onSave({
+        ...formData,
+        priceBrotinho: Number(formData.priceBrotinho) / 100,
+        priceOitoPedacos: Number(formData.priceOitoPedacos) / 100,
+        priceDozePedacos: Number(formData.priceDozePedacos) / 100,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Nao foi possivel salvar o produto.');
     } finally {
@@ -130,20 +143,42 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
                 error={fieldErrors.description}
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Preço Base (Média)"
-                  placeholder="R$ 0,00"
-                  type="text"
-                  inputMode="numeric"
-                  value={centsToDisplay(String(formData.price))}
-                  onChange={(e) => updateField('price', e.target.value.replace(/\D/g, ''))}
-                  error={fieldErrors.price}
-                />
+              <div>
+                <label className="block mb-2 text-sm font-medium">Preços por Tamanho</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Input
+                    label="Brotinho"
+                    placeholder="R$ 0,00"
+                    type="text"
+                    inputMode="numeric"
+                    value={centsToDisplay(String(formData.priceBrotinho))}
+                    onChange={(e) => updateField('priceBrotinho', e.target.value.replace(/\D/g, ''))}
+                    error={fieldErrors.priceBrotinho}
+                  />
+                  <Input
+                    label="8 Pedaços"
+                    placeholder="R$ 0,00"
+                    type="text"
+                    inputMode="numeric"
+                    value={centsToDisplay(String(formData.priceOitoPedacos))}
+                    onChange={(e) => updateField('priceOitoPedacos', e.target.value.replace(/\D/g, ''))}
+                    error={fieldErrors.priceOitoPedacos}
+                  />
+                  <Input
+                    label="12 Pedaços"
+                    placeholder="R$ 0,00"
+                    type="text"
+                    inputMode="numeric"
+                    value={centsToDisplay(String(formData.priceDozePedacos))}
+                    onChange={(e) => updateField('priceDozePedacos', e.target.value.replace(/\D/g, ''))}
+                    error={fieldErrors.priceDozePedacos}
+                  />
+                </div>
+              </div>
 
-                <div>
-                  <label className="block mb-2 text-sm font-medium">Categoria</label>
-                  {isAddingCategory ? (
+              <div>
+                <label className="block mb-2 text-sm font-medium">Categoria</label>
+                {isAddingCategory ? (
                     <div className="flex items-center gap-1">
                       <Input
                         autoFocus
@@ -188,10 +223,9 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
                       <option value="__new__">+ Nova categoria...</option>
                     </select>
                   )}
-                  {fieldErrors.category && (
-                    <p className="mt-1.5 text-sm text-destructive">{fieldErrors.category}</p>
-                  )}
-                </div>
+                {fieldErrors.category && (
+                  <p className="mt-1.5 text-sm text-destructive">{fieldErrors.category}</p>
+                )}
               </div>
             </CardContent>
           </Card>

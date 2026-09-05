@@ -13,10 +13,10 @@ import type { Category, CartItem, Customer, Drink, Pizza, PizzaSizeId, Tenant } 
 import { apiFetch, setAccessToken, getAccessToken } from './api';
 import { getTenantSlug } from './tenant';
 
-export const pizzaSizes: { id: PizzaSizeId; name: string; slices: number; multiplier: number }[] = [
-  { id: 'brotinho', name: 'Brotinho', slices: 4, multiplier: 0.75 },
-  { id: 'oito-pedacos', name: '8 pedaços', slices: 8, multiplier: 1.35 },
-  { id: 'doze-pedacos', name: '12 pedaços', slices: 12, multiplier: 1.8 },
+export const pizzaSizes: { id: PizzaSizeId; name: string; slices: number }[] = [
+  { id: 'brotinho', name: 'Brotinho', slices: 4 },
+  { id: 'oito-pedacos', name: '8 pedaços', slices: 8 },
+  { id: 'doze-pedacos', name: '12 pedaços', slices: 12 },
 ];
 
 export let mockTenant: Tenant = {
@@ -52,7 +52,10 @@ interface ProductResponse {
   categoryId: string;
   name: string;
   description: string;
-  price: number;
+  price: number | null;
+  priceBrotinho: number | null;
+  priceOitoPedacos: number | null;
+  priceDozePedacos: number | null;
   image: string;
   ingredients: string[];
   featured: boolean;
@@ -96,7 +99,9 @@ function toPizza(p: ProductResponse): Pizza {
     id: p.id,
     name: p.name,
     description: p.description,
-    price: p.price,
+    priceBrotinho: p.priceBrotinho ?? 0,
+    priceOitoPedacos: p.priceOitoPedacos ?? 0,
+    priceDozePedacos: p.priceDozePedacos ?? 0,
     category: p.categoryId,
     featured: p.featured,
     image: p.image,
@@ -105,7 +110,7 @@ function toPizza(p: ProductResponse): Pizza {
 }
 
 function toDrink(p: ProductResponse): Drink {
-  return { id: p.id, name: p.name, price: p.price, size: '' };
+  return { id: p.id, name: p.name, price: p.price ?? 0, size: '' };
 }
 
 interface MeResponse {

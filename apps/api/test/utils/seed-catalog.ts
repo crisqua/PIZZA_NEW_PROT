@@ -33,16 +33,31 @@ export async function seedProduct(
   tenantContext: TenantContextService,
   tenantId: string,
   categoryId: string,
-  overrides: { name?: string; price?: number; type?: string } = {},
+  overrides: {
+    name?: string;
+    type?: string;
+    // So' usado se type='drink'.
+    price?: number;
+    // So' usado se type!=='drink' (pizza) -- preco explicito por tamanho, mesmo padrao
+    // real de ProductForm.tsx desde que preco-base x multiplicador foi revertido.
+    priceBrotinho?: number;
+    priceOitoPedacos?: number;
+    priceDozePedacos?: number;
+  } = {},
 ): Promise<SeededProduct> {
+  const type = overrides.type ?? 'pizza';
+  const isDrink = type === 'drink';
   const product = await tenantContext.runInTenantContext(tenantId, (tx) =>
     tx.product.create({
       data: {
         tenantId,
         categoryId,
         name: overrides.name ?? 'Produto Teste',
-        price: overrides.price ?? 10,
-        type: overrides.type ?? 'pizza',
+        type,
+        price: isDrink ? (overrides.price ?? 10) : undefined,
+        priceBrotinho: isDrink ? undefined : (overrides.priceBrotinho ?? 10),
+        priceOitoPedacos: isDrink ? undefined : (overrides.priceOitoPedacos ?? 10),
+        priceDozePedacos: isDrink ? undefined : (overrides.priceDozePedacos ?? 10),
       },
     }),
   );

@@ -9,7 +9,11 @@ export interface ProductResponse {
   categoryId: string;
   name: string;
   description: string;
-  price: number;
+  // Usado so' por bebida (type='drink'); pizza usa os 3 campos abaixo (fica null).
+  price: number | null;
+  priceBrotinho: number | null;
+  priceOitoPedacos: number | null;
+  priceDozePedacos: number | null;
   image: string;
   ingredients: string[];
   featured: boolean;
@@ -26,7 +30,10 @@ export function toProductResponse(product: Product): ProductResponse {
     categoryId: product.categoryId,
     name: product.name,
     description: product.description,
-    price: product.price.toNumber(),
+    price: product.price?.toNumber() ?? null,
+    priceBrotinho: product.priceBrotinho?.toNumber() ?? null,
+    priceOitoPedacos: product.priceOitoPedacos?.toNumber() ?? null,
+    priceDozePedacos: product.priceDozePedacos?.toNumber() ?? null,
     image: product.image,
     ingredients: product.ingredients as string[],
     featured: product.featured,

@@ -3,15 +3,25 @@ export interface Category {
   name: string;
 }
 
+export type PizzaSizeId = 'brotinho' | 'oito-pedacos' | 'doze-pedacos';
+
 export interface Pizza {
   id: string;
   name: string;
   description: string;
-  price: number;
+  // Preco explicito por tamanho (revertido de preco-base x multiplicador) -- o que o
+  // dono digita no cadastro e' exatamente o que o cliente paga, sem conta escondida.
+  priceBrotinho: number;
+  priceOitoPedacos: number;
+  priceDozePedacos: number;
   category: string;
   featured?: boolean;
   image: string;
   ingredients: string[];
+}
+
+export function priceForSize(pizza: Pizza, size: PizzaSizeId): number {
+  return size === 'brotinho' ? pizza.priceBrotinho : size === 'oito-pedacos' ? pizza.priceOitoPedacos : pizza.priceDozePedacos;
 }
 
 export interface Drink {
@@ -42,8 +52,6 @@ export interface Order {
   paymentMethod: string;
   createdAt: Date;
 }
-
-export type PizzaSizeId = 'brotinho' | 'oito-pedacos' | 'doze-pedacos';
 
 export interface CartItem {
   id: string;

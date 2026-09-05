@@ -91,7 +91,9 @@ export default function App() {
     const input = {
       name: data.name,
       description: data.description,
-      price: Number(data.price),
+      priceBrotinho: Number(data.priceBrotinho),
+      priceOitoPedacos: Number(data.priceOitoPedacos),
+      priceDozePedacos: Number(data.priceDozePedacos),
       categoryId: data.category,
       image: data.image,
       ingredients: data.ingredients,

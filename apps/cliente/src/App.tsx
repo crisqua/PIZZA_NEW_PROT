@@ -7,8 +7,8 @@ import { Auth } from './components/Auth';
 import { Checkout } from './components/Checkout';
 import { OrderConfirmation } from './components/OrderConfirmation';
 
-import { mockTenant, pizzaSizes, isAuthenticated, loadCatalog, tryRestoreSession, logout, ApiOrder } from './data/repository';
-import { Pizza, Drink, CartItem, PizzaSizeId } from '@pizza/types';
+import { mockTenant, isAuthenticated, loadCatalog, tryRestoreSession, logout, ApiOrder } from './data/repository';
+import { Pizza, Drink, CartItem, PizzaSizeId, priceForSize } from '@pizza/types';
 
 export default function App() {
   type ClientView = 'menu' | 'builder' | 'cart' | 'auth' | 'checkout' | 'confirmation';
@@ -57,8 +57,7 @@ export default function App() {
   };
 
   const handleAddSingleFlavor = (pizza: Pizza, size: PizzaSizeId) => {
-    const sizeInfo = pizzaSizes.find(s => s.id === size)!;
-    const price = pizza.price * sizeInfo.multiplier;
+    const price = priceForSize(pizza, size);
     const existingItem = cart.find(
       item => item.type === 'pizza' && item.pizza && item.pizza.size === size && sameFlavors(item.pizza.flavors, [pizza])
     );

@@ -29,7 +29,7 @@ describe('FK composta order_items.(tenant_id, product_id) -> products(tenant_id,
     tenantA = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'fk-ord-a', role: 'tenant_owner' });
     tenantB = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'fk-ord-b', role: 'tenant_owner' });
     categoryB = await seedCategory(tenantContext, tenantB.tenantId, 'Categoria de B');
-    productB = await seedProduct(tenantContext, tenantB.tenantId, categoryB.id, { name: 'Produto de B', price: 10 });
+    productB = await seedProduct(tenantContext, tenantB.tenantId, categoryB.id, { name: 'Produto de B' });
 
     // Pedido valido do proprio tenant A, so' pra ter um order_id real pra tentar
     // referenciar o item.

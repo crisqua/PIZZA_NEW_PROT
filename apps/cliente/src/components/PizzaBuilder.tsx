@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Plus, ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react';
 import { pizzaSizes, mockPizzas, mockCategories } from '../data/repository';
-import { Pizza, PizzaSizeId } from '@pizza/types';
+import { Pizza, PizzaSizeId, priceForSize } from '@pizza/types';
 import { Card, CardContent, Button, Badge, formatCurrency } from '@pizza/ui';
 
 interface PizzaBuilderProps {
@@ -24,9 +24,12 @@ export function PizzaBuilder({ initialPizza, initialSize, onBack, onAddToCart }:
 
   const canAddFlavor = selectedFlavors.length < 2;
 
+  // Media dos precos DE CADA SABOR ja' no tamanho selecionado -- sem multiplicador
+  // (revertido nesta sprint), mesma logica de OrdersService.insertOrder no backend
+  // (precisa bater exatamente, o servidor recalcula do zero e nunca confia neste valor).
   const calculatePrice = () => {
-    const avgPrice = selectedFlavors.reduce((sum, f) => sum + f.price, 0) / selectedFlavors.length;
-    return avgPrice * selectedSize.multiplier;
+    const avgPrice = selectedFlavors.reduce((sum, f) => sum + priceForSize(f, selectedSize.id), 0) / selectedFlavors.length;
+    return Math.round(avgPrice * 100) / 100;
   };
 
   const handleAddFlavor = (pizza: Pizza) => {

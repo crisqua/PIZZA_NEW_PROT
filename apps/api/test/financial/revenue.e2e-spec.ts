@@ -31,7 +31,10 @@ describe('GET /v1/financial/revenue', () => {
     tenant = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'fin-rev', role: 'tenant_owner' });
     await seedSubscription(tenantContext, tenant.tenantId, plan.id);
     category = await seedCategory(tenantContext, tenant.tenantId, 'Categoria Receita');
-    product = await seedProduct(tenantContext, tenant.tenantId, category.id, { name: 'Produto Receita', price: 50 });
+    // Preco do produto e' irrelevante aqui -- os OrderItems abaixo (seedOrder) sao
+    // inseridos direto com unitPrice explicito, nunca passam por OrdersService/o preco
+    // real do produto.
+    product = await seedProduct(tenantContext, tenant.tenantId, category.id, { name: 'Produto Receita' });
 
     const res = await request(app.getHttpServer())
       .post('/v1/auth/login')

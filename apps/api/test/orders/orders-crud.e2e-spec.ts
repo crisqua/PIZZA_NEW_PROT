@@ -50,10 +50,10 @@ describe('/v1/orders', () => {
 
     categoryA = await seedCategory(tenantContext, tenantA.tenantId, 'Categoria A');
     categoryB = await seedCategory(tenantContext, tenantB.tenantId, 'Categoria B');
-    pizzaA1 = await seedProduct(tenantContext, tenantA.tenantId, categoryA.id, { name: 'Marguerita', price: 40, type: 'pizza' });
-    pizzaA2 = await seedProduct(tenantContext, tenantA.tenantId, categoryA.id, { name: 'Calabresa', price: 44, type: 'pizza' });
+    pizzaA1 = await seedProduct(tenantContext, tenantA.tenantId, categoryA.id, { name: 'Marguerita', priceOitoPedacos: 40, type: 'pizza' });
+    pizzaA2 = await seedProduct(tenantContext, tenantA.tenantId, categoryA.id, { name: 'Calabresa', priceOitoPedacos: 44, type: 'pizza' });
     drinkA = await seedProduct(tenantContext, tenantA.tenantId, categoryA.id, { name: 'Refrigerante', price: 8, type: 'drink' });
-    productB = await seedProduct(tenantContext, tenantB.tenantId, categoryB.id, { name: 'Produto B', price: 99, type: 'pizza' });
+    productB = await seedProduct(tenantContext, tenantB.tenantId, categoryB.id, { name: 'Produto B', type: 'pizza' });
 
     const ownerLogin = await request(app.getHttpServer())
       .post('/v1/auth/login')
@@ -164,11 +164,12 @@ describe('/v1/orders', () => {
     createdOrderId = res.body.id;
     expect(res.body.status).toBe('pending');
     expect(res.body.customerName).toBe('Cliente A');
-    // (40+44)/2 * 1.35 = 56.7 -- nunca confiado do client, calculado em OrdersService.
-    expect(res.body.items[0].unitPrice).toBe(56.7);
+    // (40+44)/2 = 42 -- media dos precos-por-tamanho de cada sabor (sem multiplicador,
+    // revertido nesta sprint), nunca confiado do client, calculado em OrdersService.
+    expect(res.body.items[0].unitPrice).toBe(42);
     expect(res.body.items[0].name).toBe('Marguerita + Calabresa');
     expect(res.body.items[1].unitPrice).toBe(8);
-    expect(res.body.total).toBe(56.7 + 8 * 2);
+    expect(res.body.total).toBe(42 + 8 * 2);
     expect(typeof res.body.total).toBe('number');
   });
 

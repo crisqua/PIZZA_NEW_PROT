@@ -178,7 +178,19 @@ model Product {
   // Plan.price) — Decimal(10,2) em reais, nunca centavos/Float. Mesmo cuidado de sempre:
   // Prisma.Decimal vira string via .toJSON(), response mapeia .toNumber() explicitamente
   // (ver product-response.util.ts).
-  price       Decimal  @db.Decimal(10, 2)
+  // Usado so' por bebida (type='drink') -- preco unico, sem tamanho. Nullable pelo mesmo
+  // motivo dos 3 campos abaixo: pizza nao usa este campo, so' os de tamanho. Obrigatorio
+  // por tipo validado no DTO (@ValidateIf), nao a nivel de banco.
+  price       Decimal? @db.Decimal(10, 2)
+  // Pizza (type='pizza') usa preco explicito por tamanho em vez de preco-base x
+  // multiplicador (decisao revertida nesta sprint: o dono digita o preco real de cada
+  // tamanho, o que ele digita e' exatamente o que o cliente paga, sem conta escondida).
+  // Nullable porque bebida nao usa -- obrigatorio pra pizza, validado no DTO
+  // (@ValidateIf), nao a nivel de banco (nao da pra CHECK condicional simples por tipo
+  // sem trigger, e o app ja garante isso na escrita).
+  priceBrotinho    Decimal? @map("price_brotinho") @db.Decimal(10, 2)
+  priceOitoPedacos Decimal? @map("price_oito_pedacos") @db.Decimal(10, 2)
+  priceDozePedacos Decimal? @map("price_doze_pedacos") @db.Decimal(10, 2)
   // URL simples, nao upload real — decisao confirmada com o usuario nesta sprint:
   // Supabase Storage/URL assinada fica pra depois (nao existe infra nenhuma ainda), e o
   // protototipo (ProductForm.tsx) ja so aceita colar uma URL num input de texto. Default
@@ -195,8 +207,8 @@ model Product {
   // disponivel, mesmo default-true de Plan.active/Tenant.active.
   available   Boolean  @default(true)
   // 'pizza' | 'drink' (Sprint 7) — validado em codigo, mesma convencao de role/status.
-  // Existe pra order_items saber se o preco e' media-de-sabores*multiplicador (pizza) ou
-  // direto (bebida), sem depender de casamento fragil por nome de categoria.
+  // Existe pra order_items saber se o preco e' media dos precos-por-tamanho dos sabores
+  // (pizza) ou direto (bebida), sem depender de casamento fragil por nome de categoria.
   type        String   @default("pizza") @db.VarChar(20)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -306,7 +318,11 @@ model OrderItem {
 
   order         Order   @relation(fields: [orderId], references: [id])
   product       Product @relation("OrderItemProduct", fields: [productId], references: [id])
-  secondProduct Product? @relation("OrderItemSecondProduct", fields: [secondProductId], references: [id])
+  // onDelete explicito (Restrict, igual product/order acima) -- sem isso o default do
+  // Prisma pra relacao opcional e' SetNull, divergindo da migration hand-written
+  // original que sempre foi RESTRICT (mesmo raciocinio: nao apagar um produto que ainda
+  // e' referenciado por um pedido, nem o segundo sabor do meio a meio).
+  secondProduct Product? @relation("OrderItemSecondProduct", fields: [secondProductId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, orderId], map: "idx_order_items_tenant_order")
   @@map("order_items")

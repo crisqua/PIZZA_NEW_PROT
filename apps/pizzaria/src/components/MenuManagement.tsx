@@ -136,8 +136,14 @@ export function MenuManagement({ categories, pizzas, onCreateCategory, onEditPro
                 {categories.find(c => c.id === pizza.category)?.name ?? pizza.category}
               </Badge>
               <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{pizza.description}</p>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-primary font-bold text-lg">{formatCurrency(pizza.price)}</span>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm">
+                  <span><span className="text-muted-foreground">Brotinho</span> <span className="text-primary font-semibold">{formatCurrency(pizza.priceBrotinho)}</span></span>
+                  <span><span className="text-muted-foreground">8 ped.</span> <span className="text-primary font-semibold">{formatCurrency(pizza.priceOitoPedacos)}</span></span>
+                  <span><span className="text-muted-foreground">12 ped.</span> <span className="text-primary font-semibold">{formatCurrency(pizza.priceDozePedacos)}</span></span>
+                </div>
+              </div>
+              <div className="flex items-center justify-end mb-4">
                 <Badge variant="success">Ativo</Badge>
               </div>
               <div className="flex gap-2">

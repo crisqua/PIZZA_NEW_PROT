@@ -48,25 +48,44 @@ describe('/v1/catalog/products', () => {
     await app.close();
   });
 
-  it('cria um produto com defaults e price como number (nao string)', async () => {
+  it('cria um produto de pizza com precos por tamanho como number (nao string)', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/catalog/products')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ name: 'Margherita', price: 45.9, categoryId: categoryA.id })
+      .send({ name: 'Margherita', priceBrotinho: 30, priceOitoPedacos: 45.9, priceDozePedacos: 60, categoryId: categoryA.id })
       .expect(201);
 
     createdProductId = res.body.id;
-    expect(res.body.price).toBe(45.9);
-    expect(typeof res.body.price).toBe('number');
+    expect(res.body.priceBrotinho).toBe(30);
+    expect(res.body.priceOitoPedacos).toBe(45.9);
+    expect(res.body.priceDozePedacos).toBe(60);
+    expect(typeof res.body.priceOitoPedacos).toBe('number');
     expect(res.body.available).toBe(true);
     expect(res.body.featured).toBe(false);
+  });
+
+  it('bebida sem os 3 precos de pizza retorna 201 (so price e obrigatorio pra drink)', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/v1/catalog/products')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ name: 'Suco', price: 12, type: 'drink', categoryId: categoryA.id })
+      .expect(201);
+    await cleanupProduct(tenantContext, tenantA.tenantId, res.body.id);
+  });
+
+  it('pizza sem os 3 precos por tamanho retorna 400', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/catalog/products')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ name: 'Sem Preco', categoryId: categoryA.id })
+      .expect(400);
   });
 
   it('categoryId inexistente retorna 404', async () => {
     await request(app.getHttpServer())
       .post('/v1/catalog/products')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ name: 'Produto Fantasma', price: 10, categoryId: '00000000-0000-0000-0000-000000000000' })
+      .send({ name: 'Produto Fantasma', type: 'drink', price: 10, categoryId: '00000000-0000-0000-0000-000000000000' })
       .expect(404);
   });
 
@@ -74,7 +93,7 @@ describe('/v1/catalog/products', () => {
     await request(app.getHttpServer())
       .post('/v1/catalog/products')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ name: 'Produto Cross-Tenant', price: 10, categoryId: categoryB.id })
+      .send({ name: 'Produto Cross-Tenant', type: 'drink', price: 10, categoryId: categoryB.id })
       .expect(404);
   });
 
@@ -116,10 +135,10 @@ describe('/v1/catalog/products', () => {
     const res = await request(app.getHttpServer())
       .patch(`/v1/catalog/products/${createdProductId}`)
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ available: false, price: 49.9 })
+      .send({ available: false, priceOitoPedacos: 49.9 })
       .expect(200);
     expect(res.body.available).toBe(false);
-    expect(res.body.price).toBe(49.9);
+    expect(res.body.priceOitoPedacos).toBe(49.9);
   });
 
   it('DELETE remove o produto (204), depois GET retorna 404', async () => {

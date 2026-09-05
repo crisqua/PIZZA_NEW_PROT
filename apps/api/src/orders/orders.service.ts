@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { toOrderResponse } from '../common/order-response.util';
+import { getPizzaSizePrice } from '../common/product-price.util';
 import { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { TenantContextService, TenantTx } from '../prisma/tenant-context.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { assertValidTransition } from './order-status';
-import { PIZZA_SIZE_MULTIPLIERS, PizzaSizeId } from './pizza-size';
+import { PizzaSizeId } from './pizza-size';
 
 const PRISMA_UNIQUE_CONSTRAINT = 'P2002';
 
@@ -92,6 +93,9 @@ export class OrdersService {
         if (itemDto.secondProductId) {
           throw new BadRequestException('Bebida nao aceita segundo sabor.');
         }
+        if (product.price == null) {
+          throw new BadRequestException(`Bebida "${product.name}" nao tem preco cadastrado.`);
+        }
         items.push({
           tenantId,
           productId: product.id,
@@ -109,7 +113,7 @@ export class OrdersService {
       if (!itemDto.size) {
         throw new BadRequestException('Pizza precisa de "size".');
       }
-      const multiplier = PIZZA_SIZE_MULTIPLIERS[itemDto.size as PizzaSizeId];
+      const size = itemDto.size as PizzaSizeId;
 
       if (itemDto.secondProductId) {
         const secondProduct = await tx.product.findUnique({ where: { id: itemDto.secondProductId } });
@@ -119,7 +123,11 @@ export class OrdersService {
         if (secondProduct.type !== 'pizza') {
           throw new BadRequestException('Segundo sabor precisa ser uma pizza.');
         }
-        const avgPrice = (product.price.toNumber() + secondProduct.price.toNumber()) / 2;
+        // Meio a meio: media dos precos DE CADA SABOR ja' no tamanho pedido -- nao existe
+        // mais multiplicador, cada Product de pizza ja' guarda o preco explicito por
+        // tamanho (getPizzaSizePrice). round2 continua necessario pois a media de dois
+        // precos pode sobrar mais de 2 casas decimais.
+        const avgPrice = (getPizzaSizePrice(product, size) + getPizzaSizePrice(secondProduct, size)) / 2;
         items.push({
           tenantId,
           productId: product.id,
@@ -127,7 +135,7 @@ export class OrdersService {
           type: 'pizza',
           size: itemDto.size,
           name: `${product.name} + ${secondProduct.name}`,
-          unitPrice: round2(avgPrice * multiplier),
+          unitPrice: round2(avgPrice),
           quantity,
         });
         continue;
@@ -140,7 +148,7 @@ export class OrdersService {
         type: 'pizza',
         size: itemDto.size,
         name: product.name,
-        unitPrice: round2(product.price.toNumber() * multiplier),
+        unitPrice: getPizzaSizePrice(product, size),
         quantity,
       });
     }
