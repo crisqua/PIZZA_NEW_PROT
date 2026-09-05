@@ -29,6 +29,15 @@ function HalfHalfIcon() {
 // naquele card especifico, nunca um diferente do anunciado (sem susto no carrinho).
 const DEFAULT_SIZE_ID: PizzaSizeId = 'oito-pedacos';
 
+// Rotulo curto pro seletor inline do card (linha compacta, sem espaco pro nome completo
+// "8 pedacos"/"12 pedacos" ao lado dos botoes de acao) -- PizzaBuilder.tsx continua usando
+// o nome completo, ali tem uma tela inteira pra isso.
+const SIZE_SHORT_LABEL: Record<PizzaSizeId, string> = {
+  brotinho: 'Brotinho',
+  'oito-pedacos': '8 ped.',
+  'doze-pedacos': '12 ped.',
+};
+
 export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItemsCount, onViewCart }: MenuProps) {
   const [selectedSizes, setSelectedSizes] = useState<Record<string, PizzaSizeId>>({});
 
@@ -107,39 +116,41 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
                         className="w-11 h-11 rounded-lg object-cover shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-serif text-[15px] text-foreground truncate">{pizza.name}</span>
-                          {pizza.featured && <Badge className="shrink-0">Especial</Badge>}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{pizza.description}</p>
-                        <div className="flex gap-1.5 mt-2">
-                          {pizzaSizes.map((size) => {
-                            const isSelected = sizeFor(pizza.id) === size.id;
-                            return (
-                              <button
-                                key={size.id}
-                                onClick={() => setSelectedSizes((prev) => ({ ...prev, [pizza.id]: size.id }))}
-                                className={`px-2 py-1 rounded border text-[10px] font-semibold uppercase tracking-wide transition-colors ${
-                                  isSelected
-                                    ? 'border-primary bg-primary/[.13] text-primary'
-                                    : 'border-border text-muted-foreground hover:text-foreground'
-                                }`}
-                              >
-                                {size.name}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div className="flex items-center justify-between mt-1.5">
-                          <span className="font-serif text-sm text-primary">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-serif text-[15px] text-foreground truncate">{pizza.name}</span>
+                            {pizza.featured && <Badge className="shrink-0">Especial</Badge>}
+                          </div>
+                          <span className="font-serif text-sm text-primary shrink-0">
                             {formatCurrency(pizza.price * multiplierFor(pizza.id))}
                           </span>
-                          <div className="flex items-center gap-1.5 shrink-0">
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{pizza.description}</p>
+                        <div className="flex items-center justify-between mt-2 gap-1">
+                          <div className="flex gap-1">
+                            {pizzaSizes.map((size) => {
+                              const isSelected = sizeFor(pizza.id) === size.id;
+                              return (
+                                <button
+                                  key={size.id}
+                                  onClick={() => setSelectedSizes((prev) => ({ ...prev, [pizza.id]: size.id }))}
+                                  className={`px-1.5 py-1 rounded border text-[9px] font-semibold uppercase tracking-wide transition-colors ${
+                                    isSelected
+                                      ? 'border-primary bg-primary/[.13] text-primary'
+                                      : 'border-border text-muted-foreground hover:text-foreground'
+                                  }`}
+                                >
+                                  {SIZE_SHORT_LABEL[size.id]}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
                             <button
                               onClick={() => onStartHalfHalf(pizza, sizeFor(pizza.id))}
                               title="Meio a meio"
                               aria-label={`Meio a meio com ${pizza.name}`}
-                              className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                              className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
                             >
                               <HalfHalfIcon />
                             </button>
@@ -147,7 +158,7 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
                               onClick={() => onAddSingleFlavor(pizza, sizeFor(pizza.id))}
                               title="Adicionar"
                               aria-label={`Adicionar ${pizza.name}`}
-                              className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
+                              className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"
                             >
                               <Plus className="w-4 h-4" />
                             </button>
