@@ -206,29 +206,36 @@ export function OrdersPanel() {
               </button>
 
               {itemsOpen && (
-                <div className="border-t border-border px-4 py-4 space-y-2.5">
+                <div className="border-t border-border px-4 py-4">
+                  <div className="grid gap-3 pb-2" style={{ gridTemplateColumns: '48px 1fr 100px' }}>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Qtde</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Item Pedido</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground text-right">Valor Unitário</span>
+                  </div>
                   {order.items.map((item) => (
-                    <div key={item.id} className="flex items-baseline justify-between gap-3 text-sm">
-                      <span>
-                        {item.name}
-                        {item.size && <span className="text-muted-foreground"> · {item.size}</span>}
-                        <span className="text-muted-foreground"> x{item.quantity}</span>
+                    <div key={item.id} className="grid gap-3 items-center py-2.5 border-t border-border" style={{ gridTemplateColumns: '48px 1fr 100px' }}>
+                      <span className="text-sm font-bold">{item.quantity}</span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold truncate">{item.name}</span>
+                        {item.size && <span className="block text-xs text-muted-foreground">{item.size}</span>}
                       </span>
-                      <span className="font-semibold whitespace-nowrap">{formatCurrency(item.unitPrice * item.quantity)}</span>
+                      <span className="text-sm font-semibold text-right whitespace-nowrap">{formatCurrency(item.unitPrice)}</span>
                     </div>
                   ))}
-                  <div className="h-px bg-border my-1" />
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Subtotal</span>
-                    <span>{formatCurrency(subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Taxa de entrega</span>
-                    <span>{formatCurrency(order.deliveryFee)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold pt-1">
-                    <span>Total</span>
-                    <span className="text-primary">{formatCurrency(order.total)}</span>
+                  <div className="h-px bg-border my-3" />
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Subtotal</span>
+                      <span>{formatCurrency(subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Taxa de entrega</span>
+                      <span>{formatCurrency(order.deliveryFee)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold pt-1">
+                      <span>Total</span>
+                      <span className="text-primary">{formatCurrency(order.total)}</span>
+                    </div>
                   </div>
                 </div>
               )}
