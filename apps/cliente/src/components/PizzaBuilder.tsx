@@ -192,16 +192,12 @@ function FlavorSelector({ selectedFlavors, onSelect, onBack }: {
   onSelect: (pizza: Pizza) => void;
   onBack: () => void;
 }) {
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {};
-    mockCategories.forEach((category, index) => {
-      initial[category.id] = index === 0;
-    });
-    return initial;
-  });
+  // Acordeao exclusivo, mesma solucao do Menu.tsx: abrir uma categoria fecha qualquer
+  // outra que estivesse aberta.
+  const [openCategoryId, setOpenCategoryId] = useState<string>(mockCategories[0]?.id ?? '');
 
   const toggleCategory = (id: string) => {
-    setOpenCategories((prev) => ({ ...prev, [id]: !prev[id] }));
+    setOpenCategoryId((prev) => (prev === id ? '' : id));
   };
 
   return (
@@ -219,7 +215,7 @@ function FlavorSelector({ selectedFlavors, onSelect, onBack }: {
         {mockCategories.map((category) => {
           const pizzas = mockPizzas.filter((p) => p.category === category.id);
           if (pizzas.length === 0) return null;
-          const isOpen = !!openCategories[category.id];
+          const isOpen = openCategoryId === category.id;
 
           return (
             <Card key={category.id} className="overflow-hidden">
