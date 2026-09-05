@@ -25,6 +25,7 @@ import {
   updateProduct,
   deleteProduct,
   AdminProduct,
+  ProductType,
 } from './data/repository';
 import { ADDONS } from './data/addons';
 import { Category } from '@pizza/types';
@@ -77,8 +78,8 @@ export default function App() {
     setActivePage('dashboard');
   };
 
-  const handleCreateCategory = async (name: string): Promise<Category> => {
-    const created = await createCategory(name);
+  const handleCreateCategory = async (name: string, type: ProductType = 'pizza'): Promise<Category> => {
+    const created = await createCategory(name, type);
     setCategories((prev) => [...prev, created]);
     return created;
   };

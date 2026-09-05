@@ -109,6 +109,7 @@ interface SubscriptionResponse {
 interface CategoryResponse {
   id: string;
   name: string;
+  type: ProductType;
 }
 
 interface ProductResponse {
@@ -178,8 +179,8 @@ export async function loadDashboardBoot(): Promise<void> {
 
 // ---------- Categorias / Produtos (CRUD real) ----------
 
-export async function createCategory(name: string): Promise<Category> {
-  return apiFetch<CategoryResponse>('/catalog/categories', { method: 'POST', body: { name } });
+export async function createCategory(name: string, type: ProductType): Promise<Category> {
+  return apiFetch<CategoryResponse>('/catalog/categories', { method: 'POST', body: { name, type } });
 }
 
 export interface ProductInput {
