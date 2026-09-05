@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingCart, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShoppingCart, Plus, ChevronDown, ChevronUp, Lock, User } from 'lucide-react';
 import { mockPizzas, mockDrinks, mockTenant, mockCategories, pizzaSizes } from '../data/repository';
 import { Pizza, Drink, PizzaSizeId } from '@pizza/types';
 import { Card, Button, Badge, formatCurrency } from '@pizza/ui';
@@ -10,6 +10,8 @@ interface MenuProps {
   onAddDrink: (drink: Drink) => void;
   cartItemsCount: number;
   onViewCart: () => void;
+  isLoggedIn: boolean;
+  onAccountClick: () => void;
 }
 
 const BEBIDAS_ID = 'bebidas';
@@ -38,39 +40,46 @@ const SIZE_SHORT_LABEL: Record<PizzaSizeId, string> = {
   'doze-pedacos': '12 ped.',
 };
 
-export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItemsCount, onViewCart }: MenuProps) {
+export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItemsCount, onViewCart, isLoggedIn, onAccountClick }: MenuProps) {
   const [selectedSizes, setSelectedSizes] = useState<Record<string, PizzaSizeId>>({});
 
   const sizeFor = (pizzaId: string): PizzaSizeId => selectedSizes[pizzaId] ?? DEFAULT_SIZE_ID;
   const multiplierFor = (pizzaId: string): number =>
     pizzaSizes.find((s) => s.id === sizeFor(pizzaId))?.multiplier ?? 1;
 
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = { [BEBIDAS_ID]: false };
-    mockCategories.forEach((category, index) => {
-      initial[category.id] = index === 0;
-    });
-    return initial;
-  });
+  // Acordeao exclusivo (pedido do usuario): abrir uma categoria fecha qualquer outra que
+  // estivesse aberta, Bebidas incluso -- guarda so' o id da categoria aberta, nao um mapa
+  // de booleans independentes.
+  const [openCategoryId, setOpenCategoryId] = useState<string>(mockCategories[0]?.id ?? '');
 
   const toggleCategory = (id: string) => {
-    setOpenCategories((prev) => ({ ...prev, [id]: !prev[id] }));
+    setOpenCategoryId((prev) => (prev === id ? '' : id));
   };
 
   return (
     <div className="min-h-dvh bg-background pb-28">
       <div className="bg-surface px-6 pt-12 pb-8 border-b border-border">
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-14 h-14 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-serif font-semibold text-lg">
-            {mockTenant.logo}
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="w-14 h-14 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-serif font-semibold text-lg shrink-0">
+              {mockTenant.logo}
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-serif text-2xl font-semibold text-foreground truncate">{mockTenant.name}</h1>
+              <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-success" />
+                Aberto • Entrega em 40-60 min
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-serif text-2xl font-semibold text-foreground">{mockTenant.name}</h1>
-            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-success" />
-              Aberto • Entrega em 40-60 min
-            </p>
-          </div>
+          <button
+            onClick={onAccountClick}
+            title={isLoggedIn ? 'Sair' : 'Entrar'}
+            aria-label={isLoggedIn ? 'Sair da conta' : 'Entrar na conta'}
+            className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          >
+            {isLoggedIn ? <User className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+          </button>
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
           <Badge>Pedido mínimo {formatCurrency(mockTenant.minOrder)}</Badge>
@@ -82,7 +91,7 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
         {mockCategories.map((category) => {
           const pizzas = mockPizzas.filter((p) => p.category === category.id);
           if (pizzas.length === 0) return null;
-          const isOpen = !!openCategories[category.id];
+          const isOpen = openCategoryId === category.id;
 
           return (
             <Card key={category.id} className="overflow-hidden">
@@ -184,14 +193,14 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
                 {mockDrinks.length}
               </span>
             </div>
-            {openCategories[BEBIDAS_ID] ? (
+            {openCategoryId === BEBIDAS_ID ? (
               <ChevronUp className="w-5 h-5 text-primary shrink-0" />
             ) : (
               <ChevronDown className="w-5 h-5 text-muted-foreground shrink-0" />
             )}
           </button>
 
-          {openCategories[BEBIDAS_ID] && (
+          {openCategoryId === BEBIDAS_ID && (
             <div className="border-t border-border">
               {mockDrinks.map((drink) => (
                 <div

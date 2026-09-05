@@ -7,7 +7,7 @@ import { Auth } from './components/Auth';
 import { Checkout } from './components/Checkout';
 import { OrderConfirmation } from './components/OrderConfirmation';
 
-import { mockTenant, pizzaSizes, isAuthenticated, loadCatalog, tryRestoreSession, ApiOrder } from './data/repository';
+import { mockTenant, pizzaSizes, isAuthenticated, loadCatalog, tryRestoreSession, logout, ApiOrder } from './data/repository';
 import { Pizza, Drink, CartItem, PizzaSizeId } from '@pizza/types';
 
 export default function App() {
@@ -20,6 +20,12 @@ export default function App() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderId, setOrderId] = useState('');
   const [lastOrder, setLastOrder] = useState<ApiOrder | null>(null);
+  // De onde a tela de Auth foi aberta -- decide pra onde volta depois (login vindo do
+  // carrinho segue pro checkout; login vindo do icone de cadeado no Menu volta pro Menu).
+  const [authOrigin, setAuthOrigin] = useState<'cart' | 'menu'>('cart');
+  // So' pra forcar um re-render depois de logout()/login bem sucedido -- isAuthenticated()
+  // le um token em memoria (data/api.ts), nao e' estado reativo por si so'.
+  const [authVersion, setAuthVersion] = useState(0);
 
   // Boot: tenta restaurar a sessao via cookie de refresh (Sprint 2) e carrega o cardapio
   // real ANTES de renderizar qualquer coisa que dependa deles -- Menu.tsx/PizzaBuilder.tsx
@@ -135,7 +141,20 @@ export default function App() {
   // Navegar/montar carrinho continua livre sem login; so' o checkout exige sessao
   // (MVP.md item 3, DoD da Sprint 7).
   const handleGoToCheckout = () => {
+    setAuthOrigin('cart');
     setView(isAuthenticated() ? 'checkout' : 'auth');
+  };
+
+  // Icone de cadeado/pessoa no Menu (pedido do usuario): deslogado abre a tela de Auth
+  // (volta pro Menu ao terminar); logado desloga na hora (sem tela de confirmacao --
+  // mesmo padrao direto do botao "Sair" dos outros 2 apps do monorepo).
+  const handleAccountClick = () => {
+    if (isAuthenticated()) {
+      logout().then(() => setAuthVersion((v) => v + 1));
+    } else {
+      setAuthOrigin('menu');
+      setView('auth');
+    }
   };
 
   const handleOrderSuccess = (order: ApiOrder) => {
@@ -167,11 +186,14 @@ export default function App() {
     >
       {view === 'menu' && (
         <Menu
+          key={authVersion}
           onAddSingleFlavor={handleAddSingleFlavor}
           onStartHalfHalf={handleStartHalfHalf}
           onAddDrink={handleAddDrink}
           cartItemsCount={cart.length}
           onViewCart={() => setView('cart')}
+          isLoggedIn={isAuthenticated()}
+          onAccountClick={handleAccountClick}
         />
       )}
       {view === 'builder' && selectedPizza && (
@@ -191,7 +213,12 @@ export default function App() {
           onCheckout={handleGoToCheckout}
         />
       )}
-      {view === 'auth' && <Auth onBack={() => setView('cart')} onAuthenticated={() => setView('checkout')} />}
+      {view === 'auth' && (
+        <Auth
+          onBack={() => setView(authOrigin)}
+          onAuthenticated={() => setView(authOrigin === 'cart' ? 'checkout' : 'menu')}
+        />
+      )}
       {view === 'checkout' && (
         <Checkout items={cart} total={total} onBack={() => setView('cart')} onSuccess={handleOrderSuccess} />
       )}
