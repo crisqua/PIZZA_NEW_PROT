@@ -89,18 +89,20 @@ export class OrdersService {
 
       const quantity = itemDto.quantity ?? 1;
 
-      if (product.type === 'drink') {
+      // Bebida e sobremesa (qualquer type !== 'pizza') usam preco unico direto, sem
+      // segundo sabor nem tamanho -- so' pizza tem esses dois.
+      if (product.type !== 'pizza') {
         if (itemDto.secondProductId) {
-          throw new BadRequestException('Bebida nao aceita segundo sabor.');
+          throw new BadRequestException('Este produto nao aceita segundo sabor.');
         }
         if (product.price == null) {
-          throw new BadRequestException(`Bebida "${product.name}" nao tem preco cadastrado.`);
+          throw new BadRequestException(`Produto "${product.name}" nao tem preco cadastrado.`);
         }
         items.push({
           tenantId,
           productId: product.id,
           secondProductId: null,
-          type: 'drink',
+          type: product.type,
           size: null,
           name: product.name,
           unitPrice: product.price.toNumber(),

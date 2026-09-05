@@ -34,6 +34,7 @@ export let mockTenant: Tenant = {
 export let mockCategories: Category[] = [];
 export let mockPizzas: Pizza[] = [];
 export let mockDrinks: Drink[] = [];
+export let mockSobremesas: Drink[] = [];
 // null = cliente novo, sem sessao -- Checkout.tsx nasce em branco (mesmo significado que
 // tinha no mock original).
 export let mockCustomer: Customer | null = null;
@@ -56,6 +57,7 @@ interface ProductResponse {
   priceBrotinho: number | null;
   priceOitoPedacos: number | null;
   priceDozePedacos: number | null;
+  size: string;
   image: string;
   ingredients: string[];
   featured: boolean;
@@ -88,10 +90,8 @@ export async function loadCatalog(): Promise<void> {
   };
   mockCategories = catalog.categories;
   mockPizzas = catalog.products.filter((p) => p.type === 'pizza').map(toPizza);
-  // Product nao tem um campo de "tamanho em texto" (350ml/2L) -- nao existia antes da
-  // Sprint 7 e nao foi pedido pelo escopo dela; fica vazio ate' o catalogo ganhar esse
-  // campo (gap conhecido, cosmetico, nao afeta preco/pedido).
-  mockDrinks = catalog.products.filter((p) => p.type === 'drink').map(toDrink);
+  mockDrinks = catalog.products.filter((p) => p.type === 'drink').map(toSimpleProduct);
+  mockSobremesas = catalog.products.filter((p) => p.type === 'sobremesa').map(toSimpleProduct);
 }
 
 function toPizza(p: ProductResponse): Pizza {
@@ -109,8 +109,10 @@ function toPizza(p: ProductResponse): Pizza {
   };
 }
 
-function toDrink(p: ProductResponse): Drink {
-  return { id: p.id, name: p.name, price: p.price ?? 0, size: '' };
+// Bebida e sobremesa compartilham o mesmo shape (preco unico + tamanho em texto livre) --
+// mesma funcao serve pros dois tipos.
+function toSimpleProduct(p: ProductResponse): Drink {
+  return { id: p.id, name: p.name, price: p.price ?? 0, size: p.size };
 }
 
 interface MeResponse {
@@ -224,7 +226,7 @@ export function buildOrderItems(items: CartItem[]): CreateOrderItemPayload[] {
         quantity: item.quantity,
       };
     }
-    return { productId: item.drink!.id, quantity: item.quantity };
+    return { productId: (item.drink ?? item.sobremesa)!.id, quantity: item.quantity };
   });
 }
 

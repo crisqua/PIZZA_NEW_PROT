@@ -55,12 +55,15 @@ export interface Order {
 
 export interface CartItem {
   id: string;
-  type: 'pizza' | 'drink';
+  type: 'pizza' | 'drink' | 'sobremesa';
   pizza?: {
     size: PizzaSizeId;
     flavors: Pizza[];
   };
   drink?: Drink;
+  // Mesmo formato de Drink (nome/preco/tamanho em texto livre) -- sobremesa nao precisa
+  // de um shape proprio, e' o mesmo "produto simples com preco unico" que bebida ja' era.
+  sobremesa?: Drink;
   quantity: number;
   price: number;
 }

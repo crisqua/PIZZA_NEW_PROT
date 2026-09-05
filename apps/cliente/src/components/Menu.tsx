@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ShoppingCart, Plus, ChevronDown, ChevronUp, Lock, User } from 'lucide-react';
-import { mockPizzas, mockDrinks, mockTenant, mockCategories, pizzaSizes } from '../data/repository';
+import { mockPizzas, mockDrinks, mockSobremesas, mockTenant, mockCategories, pizzaSizes } from '../data/repository';
 import { Pizza, Drink, PizzaSizeId, priceForSize } from '@pizza/types';
 import { Card, Button, Badge, formatCurrency } from '@pizza/ui';
 
@@ -8,6 +8,7 @@ interface MenuProps {
   onAddSingleFlavor: (pizza: Pizza, size: PizzaSizeId) => void;
   onStartHalfHalf: (pizza: Pizza, size: PizzaSizeId) => void;
   onAddDrink: (drink: Drink) => void;
+  onAddSobremesa: (sobremesa: Drink) => void;
   cartItemsCount: number;
   onViewCart: () => void;
   isLoggedIn: boolean;
@@ -15,6 +16,7 @@ interface MenuProps {
 }
 
 const BEBIDAS_ID = 'bebidas';
+const SOBREMESAS_ID = 'sobremesas';
 
 function HalfHalfIcon() {
   return (
@@ -40,7 +42,7 @@ const SIZE_SHORT_LABEL: Record<PizzaSizeId, string> = {
   'doze-pedacos': '12 ped.',
 };
 
-export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItemsCount, onViewCart, isLoggedIn, onAccountClick }: MenuProps) {
+export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobremesa, cartItemsCount, onViewCart, isLoggedIn, onAccountClick }: MenuProps) {
   const [selectedSizes, setSelectedSizes] = useState<Record<string, PizzaSizeId>>({});
 
   const sizeFor = (pizzaId: string): PizzaSizeId => selectedSizes[pizzaId] ?? DEFAULT_SIZE_ID;
@@ -215,6 +217,51 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
                     onClick={() => onAddDrink(drink)}
                     title="Adicionar"
                     aria-label={`Adicionar ${drink.name}`}
+                    className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card className="overflow-hidden">
+          <button
+            onClick={() => toggleCategory(SOBREMESAS_ID)}
+            className="w-full flex items-center justify-between px-4 py-4"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="font-serif text-lg text-foreground">Sobremesas</span>
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                {mockSobremesas.length}
+              </span>
+            </div>
+            {openCategoryId === SOBREMESAS_ID ? (
+              <ChevronUp className="w-5 h-5 text-primary shrink-0" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-muted-foreground shrink-0" />
+            )}
+          </button>
+
+          {openCategoryId === SOBREMESAS_ID && (
+            <div className="border-t border-border">
+              {mockSobremesas.map((sobremesa) => (
+                <div
+                  key={sobremesa.id}
+                  className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-border last:border-b-0"
+                >
+                  <div className="min-w-0">
+                    <span className="font-serif text-[15px] text-foreground">{sobremesa.name}</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {sobremesa.size} · {formatCurrency(sobremesa.price)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => onAddSobremesa(sobremesa)}
+                    title="Adicionar"
+                    aria-label={`Adicionar ${sobremesa.name}`}
                     className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"
                   >
                     <Plus className="w-4 h-4" />

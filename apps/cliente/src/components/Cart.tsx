@@ -133,6 +133,42 @@ export function Cart({ items, onUpdateQuantity, onRemoveItem, onBack, onCheckout
                   </div>
                 </div>
               )}
+
+              {item.type === 'sobremesa' && item.sobremesa && (
+                <div>
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1 pr-3">
+                      <h3 className="font-semibold text-foreground leading-tight mb-1">{item.sobremesa.name}</h3>
+                      <p className="text-sm text-muted-foreground">{item.sobremesa.size}</p>
+                    </div>
+                    <button
+                      onClick={() => onRemoveItem(item.id)}
+                      className="p-2 text-destructive hover:opacity-80 rounded-full transition-opacity"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-border pt-4">
+                    <div className="flex items-center gap-1 bg-background p-1 rounded-lg">
+                      <button
+                        onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                        disabled={item.quantity <= 1}
+                        className="w-8 h-8 flex items-center justify-center bg-card border border-border rounded hover:border-primary/50 text-foreground disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="font-semibold w-8 text-center text-foreground">{item.quantity}</span>
+                      <button
+                        onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                        className="w-8 h-8 flex items-center justify-center bg-card border border-border rounded hover:border-primary/50 text-foreground transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <span className="font-serif text-lg text-primary font-semibold">{formatCurrency(item.price * item.quantity)}</span>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}

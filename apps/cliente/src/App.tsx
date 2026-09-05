@@ -127,6 +127,29 @@ export default function App() {
     }
   };
 
+  const handleAddSobremesa = (sobremesa: Drink) => {
+    const existingItem = cart.find(
+      item => item.type === 'sobremesa' && item.sobremesa?.id === sobremesa.id
+    );
+
+    if (existingItem) {
+      setCart(cart.map(item =>
+        item.id === existingItem.id
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      ));
+    } else {
+      const newItem: CartItem = {
+        id: `cart-${crypto.randomUUID()}`,
+        type: 'sobremesa',
+        sobremesa,
+        quantity: 1,
+        price: sobremesa.price,
+      };
+      setCart([...cart, newItem]);
+    }
+  };
+
   const handleUpdateQuantity = (id: string, quantity: number) => {
     setCart(cart.map(item =>
       item.id === id ? { ...item, quantity } : item
@@ -189,6 +212,7 @@ export default function App() {
           onAddSingleFlavor={handleAddSingleFlavor}
           onStartHalfHalf={handleStartHalfHalf}
           onAddDrink={handleAddDrink}
+          onAddSobremesa={handleAddSobremesa}
           cartItemsCount={cart.length}
           onViewCart={() => setView('cart')}
           isLoggedIn={isAuthenticated()}
