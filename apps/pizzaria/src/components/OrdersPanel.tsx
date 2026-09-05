@@ -5,11 +5,17 @@ import { Card, Badge, Button, Input, formatCurrency, formatTime, formatPhone } f
 
 const POLL_INTERVAL_MS = 10_000;
 
-// Tempo decorrido desde que o pedido entrou ate' agora (pedido do usuario) -- em minutos
-// se for menos de 1h, em horas+minutos caso contrario. Recalculado a cada render (o
-// polling ja' re-renderiza a cada 10s, nao precisa de um timer dedicado so' pra isso).
-function formatElapsed(createdAt: string): string {
-  const mins = Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000));
+// Tempo decorrido desde que o pedido entrou ate' agora -- em minutos se for menos de 1h,
+// em horas+minutos caso contrario. Recalculado a cada render (o polling ja' re-renderiza
+// a cada 10s, nao precisa de um timer dedicado so' pra isso). Pedido "Entregue"/
+// "Cancelado" e' um estado FINAL -- o relogio para de contar ali, usando updatedAt (o
+// momento da ultima mudanca de status) em vez de continuar somando contra o agora
+// (pedido do usuario: sem isso, o tempo decorrido de um pedido ja' entregue ontem
+// continuaria subindo pra sempre).
+function formatElapsed(order: ApiOrder): string {
+  const isFinal = order.status === 'completed' || order.status === 'cancelled';
+  const end = isFinal ? new Date(order.updatedAt).getTime() : Date.now();
+  const mins = Math.max(0, Math.floor((end - new Date(order.createdAt).getTime()) / 60000));
   if (mins < 60) return `${mins} min`;
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -201,7 +207,7 @@ export function OrdersPanel() {
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3">
                   <span className="text-sm"><span className="text-muted-foreground">Pedido:</span> <span className="font-bold">#{order.id.slice(0, 8)}</span></span>
                   <span className="text-sm flex items-center gap-1.5"><span className="text-muted-foreground">Horário Pedido:</span> {formatTime(order.createdAt)}h</span>
-                  <span className="text-sm flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-muted-foreground" /><span className="text-muted-foreground">Tempo decorrido:</span> {formatElapsed(order.createdAt)}</span>
+                  <span className="text-sm flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-muted-foreground" /><span className="text-muted-foreground">Tempo decorrido:</span> {formatElapsed(order)}</span>
                   <span className="text-sm flex items-center gap-1.5"><span className="text-muted-foreground">Status:</span> <Badge variant={config.variant}>{config.label}</Badge></span>
                 </div>
 
