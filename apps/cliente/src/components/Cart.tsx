@@ -62,10 +62,10 @@ export function Cart({ items, onUpdateQuantity, onRemoveItem, onBack, onCheckout
                 <div>
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1 pr-3">
-                      <h3 className="font-semibold text-foreground leading-tight mb-1">
+                      <h3 className="font-serif font-semibold text-base text-foreground leading-tight mb-1">
                         {item.pizza.flavors.map(f => f.name).join(' + ')}
                       </h3>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-primary">
                         Pizza {pizzaSizes.find(s => s.id === item.pizza!.size)?.name ?? item.pizza.size}
                       </p>
                     </div>
@@ -143,11 +143,11 @@ export function Cart({ items, onUpdateQuantity, onRemoveItem, onBack, onCheckout
           <Card className="mb-4 rounded-xl">
             <CardContent className="p-5 space-y-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal</span>
+                <span className="text-foreground/90">Subtotal</span>
                 <span className="text-foreground">{formatCurrency(subtotal)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Taxa de entrega</span>
+                <span className="text-foreground/90">Taxa de entrega</span>
                 <span className="text-foreground">{formatCurrency(deliveryFee)}</span>
               </div>
               <div className="h-px bg-border my-1" />
