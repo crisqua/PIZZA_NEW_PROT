@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Clock, MapPin, Phone, Search, ChevronDown, ChevronUp, CheckCircle2, XCircle, Inbox } from 'lucide-react';
+import { Clock, MapPin, Phone, Search, Calendar, ChevronDown, ChevronUp, CheckCircle2, XCircle, Inbox } from 'lucide-react';
 import { getOrders, updateOrderStatus, ApiOrder } from '../data/repository';
 import { Card, Badge, Button, Input, formatCurrency, formatTime, formatPhone } from '@pizza/ui';
 
@@ -16,6 +16,15 @@ function formatElapsed(createdAt: string): string {
   return `${h}h${m > 0 ? ` ${m}min` : ''}`;
 }
 
+// "YYYY-MM-DD" no fuso LOCAL do navegador (nao UTC) -- combina com o que um <input
+// type="date"> le'/escreve e com o que o usuario entende por "hoje".
+function toLocalDateStr(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 // Pedido criado pelo cliente precisa aparecer aqui "em tempo habil" (DoD da Sprint 9) --
 // polling a cada 10s enquanto a tela estiver montada, mesmo intervalo ja usado em
 // apps/cliente/src/components/OrderConfirmation.tsx (Sprint 7). Sem WebSocket (fora do
@@ -30,6 +39,10 @@ export function OrdersPanel() {
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [statusFilter, setStatusFilter] = useState<ApiOrder['status'] | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  // Painel abre so' com os pedidos de HOJE por padrao (pedido do usuario: sem isso, a
+  // lista so' cresce, misturando pedidos de semanas atras com os de agora) -- string
+  // vazia = "todos os dias", pra quem precisar achar um pedido antigo pela busca.
+  const [dateFilter, setDateFilter] = useState(toLocalDateStr(new Date()));
   const [openItemsIds, setOpenItemsIds] = useState<Set<string>>(new Set());
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [errorId, setErrorId] = useState<string | null>(null);
@@ -85,7 +98,8 @@ export function OrdersPanel() {
     const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
     const term = searchTerm.trim().toLowerCase();
     const matchesSearch = !term || o.customerName.toLowerCase().includes(term) || o.id.toLowerCase().includes(term);
-    return matchesStatus && matchesSearch;
+    const matchesDate = !dateFilter || toLocalDateStr(new Date(o.createdAt)) === dateFilter;
+    return matchesStatus && matchesSearch && matchesDate;
   });
 
   const ordersByStatus = {
@@ -121,14 +135,30 @@ export function OrdersPanel() {
         })}
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por cliente ou número do pedido..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por cliente ou número do pedido..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="relative sm:w-48">
+          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
+          <Input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        {dateFilter && (
+          <Button variant="outline" onClick={() => setDateFilter('')} className="shrink-0">
+            Ver todos os dias
+          </Button>
+        )}
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-2">
@@ -272,9 +302,11 @@ export function OrdersPanel() {
           <Inbox className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">Nenhum pedido encontrado</h3>
           <p className="text-muted-foreground">
-            {statusFilter === 'all'
+            {dateFilter === toLocalDateStr(new Date()) && statusFilter === 'all'
               ? 'Aguardando novos pedidos...'
-              : 'Nenhum pedido com este status'}
+              : dateFilter
+                ? 'Nenhum pedido nesta data'
+                : 'Nenhum pedido com este status'}
           </p>
         </div>
       )}
