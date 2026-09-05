@@ -1,28 +1,46 @@
 import { useEffect, useState } from 'react';
-import { Clock, Phone, MapPin, DollarSign, Inbox } from 'lucide-react';
-import { getOrders, ApiOrder } from '../data/repository';
-import { Card, CardContent, Badge, formatCurrency, formatTime } from '@pizza/ui';
-
-interface OrdersPanelProps {
-  onViewOrder: (order: ApiOrder) => void;
-}
+import { Clock, MapPin, Phone, Search, ChevronDown, ChevronUp, CheckCircle2, XCircle, Inbox } from 'lucide-react';
+import { getOrders, updateOrderStatus, ApiOrder } from '../data/repository';
+import { Card, Badge, Button, Input, formatCurrency, formatTime, formatPhone } from '@pizza/ui';
 
 const POLL_INTERVAL_MS = 10_000;
+
+// Tempo decorrido desde que o pedido entrou ate' agora (pedido do usuario) -- em minutos
+// se for menos de 1h, em horas+minutos caso contrario. Recalculado a cada render (o
+// polling ja' re-renderiza a cada 10s, nao precisa de um timer dedicado so' pra isso).
+function formatElapsed(createdAt: string): string {
+  const mins = Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000));
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${h}h${m > 0 ? ` ${m}min` : ''}`;
+}
 
 // Pedido criado pelo cliente precisa aparecer aqui "em tempo habil" (DoD da Sprint 9) --
 // polling a cada 10s enquanto a tela estiver montada, mesmo intervalo ja usado em
 // apps/cliente/src/components/OrderConfirmation.tsx (Sprint 7). Sem WebSocket (fora do
 // MVP, docs/MVP.md item 8).
-export function OrdersPanel({ onViewOrder }: OrdersPanelProps) {
+//
+// Redesenho (pedido do usuario): o card da lista ja' mostra tudo -- sem navegar pra uma
+// tela de detalhe separada so' pra mudar o status. "Itens e Valores" fica atras de um
+// acordeao por card (mesmo padrao de categoria do apps/cliente/Menu.tsx); cliente e
+// endereco ficam no resumo do proprio card, sem precisar abrir nada. O botao de acao
+// (Iniciar Preparo/Saiu para Entrega/Entregue) fica sempre visivel no rodape do card.
+export function OrdersPanel() {
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [statusFilter, setStatusFilter] = useState<ApiOrder['status'] | 'all'>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [openItemsIds, setOpenItemsIds] = useState<Set<string>>(new Set());
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [errorId, setErrorId] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const statusConfig = {
-    pending: { label: 'Pendente', variant: 'warning' as const, color: 'bg-warning/10' },
-    preparing: { label: 'Preparando', variant: 'info' as const, color: 'bg-info/10' },
-    delivery: { label: 'Saiu para entrega', variant: 'default' as const, color: 'bg-primary/10' },
-    completed: { label: 'Entregue', variant: 'success' as const, color: 'bg-success/10' },
-    cancelled: { label: 'Cancelado', variant: 'destructive' as const, color: 'bg-destructive/10' },
+    pending: { label: 'Pendente', variant: 'warning' as const, color: 'bg-warning/10', next: 'preparing' as const, nextLabel: 'Iniciar Preparo' },
+    preparing: { label: 'Preparando', variant: 'info' as const, color: 'bg-info/10', next: 'delivery' as const, nextLabel: 'Saiu para Entrega' },
+    delivery: { label: 'Saiu para entrega', variant: 'default' as const, color: 'bg-primary/10', next: 'completed' as const, nextLabel: 'Entregue' },
+    completed: { label: 'Entregue', variant: 'success' as const, color: 'bg-success/10', next: undefined, nextLabel: undefined },
+    cancelled: { label: 'Cancelado', variant: 'destructive' as const, color: 'bg-destructive/10', next: undefined, nextLabel: undefined },
   };
 
   useEffect(() => {
@@ -40,9 +58,35 @@ export function OrdersPanel({ onViewOrder }: OrdersPanelProps) {
     };
   }, []);
 
-  const filteredOrders = statusFilter === 'all'
-    ? orders
-    : orders.filter(o => o.status === statusFilter);
+  const toggleItems = (orderId: string) => {
+    setOpenItemsIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId); else next.add(orderId);
+      return next;
+    });
+  };
+
+  const handleAdvance = async (order: ApiOrder, nextStatus: ApiOrder['status']) => {
+    setErrorId(null);
+    setErrorMsg('');
+    setUpdatingId(order.id);
+    try {
+      const updated = await updateOrderStatus(order.id, nextStatus);
+      setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+    } catch (err) {
+      setErrorId(order.id);
+      setErrorMsg(err instanceof Error ? err.message : 'Nao foi possivel atualizar o status.');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const filteredOrders = orders.filter((o) => {
+    const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
+    const term = searchTerm.trim().toLowerCase();
+    const matchesSearch = !term || o.customerName.toLowerCase().includes(term) || o.id.toLowerCase().includes(term);
+    return matchesStatus && matchesSearch;
+  });
 
   const ordersByStatus = {
     pending: orders.filter(o => o.status === 'pending').length,
@@ -60,10 +104,10 @@ export function OrdersPanel({ onViewOrder }: OrdersPanelProps) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {Object.entries(ordersByStatus).map(([status, count]) => {
-          const config = statusConfig[status as keyof typeof statusConfig];
+          const config = statusConfig[status as keyof typeof ordersByStatus];
           return (
             <Card key={status} className={config.color}>
-              <CardContent className="p-4">
+              <div className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">{config.label}</p>
@@ -71,10 +115,20 @@ export function OrdersPanel({ onViewOrder }: OrdersPanelProps) {
                   </div>
                   <Badge variant={config.variant}>{count}</Badge>
                 </div>
-              </CardContent>
+              </div>
             </Card>
           );
         })}
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por cliente ou número do pedido..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-2">
@@ -103,50 +157,104 @@ export function OrdersPanel({ onViewOrder }: OrdersPanelProps) {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {filteredOrders.map((order) => {
           const config = statusConfig[order.status];
+          const itemsOpen = openItemsIds.has(order.id);
+          const itemsCount = order.items.reduce((s, it) => s + it.quantity, 0);
+          const subtotal = order.total - order.deliveryFee;
+          const shortAddress = [order.address, order.addressNumber, order.neighborhood].filter(Boolean).join(', ');
+
           return (
-            <Card
-              key={order.id}
-              className="cursor-pointer hover:border-primary/40 transition-colors"
-              onClick={() => onViewOrder(order)}
-            >
-              <CardContent className="p-5 space-y-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-bold text-lg mb-1">#{order.id.slice(0, 8)}</h3>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Clock className="w-4 h-4" />
-                      {formatTime(new Date(order.createdAt))}
-                    </div>
-                  </div>
-                  <Badge variant={config.variant}>{config.label}</Badge>
+            <Card key={order.id} className="overflow-hidden">
+              <div className="p-4">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3">
+                  <span className="text-sm"><span className="text-muted-foreground">Pedido:</span> <span className="font-bold">#{order.id.slice(0, 8)}</span></span>
+                  <span className="text-sm flex items-center gap-1.5"><span className="text-muted-foreground">Horário Pedido:</span> {formatTime(order.createdAt)}h</span>
+                  <span className="text-sm flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-muted-foreground" /><span className="text-muted-foreground">Tempo decorrido:</span> {formatElapsed(order.createdAt)}</span>
+                  <span className="text-sm flex items-center gap-1.5"><span className="text-muted-foreground">Status:</span> <Badge variant={config.variant}>{config.label}</Badge></span>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">{order.customerName}</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span className="line-clamp-2">{order.address}</span>
-                  </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold">{order.customerName}</span>
+                  <span className="text-base font-bold text-primary whitespace-nowrap">{formatCurrency(order.total)}</span>
                 </div>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
+                  <Phone className="w-3.5 h-3.5 shrink-0" />
+                  <span>{formatPhone(order.phone)}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1 overflow-hidden">
+                  <MapPin className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{shortAddress}</span>
+                  <span className="shrink-0 whitespace-nowrap">· {itemsCount} {itemsCount === 1 ? 'item' : 'itens'}</span>
+                </div>
+              </div>
 
-                <div className="pt-3 border-t border-border">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
-                    </span>
-                    <div className="flex items-center gap-1 text-primary font-bold">
-                      <DollarSign className="w-4 h-4" />
-                      {formatCurrency(order.total)}
+              <button
+                onClick={() => toggleItems(order.id)}
+                className="w-full flex items-center justify-between px-4 py-3 border-t border-border hover:bg-muted/50 transition-colors"
+              >
+                <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide">
+                  Itens e Valores
+                  <span className="text-[11px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{itemsCount}</span>
+                </span>
+                {itemsOpen ? (
+                  <ChevronUp className="w-4 h-4 text-primary shrink-0" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                )}
+              </button>
+
+              {itemsOpen && (
+                <div className="border-t border-border px-4 py-4 space-y-2.5">
+                  {order.items.map((item) => (
+                    <div key={item.id} className="flex items-baseline justify-between gap-3 text-sm">
+                      <span>
+                        {item.name}
+                        {item.size && <span className="text-muted-foreground"> · {item.size}</span>}
+                        <span className="text-muted-foreground"> x{item.quantity}</span>
+                      </span>
+                      <span className="font-semibold whitespace-nowrap">{formatCurrency(item.unitPrice * item.quantity)}</span>
                     </div>
+                  ))}
+                  <div className="h-px bg-border my-1" />
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Taxa de entrega</span>
+                    <span>{formatCurrency(order.deliveryFee)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold pt-1">
+                    <span>Total</span>
+                    <span className="text-primary">{formatCurrency(order.total)}</span>
                   </div>
                 </div>
-              </CardContent>
+              )}
+
+              <div className="border-t border-border p-4 flex items-center justify-between gap-3">
+                {errorId === order.id && <p className="text-sm text-destructive">{errorMsg}</p>}
+                <div className="flex-1" />
+                {config.next && config.nextLabel && (
+                  <Button onClick={() => handleAdvance(order, config.next!)} disabled={updatingId === order.id}>
+                    <CheckCircle2 className="w-4 h-4" />
+                    {config.nextLabel}
+                  </Button>
+                )}
+                {order.status === 'completed' && (
+                  <span className="flex items-center gap-2 text-sm font-medium text-success">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Pedido entregue
+                  </span>
+                )}
+                {order.status === 'cancelled' && (
+                  <span className="flex items-center gap-2 text-sm font-medium text-destructive">
+                    <XCircle className="w-4 h-4" />
+                    Pedido cancelado
+                  </span>
+                )}
+              </div>
             </Card>
           );
         })}

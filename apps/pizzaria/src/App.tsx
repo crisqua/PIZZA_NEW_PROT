@@ -6,7 +6,6 @@ import { Dashboard as RestaurantDashboard } from './components/Dashboard';
 import { MenuManagement } from './components/MenuManagement';
 import { ProductForm, ProductFormData } from './components/ProductForm';
 import { OrdersPanel } from './components/OrdersPanel';
-import { OrderDetails } from './components/OrderDetails';
 import { Settings } from './components/Settings';
 import { Inventory } from './components/Inventory';
 import { Financial } from './components/Financial';
@@ -25,19 +24,17 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
-  ApiOrder,
 } from './data/repository';
 import { ADDONS } from './data/addons';
 import { Pizza, Category } from '@pizza/types';
 
-type RestaurantView = 'dashboard' | 'menu' | 'product-form' | 'orders' | 'order-details' | 'settings' | 'inventory' | 'financial';
+type RestaurantView = 'dashboard' | 'menu' | 'product-form' | 'orders' | 'settings' | 'inventory' | 'financial';
 
 export default function App() {
   const [ready, setReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [activePage, setActivePage] = useState<RestaurantView>('dashboard');
   const [selectedProduct, setSelectedProduct] = useState<Pizza | null>(null);
-  const [selectedOrder, setSelectedOrder] = useState<ApiOrder | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [pizzas, setPizzas] = useState<Pizza[]>([]);
 
@@ -123,11 +120,6 @@ export default function App() {
     setPizzas((prev) => prev.filter((p) => p.id !== id));
   };
 
-  const handleViewOrder = (order: ApiOrder) => {
-    setSelectedOrder(order);
-    setActivePage('order-details');
-  };
-
   if (!ready) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -171,10 +163,7 @@ export default function App() {
             onSave={handleSaveProduct}
           />
         )}
-        {activePage === 'orders' && <OrdersPanel onViewOrder={handleViewOrder} />}
-        {activePage === 'order-details' && selectedOrder && (
-          <OrderDetails order={selectedOrder} onBack={() => setActivePage('orders')} />
-        )}
+        {activePage === 'orders' && <OrdersPanel />}
         {activePage === 'inventory' && (
           unlockedModules.includes('estoque')
             ? <Inventory />
