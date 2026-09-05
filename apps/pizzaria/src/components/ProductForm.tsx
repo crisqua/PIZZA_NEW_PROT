@@ -86,6 +86,28 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
     }
   };
 
+  // Trocar de aba troca o tipo de produto (pizza/bebida/sobremesa) -- os campos de um
+  // tipo nao fazem sentido no outro, entao o formulario zera tudo em vez de carregar o
+  // que foi digitado antes (pedido do usuario: nao deixar "coca cola" sobrar ao trocar
+  // pra sobremesa, por exemplo).
+  const handleTabChange = (type: ProductType) => {
+    setFormData({
+      name: '',
+      description: '',
+      type,
+      priceBrotinho: '',
+      priceOitoPedacos: '',
+      priceDozePedacos: '',
+      price: '',
+      size: '',
+      category: categories[0]?.id || '',
+      ingredients: [],
+      image: '',
+    });
+    setFieldErrors({});
+    setError('');
+  };
+
   // Nome, descricao e categoria sao sempre obrigatorios; pizza exige os 3 precos por
   // tamanho, bebida/sobremesa exigem o preco unico (tamanho fica opcional). Imagem e
   // ingredientes ficam opcionais -- mesmo padrao de validate()+fieldErrors ja usado em
@@ -166,7 +188,7 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
             {TABS.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => updateField('type', tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   formData.type === tab.id
                     ? 'bg-primary text-primary-foreground'
