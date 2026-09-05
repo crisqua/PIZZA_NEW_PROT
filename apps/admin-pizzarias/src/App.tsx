@@ -22,8 +22,16 @@ export default function App() {
   const boot = async () => {
     await tryRestoreSession();
     if (isAuthenticated()) {
-      setPlans(await getPlans());
-      setAuthenticated(true);
+      // Sessao restaurada pode ser de uma role sem acesso a este painel (cookie de
+      // refresh e' compartilhado entre as 3 portas locais). Sem o try/catch, um 403
+      // aqui derrubava boot() inteiro e a tela ficava presa em "Carregando..." pra
+      // sempre (setReady(true) nunca era alcancado, nunca caia de volta pro login).
+      try {
+        setPlans(await getPlans());
+        setAuthenticated(true);
+      } catch {
+        await logout();
+      }
     }
     setReady(true);
   };

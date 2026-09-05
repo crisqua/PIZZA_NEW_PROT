@@ -44,10 +44,20 @@ export default function App() {
   const boot = async () => {
     await tryRestoreSession();
     if (isAuthenticated()) {
-      await loadDashboardBoot();
-      setCategories(mockCategories);
-      setPizzas(mockPizzas);
-      setAuthenticated(true);
+      // Sessao restaurada pode ser de uma role sem acesso a este painel (ex.: cookie de
+      // refresh de customer/outro app "vazando" pra' ca -- cookie e' compartilhado entre
+      // as 3 portas locais, todas batendo em localhost:3000). Sem isso, um 403 aqui
+      // derrubava a Promise de boot() inteira e a tela ficava presa em "Carregando..."
+      // pra sempre (setReady(true) nunca era alcancado) -- nunca caia de volta pra tela
+      // de login. Agora desloga a sessao invalida e mostra o login normalmente.
+      try {
+        await loadDashboardBoot();
+        setCategories(mockCategories);
+        setPizzas(mockPizzas);
+        setAuthenticated(true);
+      } catch {
+        await logout();
+      }
     }
     setReady(true);
   };
