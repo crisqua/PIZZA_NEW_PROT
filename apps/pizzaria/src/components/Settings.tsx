@@ -150,7 +150,7 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button size="lg">
           <Save className="w-5 h-5" />
           Salvar Alterações

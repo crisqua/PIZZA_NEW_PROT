@@ -27,8 +27,8 @@ export function MenuManagement({ categories, pizzas, onEditProduct, onNewProduct
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold mb-1">Gestão de Cardápio</h1>
           <p className="text-muted-foreground">Gerencie seus produtos</p>
         </div>
@@ -55,10 +55,10 @@ export function MenuManagement({ categories, pizzas, onEditProduct, onNewProduct
               <img src={pizza.image} alt={pizza.name} className="w-full h-full object-cover" />
             </div>
             <CardContent className="p-4">
-              <div className="flex items-start justify-between mb-1">
-                <h3 className="font-semibold text-lg">{pizza.name}</h3>
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <h3 className="font-semibold text-lg truncate min-w-0">{pizza.name}</h3>
                 {pizza.featured && (
-                  <Badge variant="warning">Especial</Badge>
+                  <Badge variant="warning" className="shrink-0">Especial</Badge>
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -86,15 +86,17 @@ export function MenuManagement({ categories, pizzas, onEditProduct, onNewProduct
                 <Badge variant="success">Ativo</Badge>
               </div>
               <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  fullWidth
-                  onClick={() => onEditProduct(pizza)}
-                >
-                  <Edit className="w-4 h-4" />
-                  Editar
-                </Button>
+                <div className="flex-1 min-w-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    fullWidth
+                    onClick={() => onEditProduct(pizza)}
+                  >
+                    <Edit className="w-4 h-4" />
+                    Editar
+                  </Button>
+                </div>
                 <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onDeleteProduct(pizza.id)}>
                   <Trash2 className="w-4 h-4 text-destructive" />
                 </Button>

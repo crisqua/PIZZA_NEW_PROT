@@ -156,11 +156,11 @@ export function Dashboard() {
                   <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
                     {index + 1}
                   </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold">{item.name}</h4>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold truncate">{item.name}</h4>
                     <p className="text-sm text-muted-foreground">{item.sales} vendas</p>
                   </div>
-                  <span className="font-bold text-primary">{formatCurrency(item.revenue)}</span>
+                  <span className="font-bold text-primary shrink-0">{formatCurrency(item.revenue)}</span>
                 </div>
               ))}
             </div>

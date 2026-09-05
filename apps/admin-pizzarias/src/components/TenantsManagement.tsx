@@ -28,8 +28,8 @@ export function TenantsManagement({ onEditTenant, onNewTenant }: TenantsManageme
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold mb-1">Gestão de Pizzarias</h1>
           <p className="text-muted-foreground">Gerencie todas as pizzarias da plataforma</p>
         </div>
@@ -62,10 +62,10 @@ export function TenantsManagement({ onEditTenant, onNewTenant }: TenantsManageme
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg mb-1">{tenant.name}</h3>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm text-muted-foreground">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-lg mb-1 truncate">{tenant.name}</h3>
+                      <div className="flex items-center gap-2 mb-2 min-w-0">
+                        <span className="text-sm text-muted-foreground truncate">
                           {tenant.subdomain}.pizzas.com
                         </span>
                         <button className="text-primary hover:text-primary/80">

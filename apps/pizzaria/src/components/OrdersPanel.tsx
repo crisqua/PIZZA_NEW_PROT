@@ -221,7 +221,7 @@ export function OrdersPanel() {
                 </div>
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1 overflow-hidden">
                   <MapPin className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">{shortAddress}</span>
+                  <span className="truncate min-w-0">{shortAddress}</span>
                   <span className="shrink-0 whitespace-nowrap">· {itemsCount} {itemsCount === 1 ? 'item' : 'itens'}</span>
                 </div>
               </div>
@@ -243,13 +243,13 @@ export function OrdersPanel() {
 
               {itemsOpen && (
                 <div className="border-t border-border px-4 py-4">
-                  <div className="grid gap-3 pb-2" style={{ gridTemplateColumns: '48px 1fr 100px' }}>
+                  <div className="grid gap-3 pb-2" style={{ gridTemplateColumns: '48px minmax(0, 1fr) 100px' }}>
                     <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Qtde</span>
                     <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Item Pedido</span>
                     <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground text-right">Valor Unitário</span>
                   </div>
                   {order.items.map((item) => (
-                    <div key={item.id} className="grid gap-3 items-center py-2.5 border-t border-border" style={{ gridTemplateColumns: '48px 1fr 100px' }}>
+                    <div key={item.id} className="grid gap-3 items-center py-2.5 border-t border-border" style={{ gridTemplateColumns: '48px minmax(0, 1fr) 100px' }}>
                       <span className="text-sm font-bold">{item.quantity}</span>
                       <span className="min-w-0">
                         <span className="block text-sm font-semibold truncate">{item.name}</span>
@@ -276,9 +276,8 @@ export function OrdersPanel() {
                 </div>
               )}
 
-              <div className="border-t border-border p-4 flex items-center justify-between gap-3">
-                {errorId === order.id && <p className="text-sm text-destructive">{errorMsg}</p>}
-                <div className="flex-1" />
+              <div className="border-t border-border p-4 flex flex-wrap items-center justify-end gap-2">
+                {errorId === order.id && <p className="text-sm text-destructive w-full">{errorMsg}</p>}
                 {config.next && config.nextLabel && (
                   <Button onClick={() => handleAdvance(order, config.next!)} disabled={updatingId === order.id}>
                     <CheckCircle2 className="w-4 h-4" />

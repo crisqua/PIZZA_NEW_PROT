@@ -82,8 +82,8 @@ export function PlansManagement({ plans, onSavePlan, onToggleActive }: PlansMana
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold mb-1">Planos & Preços</h1>
           <p className="text-muted-foreground">Catálogo de planos que as pizzarias podem assinar na plataforma</p>
         </div>

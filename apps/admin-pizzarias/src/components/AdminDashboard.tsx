@@ -154,11 +154,11 @@ export function AdminDashboard() {
                   <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
                     {index + 1}
                   </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold">{item.name}</h4>
-                    <p className="text-sm text-muted-foreground">{item.slug}.pizzas.com</p>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold truncate">{item.name}</h4>
+                    <p className="text-sm text-muted-foreground truncate">{item.slug}.pizzas.com</p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <p className="font-semibold">{item.ordersThisMonth} pedidos</p>
                     <p className="text-sm text-primary font-bold">{formatCurrency(item.revenueThisMonth)}</p>
                   </div>

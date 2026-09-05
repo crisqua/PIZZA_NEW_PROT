@@ -54,8 +54,8 @@ export function Inventory() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold mb-1">Controle de Estoque</h1>
           <p className="text-muted-foreground">Ingredientes e insumos usados no preparo</p>
         </div>
@@ -139,7 +139,7 @@ export function Inventory() {
                   >
                     <Minus className="w-4 h-4" />
                   </button>
-                  <span className="font-semibold w-16 text-center text-foreground text-sm">
+                  <span className="font-semibold min-w-[64px] text-center text-foreground text-sm">
                     {item.quantity} {item.unit}
                   </span>
                   <button

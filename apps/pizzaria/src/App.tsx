@@ -155,7 +155,7 @@ export default function App() {
         activeAddons={unlockedModules}
         onLogout={handleLogout}
       />
-      <div className="flex-1 min-h-screen bg-background relative pt-14 lg:pt-0">
+      <div className="flex-1 min-w-0 min-h-screen bg-background relative pt-14 lg:pt-0">
         {activePage === 'dashboard' && <RestaurantDashboard />}
         {activePage === 'menu' && (
           <MenuManagement

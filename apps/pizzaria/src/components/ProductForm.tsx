@@ -287,16 +287,18 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
                 <label className="block mb-2 text-sm font-medium">Categoria</label>
                 {isAddingCategory ? (
                     <div className="flex items-center gap-1">
-                      <Input
-                        autoFocus
-                        placeholder="Nome da categoria"
-                        value={newCategoryName}
-                        onChange={(e) => setNewCategoryName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleConfirmNewCategory();
-                          if (e.key === 'Escape') { setIsAddingCategory(false); setNewCategoryName(''); }
-                        }}
-                      />
+                      <div className="flex-1 min-w-0">
+                        <Input
+                          autoFocus
+                          placeholder="Nome da categoria"
+                          value={newCategoryName}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleConfirmNewCategory();
+                            if (e.key === 'Escape') { setIsAddingCategory(false); setNewCategoryName(''); }
+                          }}
+                        />
+                      </div>
                       <Button size="sm" variant="ghost" onClick={handleConfirmNewCategory} className="shrink-0 px-2">
                         <Check className="w-4 h-4 text-success" />
                       </Button>
