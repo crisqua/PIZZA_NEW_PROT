@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateCategoryDto {
   @IsOptional()
@@ -6,8 +6,4 @@ export class UpdateCategoryDto {
   @MinLength(2)
   @MaxLength(120)
   name?: string;
-
-  @IsOptional()
-  @IsIn(['pizza', 'drink', 'sobremesa'])
-  type?: string;
 }

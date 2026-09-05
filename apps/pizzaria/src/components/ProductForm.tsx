@@ -24,7 +24,7 @@ export interface ProductFormData {
 interface ProductFormProps {
   product?: AdminProduct;
   categories: Category[];
-  onCreateCategory: (name: string, type: ProductType) => Promise<Category>;
+  onCreateCategory: (name: string) => Promise<Category>;
   onBack: () => void;
   onSave: (data: ProductFormData) => Promise<void>;
 }
@@ -65,7 +65,7 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
     priceDozePedacos: product?.priceDozePedacos ? reaisToCentsDigits(product.priceDozePedacos) : '',
     price: product?.price ? reaisToCentsDigits(product.price) : '',
     size: product?.size || '',
-    category: product?.category || categories.find((c) => c.type === (product?.type || 'pizza'))?.id || '',
+    category: product?.category || categories[0]?.id || '',
     ingredients: product?.ingredients || [],
     image: product?.image || '',
   });
@@ -100,7 +100,7 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
       priceDozePedacos: '',
       price: '',
       size: '',
-      category: categories.find((c) => c.type === type)?.id || '',
+      category: categories[0]?.id || '',
       ingredients: [],
       image: '',
     });
@@ -160,17 +160,12 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
 
   const handleConfirmNewCategory = async () => {
     if (newCategoryName.trim()) {
-      const created = await onCreateCategory(newCategoryName, formData.type);
+      const created = await onCreateCategory(newCategoryName);
       updateField('category', created.id);
     }
     setNewCategoryName('');
     setIsAddingCategory(false);
   };
-
-  // So' mostra categorias do mesmo tipo do produto sendo criado/editado -- pizza nao
-  // pode aparecer misturada com categoria de bebida ou sobremesa no mesmo <select>
-  // (pedido do usuario).
-  const categoriesForType = categories.filter((c) => c.type === formData.type);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -324,7 +319,7 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
                       }`}
                     >
                       {!formData.category && <option value="">Selecione...</option>}
-                      {categoriesForType.map((cat) => (
+                      {categories.map((cat) => (
                         <option key={cat.id} value={cat.id}>{cat.name}</option>
                       ))}
                       <option value="__new__">+ Nova categoria...</option>

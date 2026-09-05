@@ -1,9 +1,6 @@
 export interface Category {
   id: string;
   name: string;
-  // Categoria pertence a um tipo so' (pizza/bebida/sobremesa nao compartilham categoria)
-  // -- mesma convencao de Product.type.
-  type: 'pizza' | 'drink' | 'sobremesa';
 }
 
 export type PizzaSizeId = 'brotinho' | 'oito-pedacos' | 'doze-pedacos';

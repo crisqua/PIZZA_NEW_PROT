@@ -12,7 +12,7 @@ const PRISMA_FOREIGN_KEY_CONSTRAINT = 'P2003';
 @Injectable()
 export class CategoriesService {
   create(tx: TenantTx, tenantId: string, dto: CreateCategoryDto) {
-    return tx.category.create({ data: { tenantId, name: dto.name, type: dto.type ?? 'pizza' } });
+    return tx.category.create({ data: { tenantId, name: dto.name } });
   }
 
   list(tx: TenantTx) {
