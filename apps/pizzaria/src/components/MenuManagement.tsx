@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Edit, Trash2, Check, X } from 'lucide-react';
+import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { Category } from '@pizza/types';
 import { Card, CardContent, Button, Input, Badge, formatCurrency } from '@pizza/ui';
 import { AdminProduct } from '../data/repository';
@@ -13,31 +13,20 @@ const TYPE_LABEL: Record<AdminProduct['type'], string> = {
 interface MenuManagementProps {
   categories: Category[];
   pizzas: AdminProduct[];
-  onCreateCategory: (name: string) => void;
   onEditProduct: (product: AdminProduct) => void;
   onNewProduct: () => void;
   onDeleteProduct: (id: string) => void;
 }
 
-export function MenuManagement({ categories, pizzas, onCreateCategory, onEditProduct, onNewProduct, onDeleteProduct }: MenuManagementProps) {
+export function MenuManagement({ categories, pizzas, onEditProduct, onNewProduct, onDeleteProduct }: MenuManagementProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [isAddingCategory, setIsAddingCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
 
   const filteredPizzas = pizzas.filter((pizza) => {
     const matchesSearch = pizza.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || pizza.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
-
-  const handleConfirmNewCategory = () => {
-    if (newCategoryName.trim()) {
-      onCreateCategory(newCategoryName);
-      setNewCategoryName('');
-    }
-    setIsAddingCategory(false);
-  };
 
   return (
     <div className="p-6 space-y-6">
@@ -88,41 +77,6 @@ export function MenuManagement({ categories, pizzas, onCreateCategory, onEditPro
               {cat.name}
             </button>
           ))}
-
-          {isAddingCategory ? (
-            <div className="flex items-center gap-1">
-              <Input
-                autoFocus
-                placeholder="Nome da categoria"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleConfirmNewCategory();
-                  if (e.key === 'Escape') { setIsAddingCategory(false); setNewCategoryName(''); }
-                }}
-                className="h-9 w-40 py-1.5"
-              />
-              <Button size="sm" variant="ghost" onClick={handleConfirmNewCategory} className="shrink-0 px-2">
-                <Check className="w-4 h-4 text-success" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => { setIsAddingCategory(false); setNewCategoryName(''); }}
-                className="shrink-0 px-2"
-              >
-                <X className="w-4 h-4 text-destructive" />
-              </Button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsAddingCategory(true)}
-              className="px-3 py-2 rounded-lg text-sm font-medium border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors flex items-center gap-1"
-            >
-              <Plus className="w-4 h-4" />
-              Nova Categoria
-            </button>
-          )}
         </div>
       </div>
 

@@ -160,7 +160,6 @@ export default function App() {
           <MenuManagement
             categories={categories}
             pizzas={pizzas}
-            onCreateCategory={handleCreateCategory}
             onEditProduct={handleEditProduct}
             onNewProduct={handleNewProduct}
             onDeleteProduct={handleDeleteProduct}
