@@ -125,7 +125,7 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, cartItems
                             {formatCurrency(pizza.price * multiplierFor(pizza.id))}
                           </span>
                         </div>
-                        <p className="text-xs text-foreground/90 mt-0.5">{pizza.description}</p>
+                        <p className="text-xs text-primary mt-0.5">{pizza.description}</p>
                         <div className="flex items-center justify-between mt-2 gap-1">
                           <div className="flex gap-1">
                             {pizzaSizes.map((size) => {

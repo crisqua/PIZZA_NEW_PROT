@@ -63,10 +63,10 @@ export function Cart({ items, onUpdateQuantity, onRemoveItem, onBack, onCheckout
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1 pr-3">
                       <h3 className="font-semibold text-foreground leading-tight mb-1">
-                        Pizza {pizzaSizes.find(s => s.id === item.pizza!.size)?.name ?? item.pizza.size}
+                        {item.pizza.flavors.map(f => f.name).join(' + ')}
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        {item.pizza.flavors.map(f => f.name).join(' + ')}
+                        Pizza {pizzaSizes.find(s => s.id === item.pizza!.size)?.name ?? item.pizza.size}
                       </p>
                     </div>
                     <button
