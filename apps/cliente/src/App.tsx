@@ -39,28 +39,63 @@ export default function App() {
     setView('builder');
   };
 
+  // Mesma pizza = mesmo tamanho + mesmo conjunto de sabores (ordem nao importa: meio a
+  // meio A+B e' a mesma pizza que B+A). Clicar em "+" numa pizza ja' no carrinho soma
+  // quantidade em vez de criar uma segunda linha (pedido do usuario) -- mesmo padrao que
+  // handleAddDrink ja' usava pra bebidas.
+  const sameFlavors = (a: Pizza[], b: Pizza[]): boolean => {
+    if (a.length !== b.length) return false;
+    const idsA = [...a.map(f => f.id)].sort();
+    const idsB = [...b.map(f => f.id)].sort();
+    return idsA.every((id, i) => id === idsB[i]);
+  };
+
   const handleAddSingleFlavor = (pizza: Pizza, size: PizzaSizeId) => {
     const sizeInfo = pizzaSizes.find(s => s.id === size)!;
     const price = pizza.price * sizeInfo.multiplier;
-    const newItem: CartItem = {
-      id: `cart-${crypto.randomUUID()}`,
-      type: 'pizza',
-      pizza: { size, flavors: [pizza] },
-      quantity: 1,
-      price,
-    };
-    setCart([...cart, newItem]);
+    const existingItem = cart.find(
+      item => item.type === 'pizza' && item.pizza && item.pizza.size === size && sameFlavors(item.pizza.flavors, [pizza])
+    );
+
+    if (existingItem) {
+      setCart(cart.map(item =>
+        item.id === existingItem.id
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      ));
+    } else {
+      const newItem: CartItem = {
+        id: `cart-${crypto.randomUUID()}`,
+        type: 'pizza',
+        pizza: { size, flavors: [pizza] },
+        quantity: 1,
+        price,
+      };
+      setCart([...cart, newItem]);
+    }
   };
 
   const handleAddPizzaToCart = (pizza: { size: PizzaSizeId; flavors: Pizza[]; price: number }) => {
-    const newItem: CartItem = {
-      id: `cart-${crypto.randomUUID()}`,
-      type: 'pizza',
-      pizza,
-      quantity: 1,
-      price: pizza.price,
-    };
-    setCart([...cart, newItem]);
+    const existingItem = cart.find(
+      item => item.type === 'pizza' && item.pizza && item.pizza.size === pizza.size && sameFlavors(item.pizza.flavors, pizza.flavors)
+    );
+
+    if (existingItem) {
+      setCart(cart.map(item =>
+        item.id === existingItem.id
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      ));
+    } else {
+      const newItem: CartItem = {
+        id: `cart-${crypto.randomUUID()}`,
+        type: 'pizza',
+        pizza,
+        quantity: 1,
+        price: pizza.price,
+      };
+      setCart([...cart, newItem]);
+    }
     setView('menu');
   };
 
