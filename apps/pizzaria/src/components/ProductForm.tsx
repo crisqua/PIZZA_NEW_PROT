@@ -37,9 +37,26 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
   const [newCategoryName, setNewCategoryName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const updateField = <K extends keyof ProductFormData>(field: K, value: ProductFormData[K]) => {
     setFormData({ ...formData, [field]: value });
+    if (fieldErrors[field]) {
+      setFieldErrors({ ...fieldErrors, [field]: '' });
+    }
+  };
+
+  // Nome, descricao, preco e categoria sao obrigatorios; imagem e ingredientes ficam
+  // opcionais (pedido do usuario) -- mesmo padrao de validate()+fieldErrors ja usado em
+  // Checkout.tsx.
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.name.trim()) newErrors.name = 'Nome é obrigatório';
+    if (!formData.description.trim()) newErrors.description = 'Descrição é obrigatória';
+    if (!formData.price) newErrors.price = 'Preço é obrigatório';
+    if (!formData.category) newErrors.category = 'Categoria é obrigatória';
+    setFieldErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const addIngredient = () => {
@@ -55,6 +72,7 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
 
   const handleSubmit = async () => {
     setError('');
+    if (!validate()) return;
     setSubmitting(true);
     try {
       await onSave({ ...formData, price: formData.price ? Number(formData.price) / 100 : '' });
@@ -100,6 +118,7 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
                 placeholder="Ex: Margherita"
                 value={formData.name}
                 onChange={(e) => updateField('name', e.target.value)}
+                error={fieldErrors.name}
               />
 
               <Textarea
@@ -108,6 +127,7 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
                 value={formData.description}
                 onChange={(e) => updateField('description', e.target.value)}
                 rows={4}
+                error={fieldErrors.description}
               />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -118,6 +138,7 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
                   inputMode="numeric"
                   value={centsToDisplay(String(formData.price))}
                   onChange={(e) => updateField('price', e.target.value.replace(/\D/g, ''))}
+                  error={fieldErrors.price}
                 />
 
                 <div>
@@ -156,13 +177,19 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
                           updateField('category', e.target.value);
                         }
                       }}
-                      className="w-full px-4 py-2.5 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+                      className={`w-full px-4 py-2.5 bg-input-background border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring transition-all ${
+                        fieldErrors.category ? 'border-destructive focus:ring-destructive' : 'border-border'
+                      }`}
                     >
+                      {!formData.category && <option value="">Selecione...</option>}
                       {categories.map((cat) => (
                         <option key={cat.id} value={cat.id}>{cat.name}</option>
                       ))}
                       <option value="__new__">+ Nova categoria...</option>
                     </select>
+                  )}
+                  {fieldErrors.category && (
+                    <p className="mt-1.5 text-sm text-destructive">{fieldErrors.category}</p>
                   )}
                 </div>
               </div>
