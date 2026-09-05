@@ -1,13 +1,20 @@
 import { useState } from 'react';
 import { Plus, Search, Edit, Trash2, Check, X } from 'lucide-react';
-import { Pizza, Category } from '@pizza/types';
+import { Category } from '@pizza/types';
 import { Card, CardContent, Button, Input, Badge, formatCurrency } from '@pizza/ui';
+import { AdminProduct } from '../data/repository';
+
+const TYPE_LABEL: Record<AdminProduct['type'], string> = {
+  pizza: 'Pizza',
+  drink: 'Bebida',
+  sobremesa: 'Sobremesa',
+};
 
 interface MenuManagementProps {
   categories: Category[];
-  pizzas: Pizza[];
+  pizzas: AdminProduct[];
   onCreateCategory: (name: string) => void;
-  onEditProduct: (product: Pizza) => void;
+  onEditProduct: (product: AdminProduct) => void;
   onNewProduct: () => void;
   onDeleteProduct: (id: string) => void;
 }
@@ -132,16 +139,26 @@ export function MenuManagement({ categories, pizzas, onCreateCategory, onEditPro
                   <Badge variant="warning">Especial</Badge>
                 )}
               </div>
-              <Badge variant="secondary" className="mb-2">
-                {categories.find(c => c.id === pizza.category)?.name ?? pizza.category}
-              </Badge>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <Badge variant="secondary">
+                  {categories.find(c => c.id === pizza.category)?.name ?? pizza.category}
+                </Badge>
+                <Badge>{TYPE_LABEL[pizza.type]}</Badge>
+              </div>
               <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{pizza.description}</p>
               <div className="flex items-center justify-between mb-2">
-                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm">
-                  <span><span className="text-muted-foreground">Brotinho</span> <span className="text-primary font-semibold">{formatCurrency(pizza.priceBrotinho)}</span></span>
-                  <span><span className="text-muted-foreground">8 ped.</span> <span className="text-primary font-semibold">{formatCurrency(pizza.priceOitoPedacos)}</span></span>
-                  <span><span className="text-muted-foreground">12 ped.</span> <span className="text-primary font-semibold">{formatCurrency(pizza.priceDozePedacos)}</span></span>
-                </div>
+                {pizza.type === 'pizza' ? (
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm">
+                    <span><span className="text-muted-foreground">Brotinho</span> <span className="text-primary font-semibold">{formatCurrency(pizza.priceBrotinho ?? 0)}</span></span>
+                    <span><span className="text-muted-foreground">8 ped.</span> <span className="text-primary font-semibold">{formatCurrency(pizza.priceOitoPedacos ?? 0)}</span></span>
+                    <span><span className="text-muted-foreground">12 ped.</span> <span className="text-primary font-semibold">{formatCurrency(pizza.priceDozePedacos ?? 0)}</span></span>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm">
+                    <span className="text-primary font-semibold">{formatCurrency(pizza.price ?? 0)}</span>
+                    {pizza.size && <span className="text-muted-foreground">{pizza.size}</span>}
+                  </div>
+                )}
               </div>
               <div className="flex items-center justify-end mb-4">
                 <Badge variant="success">Ativo</Badge>

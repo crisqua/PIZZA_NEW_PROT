@@ -178,9 +178,9 @@ model Product {
   // Plan.price) — Decimal(10,2) em reais, nunca centavos/Float. Mesmo cuidado de sempre:
   // Prisma.Decimal vira string via .toJSON(), response mapeia .toNumber() explicitamente
   // (ver product-response.util.ts).
-  // Usado so' por bebida (type='drink') -- preco unico, sem tamanho. Nullable pelo mesmo
-  // motivo dos 3 campos abaixo: pizza nao usa este campo, so' os de tamanho. Obrigatorio
-  // por tipo validado no DTO (@ValidateIf), nao a nivel de banco.
+  // Usado por bebida e sobremesa (type!='pizza') -- preco unico, sem tamanho. Nullable
+  // pelo mesmo motivo dos 3 campos abaixo: pizza nao usa este campo, so' os de tamanho.
+  // Obrigatorio por tipo validado no DTO (@ValidateIf), nao a nivel de banco.
   price       Decimal? @db.Decimal(10, 2)
   // Pizza (type='pizza') usa preco explicito por tamanho em vez de preco-base x
   // multiplicador (decisao revertida nesta sprint: o dono digita o preco real de cada
@@ -191,6 +191,10 @@ model Product {
   priceBrotinho    Decimal? @map("price_brotinho") @db.Decimal(10, 2)
   priceOitoPedacos Decimal? @map("price_oito_pedacos") @db.Decimal(10, 2)
   priceDozePedacos Decimal? @map("price_doze_pedacos") @db.Decimal(10, 2)
+  // Variante em texto livre pra bebida/sobremesa (type!='pizza'), ex. "2L"/"Fatia" --
+  // pizza ignora este campo (fica vazio). Nao e' preco nem tamanho de pizza (que tem os
+  // 3 campos acima); e' so' um rotulo descritivo digitado pelo dono no cadastro.
+  size        String   @default("") @db.VarChar(60)
   // URL simples, nao upload real — decisao confirmada com o usuario nesta sprint:
   // Supabase Storage/URL assinada fica pra depois (nao existe infra nenhuma ainda), e o
   // protototipo (ProductForm.tsx) ja so aceita colar uma URL num input de texto. Default
@@ -206,9 +210,10 @@ model Product {
   // <Badge> fixo "Ativo" em MenuManagement.tsx, nao ligado a nenhum campo). true =
   // disponivel, mesmo default-true de Plan.active/Tenant.active.
   available   Boolean  @default(true)
-  // 'pizza' | 'drink' (Sprint 7) — validado em codigo, mesma convencao de role/status.
+  // 'pizza' | 'drink' | 'sobremesa' — validado em codigo, mesma convencao de role/status.
   // Existe pra order_items saber se o preco e' media dos precos-por-tamanho dos sabores
-  // (pizza) ou direto (bebida), sem depender de casamento fragil por nome de categoria.
+  // (pizza) ou direto (bebida/sobremesa), sem depender de casamento fragil por nome de
+  // categoria.
   type        String   @default("pizza") @db.VarChar(20)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")

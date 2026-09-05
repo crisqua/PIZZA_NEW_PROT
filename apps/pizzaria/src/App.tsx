@@ -24,9 +24,10 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  AdminProduct,
 } from './data/repository';
 import { ADDONS } from './data/addons';
-import { Pizza, Category } from '@pizza/types';
+import { Category } from '@pizza/types';
 
 type RestaurantView = 'dashboard' | 'menu' | 'product-form' | 'orders' | 'settings' | 'inventory' | 'financial';
 
@@ -34,9 +35,9 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [activePage, setActivePage] = useState<RestaurantView>('dashboard');
-  const [selectedProduct, setSelectedProduct] = useState<Pizza | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<AdminProduct | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [pizzas, setPizzas] = useState<Pizza[]>([]);
+  const [pizzas, setPizzas] = useState<AdminProduct[]>([]);
 
   const boot = async () => {
     await tryRestoreSession();
@@ -84,7 +85,7 @@ export default function App() {
 
   const handleNavigate = (page: string) => setActivePage(page as RestaurantView);
 
-  const handleEditProduct = (product: Pizza) => {
+  const handleEditProduct = (product: AdminProduct) => {
     setSelectedProduct(product);
     setActivePage('product-form');
   };
@@ -95,16 +96,27 @@ export default function App() {
   };
 
   const handleSaveProduct = async (data: ProductFormData) => {
-    const input = {
-      name: data.name,
-      description: data.description,
-      priceBrotinho: Number(data.priceBrotinho),
-      priceOitoPedacos: Number(data.priceOitoPedacos),
-      priceDozePedacos: Number(data.priceDozePedacos),
-      categoryId: data.category,
-      image: data.image,
-      ingredients: data.ingredients,
-    };
+    const input = data.type === 'pizza'
+      ? {
+          name: data.name,
+          description: data.description,
+          type: data.type,
+          priceBrotinho: Number(data.priceBrotinho),
+          priceOitoPedacos: Number(data.priceOitoPedacos),
+          priceDozePedacos: Number(data.priceDozePedacos),
+          categoryId: data.category,
+          image: data.image,
+          ingredients: data.ingredients,
+        }
+      : {
+          name: data.name,
+          description: data.description,
+          type: data.type,
+          price: Number(data.price),
+          size: data.size,
+          categoryId: data.category,
+          image: data.image,
+        };
     if (selectedProduct) {
       const updated = await updateProduct(selectedProduct.id, input);
       setPizzas((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));

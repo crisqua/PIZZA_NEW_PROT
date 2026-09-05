@@ -38,6 +38,11 @@ export class UpdateProductDto {
   priceDozePedacos?: number;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  size?: string;
+
+  @IsOptional()
   @IsUUID()
   categoryId?: string;
 
@@ -60,6 +65,6 @@ export class UpdateProductDto {
   available?: boolean;
 
   @IsOptional()
-  @IsIn(['pizza', 'drink'])
+  @IsIn(['pizza', 'drink', 'sobremesa'])
   type?: string;
 }

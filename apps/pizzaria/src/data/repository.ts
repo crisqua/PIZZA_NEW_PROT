@@ -10,7 +10,7 @@
 // so'-leitura como o catalogo de apps/cliente, aqui tem CRUD de verdade em varios
 // recursos (produtos, estoque, despesas), que cada tela gerencia com seu proprio
 // useEffect+useState (padrao React comum), chamando as funcoes exportadas abaixo.
-import type { AddonId, Category, Expense, InventoryItem, Pizza, Tenant } from '@pizza/types';
+import type { AddonId, Category, Expense, InventoryItem, Tenant } from '@pizza/types';
 import { apiFetch, setAccessToken, getAccessToken } from './api';
 import { getTenantSlug } from './tenant';
 
@@ -27,8 +27,29 @@ export let mockTenant: Tenant = {
   active: true,
 };
 export let mockCategories: Category[] = [];
-export let mockPizzas: Pizza[] = [];
+export let mockPizzas: AdminProduct[] = [];
 export let unlockedModules: AddonId[] = [];
+
+// Painel gerencia os 3 tipos de produto do cardapio (pizza/bebida/sobremesa) na mesma
+// tela (ProductForm.tsx com abas) -- Pizza usa os 3 precos por tamanho, bebida e
+// sobremesa usam preco unico + "tamanho" em texto livre (ex. "2L"/"Fatia").
+export type ProductType = 'pizza' | 'drink' | 'sobremesa';
+
+export interface AdminProduct {
+  id: string;
+  name: string;
+  description: string;
+  type: ProductType;
+  priceBrotinho: number | null;
+  priceOitoPedacos: number | null;
+  priceDozePedacos: number | null;
+  price: number | null;
+  size: string;
+  category: string;
+  featured: boolean;
+  image: string;
+  ingredients: string[];
+}
 
 // ---------- Auth ----------
 
@@ -99,20 +120,24 @@ interface ProductResponse {
   priceBrotinho: number | null;
   priceOitoPedacos: number | null;
   priceDozePedacos: number | null;
+  size: string;
   image: string;
   ingredients: string[];
   featured: boolean;
   type: string;
 }
 
-function toPizza(p: ProductResponse): Pizza {
+function toAdminProduct(p: ProductResponse): AdminProduct {
   return {
     id: p.id,
     name: p.name,
     description: p.description,
-    priceBrotinho: p.priceBrotinho ?? 0,
-    priceOitoPedacos: p.priceOitoPedacos ?? 0,
-    priceDozePedacos: p.priceDozePedacos ?? 0,
+    type: (p.type as ProductType) ?? 'pizza',
+    priceBrotinho: p.priceBrotinho,
+    priceOitoPedacos: p.priceOitoPedacos,
+    priceDozePedacos: p.priceDozePedacos,
+    price: p.price,
+    size: p.size,
     category: p.categoryId,
     featured: p.featured,
     image: p.image,
@@ -123,10 +148,9 @@ function toPizza(p: ProductResponse): Pizza {
 // Carrega tudo que a shell do painel precisa ANTES do primeiro render (App.tsx so' sai
 // do "Carregando..." depois que isso resolve). Cardapio aqui usa as rotas autenticadas
 // de staff (/v1/catalog/*), nao o /v1/public/tenants/:slug/catalog do cliente -- o painel
-// precisa ver produto indisponivel tambem, o cliente final nao. Filtra so' type='pizza':
-// o protototipo desta tela NUNCA teve gestao de bebida nenhuma (sem campo/UI pra isso) --
-// gap conhecido, deliberadamente fora do escopo desta sprint (conectar o que ja existe,
-// nao inventar tela nova).
+// precisa ver produto indisponivel tambem, o cliente final nao. Traz os 3 tipos de
+// produto (pizza/bebida/sobremesa) -- ProductForm.tsx com abas ja sabe criar/editar
+// qualquer um deles.
 export async function loadDashboardBoot(): Promise<void> {
   const [tenant, subscription, categories, products] = await Promise.all([
     apiFetch<TenantResponse>('/tenants/me'),
@@ -149,7 +173,7 @@ export async function loadDashboardBoot(): Promise<void> {
   };
   unlockedModules = subscription.modules;
   mockCategories = categories;
-  mockPizzas = products.filter((p) => p.type === 'pizza').map(toPizza);
+  mockPizzas = products.map(toAdminProduct);
 }
 
 // ---------- Categorias / Produtos (CRUD real) ----------
@@ -161,22 +185,26 @@ export async function createCategory(name: string): Promise<Category> {
 export interface ProductInput {
   name: string;
   description?: string;
-  priceBrotinho: number;
-  priceOitoPedacos: number;
-  priceDozePedacos: number;
+  type: ProductType;
+  // Pizza: os 3 obrigatorios abaixo. Bebida/sobremesa: price obrigatorio, size opcional.
+  priceBrotinho?: number;
+  priceOitoPedacos?: number;
+  priceDozePedacos?: number;
+  price?: number;
+  size?: string;
   categoryId: string;
   image?: string;
   ingredients?: string[];
 }
 
-export async function createProduct(input: ProductInput): Promise<Pizza> {
+export async function createProduct(input: ProductInput): Promise<AdminProduct> {
   const res = await apiFetch<ProductResponse>('/catalog/products', { method: 'POST', body: input });
-  return toPizza(res);
+  return toAdminProduct(res);
 }
 
-export async function updateProduct(id: string, input: Partial<ProductInput>): Promise<Pizza> {
+export async function updateProduct(id: string, input: Partial<ProductInput>): Promise<AdminProduct> {
   const res = await apiFetch<ProductResponse>(`/catalog/products/${id}`, { method: 'PATCH', body: input });
-  return toPizza(res);
+  return toAdminProduct(res);
 }
 
 export async function deleteProduct(id: string): Promise<void> {

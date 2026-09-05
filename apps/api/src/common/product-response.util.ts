@@ -14,6 +14,7 @@ export interface ProductResponse {
   priceBrotinho: number | null;
   priceOitoPedacos: number | null;
   priceDozePedacos: number | null;
+  size: string;
   image: string;
   ingredients: string[];
   featured: boolean;
@@ -34,6 +35,7 @@ export function toProductResponse(product: Product): ProductResponse {
     priceBrotinho: product.priceBrotinho?.toNumber() ?? null,
     priceOitoPedacos: product.priceOitoPedacos?.toNumber() ?? null,
     priceDozePedacos: product.priceDozePedacos?.toNumber() ?? null,
+    size: product.size,
     image: product.image,
     ingredients: product.ingredients as string[],
     featured: product.featured,

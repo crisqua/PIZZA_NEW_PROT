@@ -1,38 +1,70 @@
 import { useState } from 'react';
 import { ArrowLeft, Upload, X, Check } from 'lucide-react';
-import { Pizza, Category } from '@pizza/types';
+import { Category } from '@pizza/types';
 import { Card, CardContent, Button, Input, Textarea, centsToDisplay, reaisToCentsDigits } from '@pizza/ui';
+import { AdminProduct, ProductType } from '../data/repository';
 
 export interface ProductFormData {
   name: string;
   description: string;
-  // Preco explicito por tamanho (revertido de preco-base x multiplicador): o que o
-  // dono digita aqui e' exatamente o que o cliente paga por aquele tamanho.
+  type: ProductType;
+  // Pizza: preco explicito por tamanho (revertido de preco-base x multiplicador): o que
+  // o dono digita aqui e' exatamente o que o cliente paga por aquele tamanho.
   priceBrotinho: number | string;
   priceOitoPedacos: number | string;
   priceDozePedacos: number | string;
+  // Bebida/sobremesa: preco unico + "tamanho" em texto livre (ex. "2L"/"Fatia").
+  price: number | string;
+  size: string;
   category: string;
   ingredients: string[];
   image: string;
 }
 
 interface ProductFormProps {
-  product?: Pizza;
+  product?: AdminProduct;
   categories: Category[];
   onCreateCategory: (name: string) => Promise<Category>;
   onBack: () => void;
   onSave: (data: ProductFormData) => Promise<void>;
 }
 
+const TABS: { id: ProductType; label: string }[] = [
+  { id: 'pizza', label: 'Pizza' },
+  { id: 'drink', label: 'Bebidas' },
+  { id: 'sobremesa', label: 'Sobremesas' },
+];
+
+const SIZE_FIELD_LABEL: Record<ProductType, string> = {
+  pizza: '',
+  drink: 'Tamanho',
+  sobremesa: 'Tamanho / Porção',
+};
+
+const SIZE_PLACEHOLDER: Record<ProductType, string> = {
+  pizza: '',
+  drink: 'Ex: 2L',
+  sobremesa: 'Ex: Fatia',
+};
+
+const SUBMIT_LABEL: Record<ProductType, string> = {
+  pizza: 'Criar Pizza',
+  drink: 'Criar Bebida',
+  sobremesa: 'Criar Sobremesa',
+};
+
 export function ProductForm({ product, categories, onCreateCategory, onBack, onSave }: ProductFormProps) {
   const [formData, setFormData] = useState<ProductFormData>({
     name: product?.name || '',
     description: product?.description || '',
+    type: product?.type || 'pizza',
     // Guarda os digitos em centavos (mascara de moeda), nao o valor em reais --
     // convertido de volta pra reais so' na hora de chamar onSave (handleSubmit).
     priceBrotinho: product?.priceBrotinho ? reaisToCentsDigits(product.priceBrotinho) : '',
     priceOitoPedacos: product?.priceOitoPedacos ? reaisToCentsDigits(product.priceOitoPedacos) : '',
     priceDozePedacos: product?.priceDozePedacos ? reaisToCentsDigits(product.priceDozePedacos) : '',
+    price: product?.price ? reaisToCentsDigits(product.price) : '',
+    size: product?.size || '',
     category: product?.category || categories[0]?.id || '',
     ingredients: product?.ingredients || [],
     image: product?.image || '',
@@ -45,6 +77,8 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  const isPizza = formData.type === 'pizza';
+
   const updateField = <K extends keyof ProductFormData>(field: K, value: ProductFormData[K]) => {
     setFormData({ ...formData, [field]: value });
     if (fieldErrors[field]) {
@@ -52,16 +86,21 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
     }
   };
 
-  // Nome, descricao, os 3 precos por tamanho e categoria sao obrigatorios; imagem e
-  // ingredientes ficam opcionais (pedido do usuario) -- mesmo padrao de
-  // validate()+fieldErrors ja usado em Checkout.tsx.
+  // Nome, descricao e categoria sao sempre obrigatorios; pizza exige os 3 precos por
+  // tamanho, bebida/sobremesa exigem o preco unico (tamanho fica opcional). Imagem e
+  // ingredientes ficam opcionais -- mesmo padrao de validate()+fieldErrors ja usado em
+  // Checkout.tsx.
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!formData.name.trim()) newErrors.name = 'Nome é obrigatório';
     if (!formData.description.trim()) newErrors.description = 'Descrição é obrigatória';
-    if (!formData.priceBrotinho) newErrors.priceBrotinho = 'Obrigatório';
-    if (!formData.priceOitoPedacos) newErrors.priceOitoPedacos = 'Obrigatório';
-    if (!formData.priceDozePedacos) newErrors.priceDozePedacos = 'Obrigatório';
+    if (isPizza) {
+      if (!formData.priceBrotinho) newErrors.priceBrotinho = 'Obrigatório';
+      if (!formData.priceOitoPedacos) newErrors.priceOitoPedacos = 'Obrigatório';
+      if (!formData.priceDozePedacos) newErrors.priceDozePedacos = 'Obrigatório';
+    } else {
+      if (!formData.price) newErrors.price = 'Obrigatório';
+    }
     if (!formData.category) newErrors.category = 'Categoria é obrigatória';
     setFieldErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -88,6 +127,7 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
         priceBrotinho: Number(formData.priceBrotinho) / 100,
         priceOitoPedacos: Number(formData.priceOitoPedacos) / 100,
         priceDozePedacos: Number(formData.priceDozePedacos) / 100,
+        price: Number(formData.price) / 100,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Nao foi possivel salvar o produto.');
@@ -115,9 +155,29 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
           <ArrowLeft className="w-5 h-5" />
           Voltar
         </button>
-        <h1 className="text-2xl font-bold">
+        <h1 className="text-2xl font-bold mb-4">
           {product ? 'Editar Produto' : 'Novo Produto'}
         </h1>
+
+        {/* Tipo so' pode ser escolhido na criacao -- depois de criado, o tipo de um
+            produto nao muda (editar so' mostra os campos do tipo que ele ja e'). */}
+        {!product && (
+          <div className="flex gap-2">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => updateField('type', tab.id)}
+                className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  formData.type === tab.id
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -128,7 +188,7 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
 
               <Input
                 label="Nome do Produto"
-                placeholder="Ex: Margherita"
+                placeholder={isPizza ? 'Ex: Margherita' : formData.type === 'drink' ? 'Ex: Coca-Cola 2L' : 'Ex: Pudim de Leite'}
                 value={formData.name}
                 onChange={(e) => updateField('name', e.target.value)}
                 error={fieldErrors.name}
@@ -143,38 +203,58 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
                 error={fieldErrors.description}
               />
 
-              <div>
-                <label className="block mb-2 text-sm font-medium">Preços por Tamanho</label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {isPizza ? (
+                <div>
+                  <label className="block mb-2 text-sm font-medium">Preços por Tamanho</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <Input
+                      label="Brotinho"
+                      placeholder="R$ 0,00"
+                      type="text"
+                      inputMode="numeric"
+                      value={centsToDisplay(String(formData.priceBrotinho))}
+                      onChange={(e) => updateField('priceBrotinho', e.target.value.replace(/\D/g, ''))}
+                      error={fieldErrors.priceBrotinho}
+                    />
+                    <Input
+                      label="8 Pedaços"
+                      placeholder="R$ 0,00"
+                      type="text"
+                      inputMode="numeric"
+                      value={centsToDisplay(String(formData.priceOitoPedacos))}
+                      onChange={(e) => updateField('priceOitoPedacos', e.target.value.replace(/\D/g, ''))}
+                      error={fieldErrors.priceOitoPedacos}
+                    />
+                    <Input
+                      label="12 Pedaços"
+                      placeholder="R$ 0,00"
+                      type="text"
+                      inputMode="numeric"
+                      value={centsToDisplay(String(formData.priceDozePedacos))}
+                      onChange={(e) => updateField('priceDozePedacos', e.target.value.replace(/\D/g, ''))}
+                      error={fieldErrors.priceDozePedacos}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
-                    label="Brotinho"
+                    label="Preço"
                     placeholder="R$ 0,00"
                     type="text"
                     inputMode="numeric"
-                    value={centsToDisplay(String(formData.priceBrotinho))}
-                    onChange={(e) => updateField('priceBrotinho', e.target.value.replace(/\D/g, ''))}
-                    error={fieldErrors.priceBrotinho}
+                    value={centsToDisplay(String(formData.price))}
+                    onChange={(e) => updateField('price', e.target.value.replace(/\D/g, ''))}
+                    error={fieldErrors.price}
                   />
                   <Input
-                    label="8 Pedaços"
-                    placeholder="R$ 0,00"
-                    type="text"
-                    inputMode="numeric"
-                    value={centsToDisplay(String(formData.priceOitoPedacos))}
-                    onChange={(e) => updateField('priceOitoPedacos', e.target.value.replace(/\D/g, ''))}
-                    error={fieldErrors.priceOitoPedacos}
-                  />
-                  <Input
-                    label="12 Pedaços"
-                    placeholder="R$ 0,00"
-                    type="text"
-                    inputMode="numeric"
-                    value={centsToDisplay(String(formData.priceDozePedacos))}
-                    onChange={(e) => updateField('priceDozePedacos', e.target.value.replace(/\D/g, ''))}
-                    error={fieldErrors.priceDozePedacos}
+                    label={SIZE_FIELD_LABEL[formData.type]}
+                    placeholder={SIZE_PLACEHOLDER[formData.type]}
+                    value={formData.size}
+                    onChange={(e) => updateField('size', e.target.value)}
                   />
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className="block mb-2 text-sm font-medium">Categoria</label>
@@ -230,38 +310,40 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6 space-y-4">
-              <h2 className="font-semibold text-lg">Ingredientes</h2>
+          {isPizza && (
+            <Card>
+              <CardContent className="p-6 space-y-4">
+                <h2 className="font-semibold text-lg">Ingredientes</h2>
 
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Digite um ingrediente..."
-                  value={newIngredient}
-                  onChange={(e) => setNewIngredient(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addIngredient()}
-                />
-                <Button onClick={addIngredient}>Adicionar</Button>
-              </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Digite um ingrediente..."
+                    value={newIngredient}
+                    onChange={(e) => setNewIngredient(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && addIngredient()}
+                  />
+                  <Button onClick={addIngredient}>Adicionar</Button>
+                </div>
 
-              <div className="flex flex-wrap gap-2">
-                {formData.ingredients.map((ingredient, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-accent text-accent-foreground rounded-full text-sm"
-                  >
-                    {ingredient}
-                    <button
-                      onClick={() => removeIngredient(index)}
-                      className="hover:text-destructive transition-colors"
+                <div className="flex flex-wrap gap-2">
+                  {formData.ingredients.map((ingredient, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-accent text-accent-foreground rounded-full text-sm"
                     >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                      {ingredient}
+                      <button
+                        onClick={() => removeIngredient(index)}
+                        className="hover:text-destructive transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -308,7 +390,7 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
 
           <div className="space-y-3">
             <Button fullWidth size="lg" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? 'Salvando...' : product ? 'Salvar Alterações' : 'Criar Produto'}
+              {submitting ? 'Salvando...' : product ? 'Salvar Alterações' : SUBMIT_LABEL[formData.type]}
             </Button>
             <Button fullWidth variant="outline" onClick={onBack}>
               Cancelar

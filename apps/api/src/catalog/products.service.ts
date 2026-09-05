@@ -26,6 +26,7 @@ export class ProductsService {
           priceBrotinho: dto.priceBrotinho,
           priceOitoPedacos: dto.priceOitoPedacos,
           priceDozePedacos: dto.priceDozePedacos,
+          size: dto.size ?? '',
           image: dto.image ?? '',
           ingredients: dto.ingredients ?? [],
           featured: dto.featured ?? false,
