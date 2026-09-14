@@ -204,7 +204,7 @@ export default function App() {
   return (
     <div
       className="relative"
-      style={{ '--color-primary': mockTenant.primaryColor, '--color-accent': mockTenant.primaryColor } as CSSProperties}
+      style={{ '--primary': mockTenant.primaryColor, '--accent': mockTenant.primaryColor } as CSSProperties}
     >
       {view === 'menu' && (
         <Menu
