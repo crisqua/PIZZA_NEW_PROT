@@ -18,6 +18,7 @@ export interface OrderResponse {
   tenantId: string;
   customerId: string;
   status: string;
+  orderCode: string;
   customerName: string;
   phone: string;
   address: string;
@@ -52,6 +53,7 @@ export function toOrderResponse(order: Order & { items: OrderItem[] }): OrderRes
     tenantId: order.tenantId,
     customerId: order.customerId,
     status: order.status,
+    orderCode: order.orderCode,
     customerName: order.customerName,
     phone: order.phone,
     address: order.address,

@@ -206,6 +206,7 @@ export interface CreateOrderPayload {
 
 export interface ApiOrder {
   id: string;
+  orderCode: string;
   status: 'pending' | 'preparing' | 'delivery' | 'completed' | 'cancelled';
   customerName: string;
   total: number;

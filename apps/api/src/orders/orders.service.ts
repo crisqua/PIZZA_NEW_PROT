@@ -10,6 +10,20 @@ import { PizzaSizeId } from './pizza-size';
 
 const PRISMA_UNIQUE_CONSTRAINT = 'P2002';
 
+// "AAAAMMDD" no fuso de Brasilia, nao UTC -- um pedido feito as 21h horario local ainda
+// e' "hoje" pro dono da pizzaria, mesmo ja sendo o dia seguinte em UTC. Projeto assume
+// Brasil inteiro num fuso so' (nenhuma tela tem seletor de fuso por tenant).
+function dateKeySaoPaulo(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const byType = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  return `${byType.year}${byType.month}${byType.day}`;
+}
+
 interface ComputedItem {
   tenantId: string;
   productId: string;
@@ -158,11 +172,27 @@ export class OrdersService {
     const deliveryFee = tenant.deliveryFee.toNumber();
     const total = round2(items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) + deliveryFee);
 
+    // Codigo sequencial por tenant+dia ("AAAAMMDDNNNN") -- INSERT...ON CONFLICT DO
+    // UPDATE...RETURNING numa linha so' e' atomico por si (Postgres serializa a
+    // concorrencia na propria constraint), dentro da MESMA transacao do pedido: nao
+    // precisa de lock manual nem de uma segunda transacao pra evitar corrida entre
+    // dois pedidos simultaneos do mesmo tenant no mesmo dia.
+    const dateKey = dateKeySaoPaulo(new Date());
+    const [{ last_seq: lastSeq }] = await tx.$queryRaw<{ last_seq: number }[]>`
+      INSERT INTO order_daily_sequences (tenant_id, date_key, last_seq)
+      VALUES (${tenantId}::uuid, ${dateKey}, 1)
+      ON CONFLICT (tenant_id, date_key)
+      DO UPDATE SET last_seq = order_daily_sequences.last_seq + 1
+      RETURNING last_seq
+    `;
+    const orderCode = `${dateKey}${String(lastSeq).padStart(4, '0')}`;
+
     const order = await tx.order.create({
       data: {
         tenantId,
         customerId: userId,
         idempotencyKey,
+        orderCode,
         customerName: customer.name,
         phone: dto.phone,
         address: dto.address,

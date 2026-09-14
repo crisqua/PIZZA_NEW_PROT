@@ -46,6 +46,7 @@ describe('GET /v1/admin/dashboard', () => {
       tx.order.create({
         data: {
           tenantId: tenant.tenantId, customerId: tenant.userId, idempotencyKey: randomUUID(),
+          orderCode: randomUUID().replace(/-/g, '').slice(0, 16),
           customerName: 'Cliente', phone: '119999', address: 'Rua', paymentMethod: 'dinheiro',
           deliveryFee: 0, total: 10,
           items: { create: [{ tenantId: tenant.tenantId, productId: product.id, type: 'pizza', name: 'Produto', unitPrice: 10, quantity: 1 }] },
@@ -58,6 +59,7 @@ describe('GET /v1/admin/dashboard', () => {
       tx.order.create({
         data: {
           tenantId: tenant.tenantId, customerId: tenant.userId, idempotencyKey: randomUUID(),
+          orderCode: randomUUID().replace(/-/g, '').slice(0, 16),
           status: 'completed',
           customerName: 'Cliente', phone: '119999', address: 'Rua', paymentMethod: 'dinheiro',
           deliveryFee: 0, total: 150,

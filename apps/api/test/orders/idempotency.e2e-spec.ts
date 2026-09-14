@@ -83,6 +83,9 @@ describe('Idempotencia na criacao de pedido (POST /v1/orders)', () => {
     expect(resA.status).toBe(201);
     expect(resB.status).toBe(201);
     expect(resA.body.id).toBe(resB.body.id);
+    // O retry (perdedor da corrida) reconsulta o MESMO pedido, nunca gera um orderCode
+    // novo pro reenvio -- se tivesse gerado, os dois codigos divergiriam aqui.
+    expect(resA.body.orderCode).toBe(resB.body.orderCode);
 
     const count = await tenantContext.runInTenantContext(tenant.tenantId, (tx) =>
       tx.order.count({ where: { tenantId: tenant.tenantId, idempotencyKey } }),

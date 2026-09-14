@@ -5,6 +5,10 @@ import { Button, Card, CardContent, Badge, formatCurrency } from '@pizza/ui';
 
 interface OrderConfirmationProps {
   orderId: string;
+  // Codigo sequencial por pizzaria/dia ("AAAAMMDDNNNN") -- opcional so' defensivamente,
+  // toda resposta nova da API ja' vem com ele; fallback pro slice do UUID antigo cobre
+  // so' o caso (nao esperado) de vir undefined.
+  orderCode?: string;
   total: number;
   estimatedTime: string;
   customerName?: string;
@@ -23,7 +27,7 @@ const POLL_INTERVAL_MS = 10_000;
 
 // Acompanhamento do proprio pedido via polling (Sprint 7, MVP.md item 9 -- "Cliente
 // acompanha status do proprio pedido via polling"; WebSocket e' Fase 3, fora do MVP).
-export function OrderConfirmation({ orderId, total, estimatedTime, customerName, onBackToMenu }: OrderConfirmationProps) {
+export function OrderConfirmation({ orderId, orderCode, total, estimatedTime, customerName, onBackToMenu }: OrderConfirmationProps) {
   const [status, setStatus] = useState<ApiOrder['status']>('pending');
 
   useEffect(() => {
@@ -65,7 +69,7 @@ export function OrderConfirmation({ orderId, total, estimatedTime, customerName,
           <CardContent className="p-6 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Número do pedido</span>
-              <Badge className="text-sm px-3 py-1.5">#{orderId.slice(0, 8)}</Badge>
+              <Badge className="text-sm px-3 py-1.5">#{orderCode ?? orderId.slice(0, 8)}</Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Status</span>

@@ -227,6 +227,7 @@ export interface ApiOrderItem {
 
 export interface ApiOrder {
   id: string;
+  orderCode: string;
   status: 'pending' | 'preparing' | 'delivery' | 'completed' | 'cancelled';
   customerName: string;
   phone: string;

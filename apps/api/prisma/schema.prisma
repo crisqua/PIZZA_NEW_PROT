@@ -277,6 +277,10 @@ model Order {
   customerId     String   @map("customer_id") @db.Uuid
   status         String   @default("pending") @db.VarChar(20)
   idempotencyKey String   @map("idempotency_key") @db.VarChar(255)
+  // Codigo sequencial por tenant+dia ("AAAAMMDDNNNN", fuso America/Sao_Paulo) -- gerado
+  // atomicamente em OrdersService.insertOrder via OrderDailySequence, substitui o antigo
+  // pseudo-codigo cosmetico (id.slice(0,8)) por algo de verdade decoravel/falavel.
+  orderCode      String   @map("order_code") @db.VarChar(20)
   customerName   String   @map("customer_name") @db.VarChar(120)
   phone          String   @db.VarChar(20)
   address        String   @db.VarChar(255)
@@ -299,9 +303,26 @@ model Order {
 
   @@unique([tenantId, id])
   @@unique([tenantId, idempotencyKey])
+  @@unique([tenantId, orderCode])
   @@index([tenantId, customerId], map: "idx_orders_tenant_customer")
   @@index([tenantId, status], map: "idx_orders_tenant_status")
   @@map("orders")
+}
+
+// Contador atomico do codigo de pedido sequencial por tenant+dia (Order.orderCode) --
+// tenant-owned, RLS ligada e forcada (tem tenant_id, o gate de CI exige). Uma linha por
+// (tenant, dia) -- incrementada via INSERT...ON CONFLICT DO UPDATE...RETURNING dentro da
+// MESMA transacao que cria o pedido (OrdersService.insertOrder), atomico sem lock manual.
+// "dateKey" e' calculado no codigo no fuso America/Sao_Paulo (nao UTC), formato
+// "AAAAMMDD" -- projeto assume Brasil inteiro num fuso so', mesma premissa implicita do
+// resto do app (nenhuma tela tem seletor de fuso).
+model OrderDailySequence {
+  tenantId String @map("tenant_id") @db.Uuid
+  dateKey  String @map("date_key") @db.VarChar(8)
+  lastSeq  Int    @default(0) @map("last_seq")
+
+  @@id([tenantId, dateKey])
+  @@map("order_daily_sequences")
 }
 
 // Item de pedido (Sprint 7) — tenant-owned, RLS ligada e forcada. Primeiro caso do schema

@@ -171,6 +171,75 @@ describe('/v1/orders', () => {
     expect(res.body.items[1].unitPrice).toBe(8);
     expect(res.body.total).toBe(42 + 8 * 2);
     expect(typeof res.body.total).toBe('number');
+    // Codigo sequencial "AAAAMMDDNNNN" (fuso America/Sao_Paulo) -- tenantA e' seedado do
+    // zero neste describe, entao o primeiro pedido dele sempre comeca em "...0001".
+    expect(res.body.orderCode).toMatch(/^\d{8}0001$/);
+  });
+
+  it('segundo pedido do mesmo tenant no mesmo dia recebe o proximo numero sequencial', async () => {
+    const first = await request(app.getHttpServer())
+      .post('/v1/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ items: [{ productId: drinkA.id, quantity: 1 }], phone: '11999998888', address: 'Rua Teste', paymentMethod: 'dinheiro' })
+      .expect(201);
+
+    const second = await request(app.getHttpServer())
+      .post('/v1/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ items: [{ productId: drinkA.id, quantity: 1 }], phone: '11999998888', address: 'Rua Teste', paymentMethod: 'dinheiro' })
+      .expect(201);
+
+    const firstSeq = Number(first.body.orderCode.slice(-4));
+    const secondSeq = Number(second.body.orderCode.slice(-4));
+    expect(secondSeq).toBe(firstSeq + 1);
+    expect(first.body.orderCode.slice(0, 8)).toBe(second.body.orderCode.slice(0, 8));
+
+    await tenantContext.runInTenantContext(tenantA.tenantId, async (tx) => {
+      await tx.orderItem.deleteMany({ where: { orderId: { in: [first.body.id, second.body.id] } } });
+      await tx.order.deleteMany({ where: { id: { in: [first.body.id, second.body.id] } } });
+    });
+  });
+
+  it('tenants diferentes tem sequencias independentes -- os dois comecam em "...0001" no mesmo dia', async () => {
+    const customerBPassword = randomUUID();
+    const customerBPasswordHash = await hashPassword(customerBPassword);
+    const customerBUser = await tenantContext.runInTenantContext(tenantB.tenantId, (tx) =>
+      tx.user.create({
+        data: {
+          tenantId: tenantB.tenantId,
+          email: `customer@${tenantB.tenantSlug}.test`,
+          name: 'Cliente B',
+          role: 'customer',
+          passwordHash: customerBPasswordHash,
+        },
+      }),
+    );
+    const loginB = await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email: customerBUser.email, password: customerBPassword, tenantSlug: tenantB.tenantSlug })
+      .expect(200);
+
+    const orderB = await request(app.getHttpServer())
+      .post('/v1/orders')
+      .set('Authorization', `Bearer ${loginB.body.accessToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ items: [{ productId: productB.id, size: 'oito-pedacos' }], phone: '119999', address: 'Rua Y', paymentMethod: 'dinheiro' })
+      .expect(201);
+
+    // tenantB nunca criou pedido antes neste describe -- sequencia propria, independente
+    // da de tenantA (que ja esta em "...0003" a esta altura), tambem comeca em "...0001".
+    expect(orderB.body.orderCode).toMatch(/^\d{8}0001$/);
+
+    await tenantContext.runInTenantContext(tenantB.tenantId, async (tx) => {
+      await tx.orderItem.deleteMany({ where: { orderId: orderB.body.id } });
+      await tx.order.delete({ where: { id: orderB.body.id } });
+      // refresh_tokens antes de user -- mesma ordem de FK ja documentada (deletar User
+      // antes do proprio RefreshToken viola refresh_tokens_user_id_fkey).
+      await tx.refreshToken.deleteMany({ where: { userId: customerBUser.id } });
+      await tx.user.delete({ where: { id: customerBUser.id } });
+    });
   });
 
   it('GET :id -- dono ve (200), outro cliente nao (404)', async () => {

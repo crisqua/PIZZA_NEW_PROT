@@ -248,6 +248,7 @@ export default function App() {
       {view === 'confirmation' && (
         <OrderConfirmation
           orderId={orderId}
+          orderCode={lastOrder?.orderCode}
           total={lastOrder?.total ?? total}
           estimatedTime="40-60 min"
           customerName={lastOrder?.customerName}

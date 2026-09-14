@@ -70,6 +70,7 @@ describe('GET /v1/financial/revenue', () => {
           customerId: tenant.userId,
           status,
           idempotencyKey: randomUUID(),
+          orderCode: randomUUID().replace(/-/g, '').slice(0, 16),
           customerName: 'Cliente Receita',
           phone: '11999999999',
           address: 'Rua Receita',
