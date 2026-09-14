@@ -206,7 +206,7 @@ export function OrdersPanel() {
               <div className="p-4">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3">
                   <span className="text-sm"><span className="text-muted-foreground">Pedido:</span> <span className="font-bold">#{order.orderCode}</span></span>
-                  <span className="text-sm flex items-center gap-1.5"><span className="text-muted-foreground">Horário Pedido:</span> {formatTime(order.createdAt)}h</span>
+                  <span className="text-sm"><span className="text-muted-foreground">Data/Hora:</span> {toLocalDateStr(new Date(order.createdAt))} / {formatTime(order.createdAt)}</span>
                   <span className="text-sm flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-muted-foreground" /><span className="text-muted-foreground">Tempo decorrido:</span> {formatElapsed(order)}</span>
                   <span className="text-sm flex items-center gap-1.5"><span className="text-muted-foreground">Status:</span> <Badge variant={config.variant}>{config.label}</Badge></span>
                 </div>
