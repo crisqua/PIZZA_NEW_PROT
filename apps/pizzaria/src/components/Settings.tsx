@@ -1,7 +1,59 @@
+import { useState } from 'react';
 import { Save, Clock, DollarSign, MapPin, Palette } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, Textarea } from '@pizza/ui';
+import { mockTenant, updateTenantSettings } from '../data/repository';
 
+// Campos que persistem de verdade (existem no schema de "tenants" -- ver
+// TenantSettingsInput em data/repository.ts). Descricao/e-mail/cidade/estado/horario de
+// funcionamento/tempo de entrega estimado abaixo continuam mock: nao ha coluna nenhuma
+// pra eles hoje, "Salvar" nao teria o que persistir (gap conhecido, documentado, nao
+// construido agora).
 export function Settings() {
+  const [name, setName] = useState(mockTenant.name);
+  const [phone, setPhone] = useState(mockTenant.phone);
+  const [address, setAddress] = useState(mockTenant.address);
+  const [primaryColor, setPrimaryColor] = useState(mockTenant.primaryColor);
+  const [logo, setLogo] = useState(mockTenant.logo);
+  const [deliveryFee, setDeliveryFee] = useState(String(mockTenant.deliveryFee));
+  const [minOrder, setMinOrder] = useState(String(mockTenant.minOrder));
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  async function handleSave() {
+    setSubmitting(true);
+    setError('');
+    setSaved(false);
+    try {
+      await updateTenantSettings({
+        name,
+        phone,
+        address,
+        primaryColor,
+        logo,
+        deliveryFee: Number(deliveryFee) || 0,
+        minOrder: Number(minOrder) || 0,
+      });
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível salvar as configurações.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleCancel() {
+    setName(mockTenant.name);
+    setPhone(mockTenant.phone);
+    setAddress(mockTenant.address);
+    setPrimaryColor(mockTenant.primaryColor);
+    setLogo(mockTenant.logo);
+    setDeliveryFee(String(mockTenant.deliveryFee));
+    setMinOrder(String(mockTenant.minOrder));
+    setError('');
+    setSaved(false);
+  }
+
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div>
@@ -16,7 +68,8 @@ export function Settings() {
         <CardContent className="space-y-4">
           <Input
             label="Nome da Pizzaria"
-            defaultValue="Pizza Express"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             placeholder="Digite o nome"
           />
           <Textarea
@@ -28,7 +81,8 @@ export function Settings() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               label="Telefone / WhatsApp"
-              defaultValue="(11) 3333-4444"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
               placeholder="(00) 00000-0000"
             />
             <Input
@@ -51,7 +105,8 @@ export function Settings() {
         <CardContent className="space-y-4">
           <Input
             label="Rua / Avenida"
-            defaultValue="Rua da Pizzaria, 789"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
             placeholder="Digite o endereço"
           />
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -99,14 +154,16 @@ export function Settings() {
               label="Taxa de Entrega"
               type="number"
               step="0.01"
-              defaultValue="8.00"
+              value={deliveryFee}
+              onChange={(e) => setDeliveryFee(e.target.value)}
               placeholder="0,00"
             />
             <Input
               label="Pedido Mínimo"
               type="number"
               step="0.01"
-              defaultValue="30.00"
+              value={minOrder}
+              onChange={(e) => setMinOrder(e.target.value)}
               placeholder="0,00"
             />
           </div>
@@ -133,15 +190,16 @@ export function Settings() {
               <div className="flex gap-2">
                 <input
                   type="color"
-                  defaultValue="#e84118"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
                   className="w-16 h-10 rounded-lg border border-border cursor-pointer"
                 />
-                <Input defaultValue="#e84118" className="flex-1" />
+                <Input value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="flex-1" />
               </div>
             </div>
             <div>
               <label className="block mb-2 text-sm font-medium">Logo (Emoji)</label>
-              <Input defaultValue="🍕" maxLength={2} />
+              <Input value={logo} onChange={(e) => setLogo(e.target.value)} maxLength={2} />
             </div>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -150,12 +208,15 @@ export function Settings() {
         </CardContent>
       </Card>
 
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {saved && !error && <p className="text-sm text-green-600">Configurações salvas com sucesso.</p>}
+
       <div className="flex flex-wrap gap-3">
-        <Button size="lg">
+        <Button size="lg" onClick={handleSave} disabled={submitting}>
           <Save className="w-5 h-5" />
-          Salvar Alterações
+          {submitting ? 'Salvando...' : 'Salvar Alterações'}
         </Button>
-        <Button variant="outline" size="lg">
+        <Button variant="outline" size="lg" onClick={handleCancel} disabled={submitting}>
           Cancelar
         </Button>
       </div>

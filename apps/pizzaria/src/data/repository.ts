@@ -177,6 +177,36 @@ export async function loadDashboardBoot(): Promise<void> {
   mockPizzas = products.map(toAdminProduct);
 }
 
+// ---------- Configurações da loja (Settings.tsx) ----------
+
+// So' os campos que "tenants" de fato tem no schema (name/phone/address/primaryColor/
+// logo/deliveryFee/minOrder) -- Settings.tsx tinha varios outros inputs (descricao,
+// e-mail, cidade/estado, horario de funcionamento, tempo de entrega estimado) que nunca
+// tiveram coluna nenhuma no banco, sao mock puro ainda (nao mexidos aqui).
+export interface TenantSettingsInput {
+  name?: string;
+  phone?: string;
+  address?: string;
+  primaryColor?: string;
+  logo?: string;
+  deliveryFee?: number;
+  minOrder?: number;
+}
+
+export async function updateTenantSettings(input: TenantSettingsInput): Promise<void> {
+  const tenant = await apiFetch<TenantResponse>('/tenants/me', { method: 'PATCH', body: input });
+  mockTenant = {
+    ...mockTenant,
+    name: tenant.name,
+    logo: tenant.logo,
+    primaryColor: tenant.primaryColor,
+    phone: tenant.phone,
+    address: tenant.address,
+    deliveryFee: tenant.deliveryFee,
+    minOrder: tenant.minOrder,
+  };
+}
+
 // ---------- Categorias / Produtos (CRUD real) ----------
 
 export async function createCategory(name: string, type: ProductType): Promise<Category> {
