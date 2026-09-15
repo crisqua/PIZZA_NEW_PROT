@@ -52,6 +52,14 @@ export function centsToDisplay(digitsInCents: string): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+// Mascara BR de CEP (00000-000) -- mesmo padrao de formatPhone (strip nao-digitos,
+// limita a 8, insere hifen na posicao 5).
+export function formatCep(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
+
 // Trata null/undefined como "sem valor" (campo vazio) -- mas 0 e' um valor real (ex:
 // plano gratuito, taxa de entrega zero), tem que virar "0" e nao ficar vazio junto.
 export function reaisToCentsDigits(value: number | null | undefined): string {

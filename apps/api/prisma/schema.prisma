@@ -61,6 +61,12 @@ model User {
   addressNumber String   @default("") @map("address_number") @db.VarChar(20)
   complement    String   @default("") @db.VarChar(120)
   neighborhood  String   @default("") @db.VarChar(120)
+  // CEP/cidade/estado (Sprint 12) -- resolvidos via ViaCEP no backend (CepLookupService),
+  // salvos no perfil apos um checkout de sucesso pra pre-preencher a proxima compra. CEP
+  // guardado formatado ("00000-000"), mesma convencao que phone ja segue.
+  cep           String   @default("") @db.VarChar(9)
+  city          String   @default("") @db.VarChar(120)
+  state         String   @default("") @db.VarChar(2)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -287,6 +293,12 @@ model Order {
   addressNumber  String   @default("") @map("address_number") @db.VarChar(20)
   complement     String   @default("") @db.VarChar(120)
   neighborhood   String   @default("") @db.VarChar(120)
+  // CEP/cidade/estado (Sprint 12) -- CEP obrigatorio no DTO de criacao (nao no banco:
+  // mesmo padrao ja usado por addressNumber/complement/neighborhood, default("") pra
+  // nao quebrar pedidos historicos que nao tinham esses campos).
+  cep            String   @default("") @db.VarChar(9)
+  city           String   @default("") @db.VarChar(120)
+  state          String   @default("") @db.VarChar(2)
   paymentMethod  String   @map("payment_method") @db.VarChar(20)
   changeFor      Decimal? @map("change_for") @db.Decimal(10, 2)
   deliveryFee    Decimal  @map("delivery_fee") @db.Decimal(10, 2)

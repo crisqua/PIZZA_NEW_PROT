@@ -199,7 +199,8 @@ export function OrdersPanel() {
           const itemsOpen = openItemsIds.has(order.id);
           const itemsCount = order.items.reduce((s, it) => s + it.quantity, 0);
           const subtotal = order.total - order.deliveryFee;
-          const shortAddress = [order.address, order.addressNumber, order.neighborhood].filter(Boolean).join(', ');
+          const cityState = order.city && order.state ? `${order.city}/${order.state}` : '';
+          const shortAddress = [order.address, order.addressNumber, order.neighborhood, cityState].filter(Boolean).join(', ');
 
           return (
             <Card key={order.id} className="overflow-hidden">
@@ -222,6 +223,7 @@ export function OrdersPanel() {
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1 overflow-hidden">
                   <MapPin className="w-3.5 h-3.5 shrink-0" />
                   <span className="truncate min-w-0">{shortAddress}</span>
+                  {order.cep && <span className="shrink-0 whitespace-nowrap">· CEP {order.cep}</span>}
                   <span className="shrink-0 whitespace-nowrap">· {itemsCount} {itemsCount === 1 ? 'item' : 'itens'}</span>
                 </div>
               </div>

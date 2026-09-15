@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 
 export class UpdateMeDto {
   @IsOptional()
@@ -33,4 +33,21 @@ export class UpdateMeDto {
   @IsString()
   @MaxLength(120)
   neighborhood?: string;
+
+  // CEP opcional aqui (Sprint 12) -- diferente do checkout, o perfil pode ser editado
+  // sem endereco completo. Quando vem, passa pelo mesmo CepLookupService do checkout.
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{5}-?\d{3}$/)
+  cep?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2)
+  state?: string;
 }

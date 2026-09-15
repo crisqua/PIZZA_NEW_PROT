@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { CepLookupService } from '../../src/common/cep-lookup.service';
 import { hashPassword } from '../../src/common/password.util';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { TenantContextService } from '../../src/prisma/tenant-context.service';
@@ -22,7 +23,11 @@ describe('Idempotencia na criacao de pedido (POST /v1/orders)', () => {
   let drink: SeededProduct;
 
   beforeAll(async () => {
-    app = await createTestApp();
+    app = await createTestApp((builder) =>
+      builder.overrideProvider(CepLookupService).useValue({
+        resolve: jest.fn().mockResolvedValue({ address: 'Rua Idem', neighborhood: 'Centro', city: 'Sao Paulo', state: 'SP' }),
+      }),
+    );
     prisma = app.get(PrismaService);
     tenantContext = app.get(TenantContextService);
 
@@ -65,7 +70,7 @@ describe('Idempotencia na criacao de pedido (POST /v1/orders)', () => {
 
   it('duas requisicoes concorrentes com a mesma Idempotency-Key criam so 1 pedido', async () => {
     const idempotencyKey = randomUUID();
-    const payload = { items: [{ productId: drink.id, quantity: 1 }], phone: '119999', address: 'Rua Idem', paymentMethod: 'dinheiro' };
+    const payload = { items: [{ productId: drink.id, quantity: 1 }], phone: '119999', address: 'Rua Idem', paymentMethod: 'dinheiro', cep: '01310-100' };
 
     const [resA, resB] = await Promise.all([
       request(app.getHttpServer())
@@ -94,7 +99,7 @@ describe('Idempotencia na criacao de pedido (POST /v1/orders)', () => {
   });
 
   it('chave de idempotencia diferente cria um pedido novo (nao e um cache global)', async () => {
-    const payload = { items: [{ productId: drink.id, quantity: 1 }], phone: '119999', address: 'Rua Idem', paymentMethod: 'dinheiro' };
+    const payload = { items: [{ productId: drink.id, quantity: 1 }], phone: '119999', address: 'Rua Idem', paymentMethod: 'dinheiro', cep: '01310-100' };
 
     const resA = await request(app.getHttpServer())
       .post('/v1/orders')

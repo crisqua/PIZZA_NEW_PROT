@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsIn, IsNumber, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsIn, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 import { CreateOrderItemDto } from './create-order-item.dto';
 
 // customerName vem de user.name (autenticado), nunca do body -- mesmo racional de nunca
@@ -34,6 +34,25 @@ export class CreateOrderDto {
   @IsString()
   @MaxLength(120)
   neighborhood?: string;
+
+  // Obrigatorio (Sprint 12) -- e' o que da' de verdade valor a essa sprint: sem isso o
+  // backend nunca teria como consultar o CepLookupService. Aceita com ou sem hifen (o
+  // frontend ja manda formatado, mas o formato exato nao deveria ser motivo de 400).
+  @IsString()
+  @Matches(/^\d{5}-?\d{3}$/)
+  cep!: string;
+
+  // Preenchidos de verdade pelo CepLookupService no backend -- o cliente pode mandar
+  // vazio, nunca sao a fonte da verdade quando o CEP resolve.
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2)
+  state?: string;
 
   @IsIn(['dinheiro', 'cartao'])
   paymentMethod!: string;

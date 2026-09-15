@@ -25,6 +25,9 @@ export interface OrderResponse {
   addressNumber: string;
   complement: string;
   neighborhood: string;
+  cep: string;
+  city: string;
+  state: string;
   paymentMethod: string;
   changeFor: number | null;
   deliveryFee: number;
@@ -60,6 +63,9 @@ export function toOrderResponse(order: Order & { items: OrderItem[] }): OrderRes
     addressNumber: order.addressNumber,
     complement: order.complement,
     neighborhood: order.neighborhood,
+    cep: order.cep,
+    city: order.city,
+    state: order.state,
     paymentMethod: order.paymentMethod,
     changeFor: order.changeFor ? order.changeFor.toNumber() : null,
     deliveryFee: order.deliveryFee.toNumber(),

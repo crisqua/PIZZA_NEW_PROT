@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
-import { INestApplication } from '@nestjs/common';
+import { BadRequestException, INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { CepLookupService } from '../../src/common/cep-lookup.service';
 import { hashPassword } from '../../src/common/password.util';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { TenantContextService } from '../../src/prisma/tenant-context.service';
@@ -8,10 +9,15 @@ import { createTestApp } from '../utils/create-test-app';
 import { cleanupTenantWithUser, seedTenantWithUser, SeededTenantUser } from '../utils/seed-auth-fixtures';
 import { cleanupCategory, cleanupProduct, seedCategory, seedProduct, SeededCategory, SeededProduct } from '../utils/seed-catalog';
 
+// CEP valido usado em todo payload de pedido (Sprint 12: cep virou obrigatorio no DTO) --
+// nao bate no ViaCEP de verdade, CepLookupService e' mockado abaixo (cepLookupMock).
+const VALID_CEP = '01310-100';
+
 describe('/v1/orders', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let tenantContext: TenantContextService;
+  let cepLookupMock: jest.Mock;
   let tenantA: SeededTenantUser;
   let tenantB: SeededTenantUser;
   let customerA: { id: string; email: string; password: string };
@@ -26,7 +32,10 @@ describe('/v1/orders', () => {
   let createdOrderId: string;
 
   beforeAll(async () => {
-    app = await createTestApp();
+    cepLookupMock = jest.fn().mockResolvedValue({ address: 'Rua Teste', neighborhood: 'Centro', city: 'Sao Paulo', state: 'SP' });
+    app = await createTestApp((builder) =>
+      builder.overrideProvider(CepLookupService).useValue({ resolve: cepLookupMock }),
+    );
     prisma = app.get(PrismaService);
     tenantContext = app.get(TenantContextService);
 
@@ -98,7 +107,7 @@ describe('/v1/orders', () => {
     await request(app.getHttpServer())
       .post('/v1/orders')
       .set('Authorization', `Bearer ${customerToken}`)
-      .send({ items: [{ productId: pizzaA1.id, size: 'oito-pedacos' }], phone: '119999', address: 'Rua X', paymentMethod: 'dinheiro' })
+      .send({ items: [{ productId: pizzaA1.id, size: 'oito-pedacos' }], phone: '119999', address: 'Rua X', paymentMethod: 'dinheiro', cep: VALID_CEP })
       .expect(400);
   });
 
@@ -107,7 +116,7 @@ describe('/v1/orders', () => {
       .post('/v1/orders')
       .set('Authorization', `Bearer ${ownerToken}`)
       .set('Idempotency-Key', randomUUID())
-      .send({ items: [{ productId: pizzaA1.id, size: 'oito-pedacos' }], phone: '119999', address: 'Rua X', paymentMethod: 'dinheiro' })
+      .send({ items: [{ productId: pizzaA1.id, size: 'oito-pedacos' }], phone: '119999', address: 'Rua X', paymentMethod: 'dinheiro', cep: VALID_CEP })
       .expect(403);
   });
 
@@ -116,7 +125,7 @@ describe('/v1/orders', () => {
       .post('/v1/orders')
       .set('Authorization', `Bearer ${customerToken}`)
       .set('Idempotency-Key', randomUUID())
-      .send({ items: [{ productId: pizzaA1.id }], phone: '119999', address: 'Rua X', paymentMethod: 'dinheiro' })
+      .send({ items: [{ productId: pizzaA1.id }], phone: '119999', address: 'Rua X', paymentMethod: 'dinheiro', cep: VALID_CEP })
       .expect(400);
   });
 
@@ -130,6 +139,7 @@ describe('/v1/orders', () => {
         phone: '119999',
         address: 'Rua X',
         paymentMethod: 'dinheiro',
+        cep: VALID_CEP,
       })
       .expect(400);
   });
@@ -139,7 +149,7 @@ describe('/v1/orders', () => {
       .post('/v1/orders')
       .set('Authorization', `Bearer ${customerToken}`)
       .set('Idempotency-Key', randomUUID())
-      .send({ items: [{ productId: productB.id, size: 'oito-pedacos' }], phone: '119999', address: 'Rua X', paymentMethod: 'dinheiro' })
+      .send({ items: [{ productId: productB.id, size: 'oito-pedacos' }], phone: '119999', address: 'Rua X', paymentMethod: 'dinheiro', cep: VALID_CEP })
       .expect(404);
   });
 
@@ -158,12 +168,20 @@ describe('/v1/orders', () => {
         addressNumber: '100',
         neighborhood: 'Centro',
         paymentMethod: 'dinheiro',
+        cep: VALID_CEP,
       })
       .expect(201);
 
     createdOrderId = res.body.id;
     expect(res.body.status).toBe('pending');
     expect(res.body.customerName).toBe('Cliente A');
+    expect(res.body.city).toBe('Sao Paulo');
+    expect(res.body.state).toBe('SP');
+    // ViaCEP mockado resolve "Rua Teste" -- confirma que o backend usa o resultado do
+    // lookup como fonte da verdade pro logradouro (Sprint 12, decisao 2), nao o que o
+    // cliente mandou (que aqui coincide, mas o proximo teste ("bairro forjado") prova
+    // isso de verdade).
+    expect(res.body.address).toBe('Rua Teste');
     // (40+44)/2 = 42 -- media dos precos-por-tamanho de cada sabor (sem multiplicador,
     // revertido nesta sprint), nunca confiado do client, calculado em OrdersService.
     expect(res.body.items[0].unitPrice).toBe(42);
@@ -176,19 +194,94 @@ describe('/v1/orders', () => {
     expect(res.body.orderCode).toMatch(/^\d{8}0001$/);
   });
 
+  it('CEP mal formatado retorna 400 (letras / tamanho errado)', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ items: [{ productId: drinkA.id, quantity: 1 }], phone: '119999', address: 'Rua X', paymentMethod: 'dinheiro', cep: '123' })
+      .expect(400);
+  });
+
+  it('CEP inexistente (ViaCEP responde {erro:true}) retorna 400', async () => {
+    cepLookupMock.mockRejectedValueOnce(new BadRequestException('CEP nao encontrado.'));
+    await request(app.getHttpServer())
+      .post('/v1/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ items: [{ productId: drinkA.id, quantity: 1 }], phone: '119999', address: 'Rua X', paymentMethod: 'dinheiro', cep: '00000-000' })
+      .expect(400);
+  });
+
+  it('ViaCEP fora do ar (fail-open): pedido ainda e criado com o endereco que o cliente mandou', async () => {
+    cepLookupMock.mockResolvedValueOnce(null);
+    const res = await request(app.getHttpServer())
+      .post('/v1/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        items: [{ productId: drinkA.id, quantity: 1 }],
+        phone: '119999',
+        address: 'Rua Informada Pelo Cliente',
+        neighborhood: 'Bairro Informado',
+        city: 'Cidade Informada',
+        state: 'CI',
+        paymentMethod: 'dinheiro',
+        cep: VALID_CEP,
+      })
+      .expect(201);
+
+    expect(res.body.address).toBe('Rua Informada Pelo Cliente');
+    expect(res.body.neighborhood).toBe('Bairro Informado');
+    expect(res.body.city).toBe('Cidade Informada');
+    expect(res.body.state).toBe('CI');
+
+    await tenantContext.runInTenantContext(tenantA.tenantId, async (tx) => {
+      await tx.orderItem.deleteMany({ where: { orderId: res.body.id } });
+      await tx.order.delete({ where: { id: res.body.id } });
+    });
+  });
+
+  it('CEP valido com bairro forjado no body: backend sobrescreve com o que o ViaCEP resolveu', async () => {
+    cepLookupMock.mockResolvedValueOnce({ address: 'Rua Verdadeira', neighborhood: 'Bairro Verdadeiro', city: 'Cidade Verdadeira', state: 'CV' });
+    const res = await request(app.getHttpServer())
+      .post('/v1/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        items: [{ productId: drinkA.id, quantity: 1 }],
+        phone: '119999',
+        address: 'Rua Forjada Pelo Cliente',
+        neighborhood: 'Bairro Forjado',
+        paymentMethod: 'dinheiro',
+        cep: VALID_CEP,
+      })
+      .expect(201);
+
+    expect(res.body.address).toBe('Rua Verdadeira');
+    expect(res.body.neighborhood).toBe('Bairro Verdadeiro');
+    expect(res.body.city).toBe('Cidade Verdadeira');
+    expect(res.body.state).toBe('CV');
+
+    await tenantContext.runInTenantContext(tenantA.tenantId, async (tx) => {
+      await tx.orderItem.deleteMany({ where: { orderId: res.body.id } });
+      await tx.order.delete({ where: { id: res.body.id } });
+    });
+  });
+
   it('segundo pedido do mesmo tenant no mesmo dia recebe o proximo numero sequencial', async () => {
     const first = await request(app.getHttpServer())
       .post('/v1/orders')
       .set('Authorization', `Bearer ${customerToken}`)
       .set('Idempotency-Key', randomUUID())
-      .send({ items: [{ productId: drinkA.id, quantity: 1 }], phone: '11999998888', address: 'Rua Teste', paymentMethod: 'dinheiro' })
+      .send({ items: [{ productId: drinkA.id, quantity: 1 }], phone: '11999998888', address: 'Rua Teste', paymentMethod: 'dinheiro', cep: VALID_CEP })
       .expect(201);
 
     const second = await request(app.getHttpServer())
       .post('/v1/orders')
       .set('Authorization', `Bearer ${customerToken}`)
       .set('Idempotency-Key', randomUUID())
-      .send({ items: [{ productId: drinkA.id, quantity: 1 }], phone: '11999998888', address: 'Rua Teste', paymentMethod: 'dinheiro' })
+      .send({ items: [{ productId: drinkA.id, quantity: 1 }], phone: '11999998888', address: 'Rua Teste', paymentMethod: 'dinheiro', cep: VALID_CEP })
       .expect(201);
 
     const firstSeq = Number(first.body.orderCode.slice(-4));
@@ -225,7 +318,7 @@ describe('/v1/orders', () => {
       .post('/v1/orders')
       .set('Authorization', `Bearer ${loginB.body.accessToken}`)
       .set('Idempotency-Key', randomUUID())
-      .send({ items: [{ productId: productB.id, size: 'oito-pedacos' }], phone: '119999', address: 'Rua Y', paymentMethod: 'dinheiro' })
+      .send({ items: [{ productId: productB.id, size: 'oito-pedacos' }], phone: '119999', address: 'Rua Y', paymentMethod: 'dinheiro', cep: VALID_CEP })
       .expect(201);
 
     // tenantB nunca criou pedido antes neste describe -- sequencia propria, independente

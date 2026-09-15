@@ -123,6 +123,9 @@ interface MeResponse {
   addressNumber: string;
   complement: string;
   neighborhood: string;
+  cep: string;
+  city: string;
+  state: string;
 }
 
 async function loadMe(): Promise<void> {
@@ -135,6 +138,9 @@ async function loadMe(): Promise<void> {
     addressNumber: me.addressNumber,
     complement: me.complement,
     neighborhood: me.neighborhood,
+    cep: me.cep,
+    city: me.city,
+    state: me.state,
   };
 }
 
@@ -200,8 +206,28 @@ export interface CreateOrderPayload {
   addressNumber?: string;
   complement?: string;
   neighborhood?: string;
+  cep: string;
+  city?: string;
+  state?: string;
   paymentMethod: string;
   changeFor?: number;
+}
+
+export interface UpdateProfilePayload {
+  address?: string;
+  addressNumber?: string;
+  complement?: string;
+  neighborhood?: string;
+  cep?: string;
+  city?: string;
+  state?: string;
+}
+
+// Chamada apos um checkout de sucesso (Sprint 12, decisao 3) pra salvar o endereco
+// resolvido no perfil -- proxima compra ja vem com tudo preenchido. Nao existia nenhuma
+// chamada a PATCH /users/me neste app antes desta sprint (so' pizzaria/admin usavam).
+export async function updateProfile(payload: UpdateProfilePayload): Promise<void> {
+  await apiFetch('/users/me', { method: 'PATCH', body: payload });
 }
 
 export interface ApiOrder {

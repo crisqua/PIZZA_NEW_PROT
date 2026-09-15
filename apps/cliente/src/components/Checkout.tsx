@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
 import { ArrowLeft, CreditCard, Banknote, CheckCircle2 } from 'lucide-react';
-import { buildOrderItems, createOrder, mockTenant, mockCustomer, ApiOrder } from '../data/repository';
+import { buildOrderItems, createOrder, updateProfile, mockTenant, mockCustomer, ApiOrder } from '../data/repository';
 import { CartItem } from '@pizza/types';
 import { Card, CardContent, Button, Input, formatCurrency, formatPhone, centsToDisplay } from '@pizza/ui';
+import { AddressForm, AddressFormValue } from './AddressForm';
 
 interface CheckoutProps {
   items: CartItem[];
@@ -18,6 +19,9 @@ export interface CheckoutData {
   addressNumber: string;
   complement: string;
   neighborhood: string;
+  cep: string;
+  city: string;
+  state: string;
   paymentMethod: string;
   changeFor?: string;
 }
@@ -30,6 +34,9 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
     addressNumber: mockCustomer?.addressNumber ?? '',
     complement: mockCustomer?.complement ?? '',
     neighborhood: mockCustomer?.neighborhood ?? '',
+    cep: mockCustomer?.cep ?? '',
+    city: mockCustomer?.city ?? '',
+    state: mockCustomer?.state ?? '',
     paymentMethod: '',
     changeFor: '',
   });
@@ -55,6 +62,7 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
     if (!formData.address.trim()) newErrors.address = 'Endereço é obrigatório';
     if (!formData.addressNumber.trim()) newErrors.addressNumber = 'Número é obrigatório';
     if (!formData.neighborhood.trim()) newErrors.neighborhood = 'Bairro é obrigatório';
+    if (formData.cep.replace(/\D/g, '').length !== 8) newErrors.cep = 'CEP é obrigatório';
     if (!formData.paymentMethod) newErrors.paymentMethod = 'Selecione a forma de pagamento';
 
     setErrors(newErrors);
@@ -75,11 +83,26 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
           addressNumber: formData.addressNumber,
           complement: formData.complement,
           neighborhood: formData.neighborhood,
+          cep: formData.cep,
+          city: formData.city,
+          state: formData.state,
           paymentMethod: formData.paymentMethod,
           changeFor: formData.changeFor ? Number(formData.changeFor) / 100 : undefined,
         },
         idempotencyKeyRef.current,
       );
+      // Salva o endereco resolvido no perfil pra ja vir preenchido na proxima compra
+      // (Sprint 12, decisao 3) -- fire-and-forget: nao bloqueia a tela de confirmacao
+      // se falhar, mesmo padrao de outras chamadas nao-criticas do projeto.
+      updateProfile({
+        address: formData.address,
+        addressNumber: formData.addressNumber,
+        complement: formData.complement,
+        neighborhood: formData.neighborhood,
+        cep: formData.cep,
+        city: formData.city,
+        state: formData.state,
+      }).catch(() => undefined);
       onSuccess(order);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Nao foi possivel enviar o pedido. Tente novamente.');
@@ -132,39 +155,31 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
 
         <div>
           <h2 className="font-semibold text-foreground mb-3">Endereço de Entrega</h2>
-          <div className="space-y-3">
-            <Input
-              label="Rua / Avenida"
-              placeholder="Digite o endereço"
-              value={formData.address}
-              onChange={(e) => updateField('address', e.target.value)}
-              error={errors.address}
-            />
-            <div className="grid grid-cols-3 gap-3">
-              <Input
-                label="Número"
-                placeholder="000"
-                value={formData.addressNumber}
-                onChange={(e) => updateField('addressNumber', e.target.value)}
-                error={errors.addressNumber}
-              />
-              <div className="col-span-2">
-                <Input
-                  label="Complemento"
-                  placeholder="Apto, Bloco..."
-                  value={formData.complement}
-                  onChange={(e) => updateField('complement', e.target.value)}
-                />
-              </div>
-            </div>
-            <Input
-              label="Bairro"
-              placeholder="Digite o bairro"
-              value={formData.neighborhood}
-              onChange={(e) => updateField('neighborhood', e.target.value)}
-              error={errors.neighborhood}
-            />
-          </div>
+          <AddressForm
+            value={{
+              cep: formData.cep,
+              address: formData.address,
+              addressNumber: formData.addressNumber,
+              complement: formData.complement,
+              neighborhood: formData.neighborhood,
+              city: formData.city,
+              state: formData.state,
+            }}
+            onChange={(addr: AddressFormValue) => {
+              setFormData({ ...formData, ...addr });
+              const clearedErrors = { ...errors };
+              (Object.keys(addr) as (keyof AddressFormValue)[]).forEach((key) => {
+                if (clearedErrors[key]) clearedErrors[key] = '';
+              });
+              setErrors(clearedErrors);
+            }}
+            errors={{
+              cep: errors.cep,
+              address: errors.address,
+              addressNumber: errors.addressNumber,
+              neighborhood: errors.neighborhood,
+            }}
+          />
         </div>
 
         <div>

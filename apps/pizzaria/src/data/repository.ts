@@ -265,6 +265,9 @@ export interface ApiOrder {
   addressNumber: string;
   complement: string;
   neighborhood: string;
+  cep: string;
+  city: string;
+  state: string;
   paymentMethod: string;
   changeFor: number | null;
   deliveryFee: number;

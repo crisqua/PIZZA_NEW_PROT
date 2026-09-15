@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { CepLookupResult, CepLookupService } from '../common/cep-lookup.service';
 import { toOrderResponse } from '../common/order-response.util';
 import { getPizzaSizePrice } from '../common/product-price.util';
 import { AuthenticatedUser } from '../auth/types/authenticated-user';
@@ -37,7 +38,10 @@ interface ComputedItem {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly tenantContext: TenantContextService) {}
+  constructor(
+    private readonly tenantContext: TenantContextService,
+    private readonly cepLookup: CepLookupService,
+  ) {}
 
   // Abre a PROPRIA transacao (nao usa o "tx" do TenantContextInterceptor, diferente de
   // list/findOne/updateStatus abaixo) porque precisa poder tentar DUAS transacoes: o
@@ -47,9 +51,15 @@ export class OrdersService {
   // tentativa de reusar o tx dava 25P02 "current transaction is aborted"). Mesma
   // justificativa geral de ModuleGuard abrir a propria transacao, motivo diferente aqui.
   async create(tenantId: string, userId: string, idempotencyKey: string, dto: CreateOrderDto) {
+    // CEP resolvido ANTES de abrir a transacao (Sprint 12) -- CepLookupService faz uma
+    // chamada de rede de verdade (ate 3s), nunca deve rodar com uma transacao Prisma
+    // aberta (interativa): segurar a transacao por uma chamada HTTP externa lenta
+    // esgota o timeout padrao dela e derruba o pedido com "Transaction not found"
+    // (confirmado na pratica via smoke test manual -- bug real, ja corrigido aqui).
+    const cepResult = await this.cepLookup.resolve(dto.cep);
     try {
       return await this.tenantContext.runInTenantContext(tenantId, (tx) =>
-        this.insertOrder(tx, tenantId, userId, idempotencyKey, dto),
+        this.insertOrder(tx, tenantId, userId, idempotencyKey, dto, cepResult),
       );
     } catch (err) {
       // Idempotencia sob concorrencia (arquitetura secao 3.2 item 7): duas requisicoes
@@ -77,7 +87,14 @@ export class OrdersService {
     }
   }
 
-  private async insertOrder(tx: TenantTx, tenantId: string, userId: string, idempotencyKey: string, dto: CreateOrderDto) {
+  private async insertOrder(
+    tx: TenantTx,
+    tenantId: string,
+    userId: string,
+    idempotencyKey: string,
+    dto: CreateOrderDto,
+    cepResult: CepLookupResult | null,
+  ) {
     const customer = await tx.user.findUnique({ where: { id: userId } });
     if (!customer) {
       throw new NotFoundException();
@@ -169,6 +186,16 @@ export class OrdersService {
       });
     }
 
+    // CEP (Sprint 12): ja' resolvido em create() ANTES desta transacao abrir (ver
+    // comentario la'). Se o ViaCEP resolveu, vira a fonte da verdade pra
+    // address/neighborhood/city/state (ignora o que o cliente mandou nesses 4 campos
+    // especificamente); indisponibilidade externa e' fail-open (confia no que o
+    // cliente ja tinha resolvido no proprio frontend).
+    const address = cepResult?.address || dto.address;
+    const neighborhood = cepResult?.neighborhood || dto.neighborhood || '';
+    const city = cepResult?.city ?? dto.city ?? '';
+    const state = cepResult?.state ?? dto.state ?? '';
+
     const deliveryFee = tenant.deliveryFee.toNumber();
     const total = round2(items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) + deliveryFee);
 
@@ -195,10 +222,16 @@ export class OrdersService {
         orderCode,
         customerName: customer.name,
         phone: dto.phone,
-        address: dto.address,
+        address,
         addressNumber: dto.addressNumber ?? '',
         complement: dto.complement ?? '',
-        neighborhood: dto.neighborhood ?? '',
+        neighborhood,
+        // Guardado exatamente como o cliente mandou (formatado "00000-000" pelo
+        // formatCep do frontend) -- mesmo padrao ja usado por "phone" (dto.phone acima),
+        // o backend nao reformata, so' valida.
+        cep: dto.cep,
+        city,
+        state,
         paymentMethod: dto.paymentMethod,
         changeFor: dto.changeFor,
         deliveryFee,

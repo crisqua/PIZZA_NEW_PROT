@@ -42,6 +42,9 @@ export interface Customer {
   addressNumber?: string;
   complement?: string;
   neighborhood?: string;
+  cep?: string;
+  city?: string;
+  state?: string;
 }
 
 export interface Order {
@@ -49,6 +52,9 @@ export interface Order {
   customerName: string;
   phone: string;
   address: string;
+  cep?: string;
+  city?: string;
+  state?: string;
   items: CartItem[];
   total: number;
   status: 'pending' | 'preparing' | 'delivery' | 'completed' | 'cancelled';
