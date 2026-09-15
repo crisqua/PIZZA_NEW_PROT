@@ -324,6 +324,10 @@ export async function createExpense(input: ExpenseInput): Promise<Expense> {
   return apiFetch<Expense>('/financial/expenses', { method: 'POST', body: input });
 }
 
+export async function updateExpense(id: string, input: Partial<ExpenseInput>): Promise<Expense> {
+  return apiFetch<Expense>(`/financial/expenses/${id}`, { method: 'PATCH', body: input });
+}
+
 export async function deleteExpense(id: string): Promise<void> {
   await apiFetch(`/financial/expenses/${id}`, { method: 'DELETE' });
 }
