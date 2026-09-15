@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Save, Clock, DollarSign, MapPin, Palette } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, Button, Input, Textarea } from '@pizza/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Input, Textarea, formatPhone } from '@pizza/ui';
 import { mockTenant, updateTenantSettings } from '../data/repository';
 
 // Campos que persistem de verdade (existem no schema de "tenants" -- ver
@@ -10,7 +10,7 @@ import { mockTenant, updateTenantSettings } from '../data/repository';
 // construido agora).
 export function Settings() {
   const [name, setName] = useState(mockTenant.name);
-  const [phone, setPhone] = useState(mockTenant.phone);
+  const [phone, setPhone] = useState(formatPhone(mockTenant.phone));
   const [address, setAddress] = useState(mockTenant.address);
   const [primaryColor, setPrimaryColor] = useState(mockTenant.primaryColor);
   const [logo, setLogo] = useState(mockTenant.logo);
@@ -44,7 +44,7 @@ export function Settings() {
 
   function handleCancel() {
     setName(mockTenant.name);
-    setPhone(mockTenant.phone);
+    setPhone(formatPhone(mockTenant.phone));
     setAddress(mockTenant.address);
     setPrimaryColor(mockTenant.primaryColor);
     setLogo(mockTenant.logo);
@@ -81,8 +81,11 @@ export function Settings() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               label="Telefone / WhatsApp"
+              type="tel"
+              inputMode="tel"
+              maxLength={16}
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(formatPhone(e.target.value))}
               placeholder="(00) 00000-0000"
             />
             <Input
