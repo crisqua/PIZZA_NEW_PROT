@@ -8,3 +8,9 @@ import { createHash } from 'crypto';
 export function hashRefreshToken(rawToken: string): string {
   return createHash('sha256').update(rawToken).digest('hex');
 }
+
+// Mesmo raciocinio acima (alta entropia, nao senha) -- token de verificacao de e-mail
+// usa crypto.randomBytes, nao um JWT, mas a logica de hash e' identica.
+export function hashVerificationToken(rawToken: string): string {
+  return createHash('sha256').update(rawToken).digest('hex');
+}

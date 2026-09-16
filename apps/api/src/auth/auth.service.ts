@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { hashPassword, verifyPassword } from '../common/password.util';
 import { hashRefreshToken } from '../common/refresh-token.util';
+import { EmailVerificationService } from '../email/email-verification.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService, TenantTx } from '../prisma/tenant-context.service';
 import { LoginDto } from './dto/login.dto';
@@ -42,6 +43,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly jwtService: JwtService,
+    private readonly emailVerification: EmailVerificationService,
   ) {}
 
   // Slug desconhecido e senha errada retornam o MESMO erro — nunca dar sinal de que um
@@ -103,11 +105,16 @@ export class AuthService {
     const passwordHash = await hashPassword(dto.password);
 
     try {
-      const user = await this.tenantContext.runInTenantContext(tenant.id, (tx) =>
-        tx.user.create({
+      const user = await this.tenantContext.runInTenantContext(tenant.id, async (tx) => {
+        const created = await tx.user.create({
           data: { tenantId: tenant.id, email: dto.email, name: dto.name, phone: dto.phone, role: 'customer', passwordHash },
-        }),
-      );
+        });
+        // Mesma transacao (Sprint 14) -- so' grava o token no banco aqui dentro; o envio
+        // de verdade e' fire-and-forget (ver EmailVerificationService), nunca segura a
+        // transacao esperando rede.
+        await this.emailVerification.generateAndSend(tx, tenant.id, created.id, created.email);
+        return created;
+      });
       return { id: user.id, tenantId: user.tenantId, role: user.role as UserRole };
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === PRISMA_UNIQUE_CONSTRAINT) {

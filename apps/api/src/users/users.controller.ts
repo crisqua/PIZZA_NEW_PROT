@@ -36,6 +36,7 @@ const PUBLIC_USER_SELECT = {
   cep: true,
   city: true,
   state: true,
+  emailVerifiedAt: true,
   createdAt: true,
   updatedAt: true,
 } as const;

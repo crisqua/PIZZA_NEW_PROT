@@ -1,4 +1,5 @@
 import { useEffect, useState, CSSProperties } from 'react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 
 import { Menu } from './components/Menu';
 import { PizzaBuilder } from './components/PizzaBuilder';
@@ -7,8 +8,9 @@ import { Auth } from './components/Auth';
 import { Checkout } from './components/Checkout';
 import { OrderConfirmation } from './components/OrderConfirmation';
 
-import { mockTenant, isAuthenticated, loadCatalog, tryRestoreSession, logout, ApiOrder } from './data/repository';
+import { mockTenant, isAuthenticated, loadCatalog, tryRestoreSession, logout, verifyEmail, ApiOrder } from './data/repository';
 import { Pizza, Drink, CartItem, PizzaSizeId, priceForSize } from '@pizza/types';
+import { Button } from '@pizza/ui';
 
 export default function App() {
   type ClientView = 'menu' | 'builder' | 'cart' | 'auth' | 'checkout' | 'confirmation';
@@ -26,6 +28,9 @@ export default function App() {
   // So' pra forcar um re-render depois de logout()/login bem sucedido -- isAuthenticated()
   // le um token em memoria (data/api.ts), nao e' estado reativo por si so'.
   const [authVersion, setAuthVersion] = useState(0);
+  // Confirmacao de e-mail (Sprint 14) -- unico ponto de entrada por URL deste app (SPA
+  // sem router). null = nao veio de um link de confirmacao (boot normal).
+  const [emailVerifyResult, setEmailVerifyResult] = useState<'ok' | 'error' | null>(null);
 
   // Boot: tenta restaurar a sessao via cookie de refresh (Sprint 2) e carrega o cardapio
   // real ANTES de renderizar qualquer coisa que dependa deles -- Menu.tsx/PizzaBuilder.tsx
@@ -33,6 +38,18 @@ export default function App() {
   // entao precisam ja estar populados no momento em que esses componentes montam.
   useEffect(() => {
     (async () => {
+      const token = new URLSearchParams(window.location.search).get('token');
+      if (token) {
+        try {
+          await verifyEmail(token);
+          setEmailVerifyResult('ok');
+        } catch {
+          setEmailVerifyResult('error');
+        }
+        // Limpa o "?token=..." da URL -- um F5 depois nao deve tentar verificar o mesmo
+        // token de novo (ele e' de uso unico, a segunda tentativa so' daria erro a toa).
+        window.history.replaceState({}, '', window.location.pathname);
+      }
       await tryRestoreSession();
       await loadCatalog();
       setReady(true);
@@ -192,6 +209,31 @@ export default function App() {
   };
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0) + mockTenant.deliveryFee;
+
+  if (emailVerifyResult) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center space-y-4 max-w-sm">
+          {emailVerifyResult === 'ok' ? (
+            <>
+              <CheckCircle2 className="w-12 h-12 text-success mx-auto" />
+              <h1 className="font-serif text-xl text-foreground">E-mail confirmado!</h1>
+              <p className="text-sm text-muted-foreground">Seu cadastro foi verificado com sucesso.</p>
+            </>
+          ) : (
+            <>
+              <XCircle className="w-12 h-12 text-destructive mx-auto" />
+              <h1 className="font-serif text-xl text-foreground">Link inválido ou expirado</h1>
+              <p className="text-sm text-muted-foreground">
+                Esse link de confirmação já foi usado ou não é mais válido.
+              </p>
+            </>
+          )}
+          <Button onClick={() => setEmailVerifyResult(null)}>Continuar para o cardápio</Button>
+        </div>
+      </div>
+    );
+  }
 
   if (!ready) {
     return (

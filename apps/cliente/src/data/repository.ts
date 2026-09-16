@@ -168,6 +168,21 @@ export async function register(name: string, email: string, password: string, ph
   await loadMe();
 }
 
+// Publico (Sprint 14) -- App.tsx chama no boot quando a URL tem "?token=..." (link de
+// confirmacao de e-mail). tenantSlug vai junto porque o link nao carrega sessao nenhuma,
+// e o backend precisa saber o tenant certo pra abrir o contexto de RLS.
+export async function verifyEmail(token: string): Promise<void> {
+  await apiFetch('/auth/verify-email', {
+    method: 'POST',
+    auth: false,
+    body: { tenantSlug: getTenantSlug(), token },
+  });
+}
+
+export async function resendVerification(): Promise<void> {
+  await apiFetch('/auth/resend-verification', { method: 'POST' });
+}
+
 export async function logout(): Promise<void> {
   await apiFetch('/auth/logout', { method: 'POST' }).catch(() => undefined);
   setAccessToken(null);
