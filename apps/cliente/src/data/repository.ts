@@ -158,11 +158,11 @@ export async function login(email: string, password: string): Promise<void> {
   await loadMe();
 }
 
-export async function register(name: string, email: string, password: string): Promise<void> {
+export async function register(name: string, email: string, password: string, phone: string): Promise<void> {
   const res = await apiFetch<AuthResponse>('/auth/register', {
     method: 'POST',
     auth: false,
-    body: { tenantSlug: getTenantSlug(), name, email, password },
+    body: { tenantSlug: getTenantSlug(), name, email, password, phone },
   });
   setAccessToken(res.accessToken);
   await loadMe();

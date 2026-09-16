@@ -105,7 +105,7 @@ export class AuthService {
     try {
       const user = await this.tenantContext.runInTenantContext(tenant.id, (tx) =>
         tx.user.create({
-          data: { tenantId: tenant.id, email: dto.email, name: dto.name, role: 'customer', passwordHash },
+          data: { tenantId: tenant.id, email: dto.email, name: dto.name, phone: dto.phone, role: 'customer', passwordHash },
         }),
       );
       return { id: user.id, tenantId: user.tenantId, role: user.role as UserRole };

@@ -22,4 +22,11 @@ export class RegisterDto {
   @MinLength(2)
   @MaxLength(120)
   name!: string;
+
+  // Obrigatorio desde o cadastro (Sprint 13) -- consistente com o checkout, que ja
+  // exige. Mesmo padrao de CreateOrderDto.phone: sem regex de formato aqui, so'
+  // validado/mascarado no frontend via formatPhone.
+  @IsString()
+  @MaxLength(20)
+  phone!: string;
 }
