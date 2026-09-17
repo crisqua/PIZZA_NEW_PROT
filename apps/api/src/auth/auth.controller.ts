@@ -16,10 +16,15 @@ const REFRESH_COOKIE_NAME = process.env.REFRESH_COOKIE_NAME ?? 'pizza_refresh';
 const REFRESH_COOKIE_PATH = '/v1/auth';
 
 function refreshCookieOptions(expires?: Date): CookieOptions {
+  // Em producao o frontend (Vercel) e a API (Render) vivem em dominios registraveis
+  // diferentes -- SameSite=Strict/Lax nunca envia o cookie num fetch cross-site, entao
+  // o refresh falha silenciosamente e a sessao cai a qualquer reload. SameSite=None
+  // exige Secure=true, que ja fica true em producao pelo mesmo flag.
+  const isProd = process.env.NODE_ENV === 'production';
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'strict',
     path: REFRESH_COOKIE_PATH,
     expires,
   };
