@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CacheService } from '../cache/cache.service';
+import { resolveCnpj } from '../common/cnpj.util';
 import { tenantBrandingCacheKey } from '../common/tenant-branding-cache-key';
 import { toTenantResponse } from '../common/tenant-response.util';
 import { PrismaService } from '../prisma/prisma.service';
@@ -33,14 +34,15 @@ export class TenantsAdminService {
   ) {}
 
   async create(dto: CreateTenantDto) {
+    const cnpj = resolveCnpj(dto.cnpj);
     try {
       // active nunca vem do body -- toda pizzaria nasce ativa, so' o toggle dedicado
       // desativa. Nada a invalidar no cache: slug novo, a chave nunca existiu.
-      const tenant = await this.prisma.tenant.create({ data: { ...dto } });
+      const tenant = await this.prisma.tenant.create({ data: { ...dto, cnpj } });
       return toTenantResponse(tenant);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === PRISMA_UNIQUE_CONSTRAINT) {
-        throw new ConflictException('Slug ja esta em uso.');
+        throw new ConflictException('Slug ou CNPJ ja esta em uso.');
       }
       throw err;
     }
@@ -98,9 +100,10 @@ export class TenantsAdminService {
     if (!existing) {
       throw new NotFoundException();
     }
+    const cnpj = resolveCnpj(dto.cnpj);
 
     try {
-      const updated = await this.prisma.tenant.update({ where: { id }, data: { ...dto } });
+      const updated = await this.prisma.tenant.update({ where: { id }, data: { ...dto, cnpj } });
 
       // Se o slug mudou, invalida a chave ANTIGA (a nova nunca existiu no cache ainda).
       if (dto.slug && dto.slug !== existing.slug) {
@@ -111,7 +114,7 @@ export class TenantsAdminService {
       return toTenantResponse(updated);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === PRISMA_UNIQUE_CONSTRAINT) {
-        throw new ConflictException('Slug ja esta em uso.');
+        throw new ConflictException('Slug ou CNPJ ja esta em uso.');
       }
       throw err;
     }

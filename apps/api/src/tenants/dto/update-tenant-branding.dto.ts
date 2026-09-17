@@ -39,4 +39,11 @@ export class UpdateTenantBrandingDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   minOrder?: number;
+
+  // Formato so' (14 digitos, com ou sem mascara) -- o digito verificador de verdade e'
+  // calculado no service (isValidCnpj), nao da pra fazer so' com @Matches.
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}$/)
+  cnpj?: string;
 }

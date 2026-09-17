@@ -87,6 +87,7 @@ export interface Tenant {
   address: string;
   deliveryFee: number;
   minOrder: number;
+  cnpj?: string | null;
   active?: boolean;
   planId?: string;
 }

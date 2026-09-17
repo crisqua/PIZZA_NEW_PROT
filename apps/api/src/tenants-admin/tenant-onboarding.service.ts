@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { resolveCnpj } from '../common/cnpj.util';
 import { hashPassword } from '../common/password.util';
 import { toSubscriptionResponse } from '../common/subscription-response.util';
 import { toTenantResponse } from '../common/tenant-response.util';
@@ -34,6 +35,7 @@ export class TenantOnboardingService {
     }
 
     const passwordHash = await hashPassword(dto.ownerPassword);
+    const cnpj = resolveCnpj(dto.cnpj);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -47,6 +49,7 @@ export class TenantOnboardingService {
             address: dto.address,
             deliveryFee: dto.deliveryFee,
             minOrder: dto.minOrder,
+            cnpj,
           },
         });
 
@@ -75,7 +78,7 @@ export class TenantOnboardingService {
       });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === PRISMA_UNIQUE_CONSTRAINT) {
-        throw new ConflictException('Slug ou email ja em uso.');
+        throw new ConflictException('Slug, email ou CNPJ ja em uso.');
       }
       throw err;
     }

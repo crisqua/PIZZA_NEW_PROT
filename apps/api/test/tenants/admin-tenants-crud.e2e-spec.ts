@@ -119,4 +119,30 @@ describe('/v1/admin/tenants — CRUD superadmin', () => {
     expect(res.body.primaryColor).toBe('#ABCDEF');
     expect(res.body.deliveryFee).toBe(9.9);
   });
+
+  it('update com CNPJ valido salva formatado', async () => {
+    const res = await request(app.getHttpServer())
+      .patch(`/v1/admin/tenants/${createdTenantId}`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({ cnpj: '11222333000181' })
+      .expect(200);
+    expect(res.body.cnpj).toBe('11.222.333/0001-81');
+  });
+
+  it('update com CNPJ invalido (digito verificador errado) retorna 400', async () => {
+    await request(app.getHttpServer())
+      .patch(`/v1/admin/tenants/${createdTenantId}`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({ cnpj: '11222333000199' })
+      .expect(400);
+  });
+
+  it('criar outro tenant com o mesmo CNPJ retorna 409', async () => {
+    const otherSlug = `${slug}-cnpj-dup`;
+    await request(app.getHttpServer())
+      .post('/v1/admin/tenants')
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({ name: 'Outro CNPJ Dup', slug: otherSlug, cnpj: '11222333000181' })
+      .expect(409);
+  });
 });

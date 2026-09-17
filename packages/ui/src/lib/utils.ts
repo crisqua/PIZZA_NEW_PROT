@@ -60,6 +60,19 @@ export function formatCep(value: string): string {
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
+// Mascara progressiva de CNPJ (00.000.000/0000-00) -- so' formatacao visual enquanto o
+// usuario digita, nao valida digito verificador (isso e' feito no backend, o unico
+// lugar que tem o CNPJ completo pra calcular de verdade).
+export function formatCnpj(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 14);
+  let result = digits.slice(0, 2);
+  if (digits.length > 2) result += `.${digits.slice(2, 5)}`;
+  if (digits.length > 5) result += `.${digits.slice(5, 8)}`;
+  if (digits.length > 8) result += `/${digits.slice(8, 12)}`;
+  if (digits.length > 12) result += `-${digits.slice(12, 14)}`;
+  return result;
+}
+
 // Trata null/undefined como "sem valor" (campo vazio) -- mas 0 e' um valor real (ex:
 // plano gratuito, taxa de entrega zero), tem que virar "0" e nao ficar vazio junto.
 export function reaisToCentsDigits(value: number | null | undefined): string {

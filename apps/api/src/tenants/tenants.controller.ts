@@ -1,10 +1,12 @@
-import { Body, Controller, ForbiddenException, Get, NotFoundException, Patch, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, ConflictException, Controller, ForbiddenException, Get, NotFoundException, Patch, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { CacheService } from '../cache/cache.service';
+import { resolveCnpj } from '../common/cnpj.util';
 import { tenantBrandingCacheKey } from '../common/tenant-branding-cache-key';
 import { toTenantResponse } from '../common/tenant-response.util';
 import { CurrentTenant } from '../common/decorators/tenant.decorator';
@@ -12,6 +14,8 @@ import { TenantContextInterceptor } from '../common/interceptors/tenant-context.
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantTx } from '../prisma/tenant-context.service';
 import { UpdateTenantBrandingDto } from './dto/update-tenant-branding.dto';
+
+const PRISMA_UNIQUE_CONSTRAINT = 'P2002';
 
 // "tenants" nao tem RLS -- sem TenantContextInterceptor. Isolamento aqui e' 100%
 // "where: { id: user.tenantId }" vindo do JWT, nunca de param/body (a rota nem tem :id).
@@ -64,10 +68,18 @@ export class TenantsController {
   @Patch('me')
   async updateMe(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateTenantBrandingDto) {
     const tenant = await this.findOwnTenant(user);
-    const updated = await this.prisma.tenant.update({ where: { id: tenant.id }, data: { ...dto } });
-    // slug e' imutavel nesta rota -- so' uma chave pra invalidar.
-    await this.cache.del(tenantBrandingCacheKey(updated.slug));
-    return toTenantResponse(updated);
+    const cnpj = resolveCnpj(dto.cnpj);
+    try {
+      const updated = await this.prisma.tenant.update({ where: { id: tenant.id }, data: { ...dto, cnpj } });
+      // slug e' imutavel nesta rota -- so' uma chave pra invalidar.
+      await this.cache.del(tenantBrandingCacheKey(updated.slug));
+      return toTenantResponse(updated);
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === PRISMA_UNIQUE_CONSTRAINT) {
+        throw new ConflictException('CNPJ ja cadastrado.');
+      }
+      throw err;
+    }
   }
 
   private async findOwnTenant(user: AuthenticatedUser) {

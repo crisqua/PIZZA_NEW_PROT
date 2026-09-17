@@ -118,6 +118,71 @@ describe('POST /v1/admin/tenants/onboard', () => {
     expect(found.subscription).toMatchObject({ status: 'active', planCode: plan.code, modules: ['estoque'] });
   });
 
+  it('CNPJ valido no onboarding salva formatado', async () => {
+    const cnpjSlug = `${slug}-cnpj`;
+    const res = await request(app.getHttpServer())
+      .post('/v1/admin/tenants/onboard')
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({
+        name: 'Pizza CNPJ', slug: cnpjSlug, cnpj: '11222333000181',
+        ownerName: 'Dono CNPJ', ownerEmail: `dono@${cnpjSlug}.test`, ownerPassword: 'senha12345',
+        planId: plan.id,
+      })
+      .expect(201);
+    expect(res.body.tenant.cnpj).toBe('11.222.333/0001-81');
+
+    const id = res.body.tenant.id;
+    await tenantContext.runInTenantContext(id, async (tx) => {
+      await tx.subscription.deleteMany({ where: { tenantId: id } });
+      await tx.refreshToken.deleteMany({ where: { tenantId: id } });
+      await tx.user.deleteMany({ where: { tenantId: id } });
+    });
+    await prisma.tenant.delete({ where: { id } });
+  });
+
+  it('CNPJ com digito verificador errado no onboarding retorna 400', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/admin/tenants/onboard')
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({
+        name: 'Pizza CNPJ Invalido', slug: `${slug}-cnpj-bad`, cnpj: '11222333000199',
+        ownerName: 'Dono', ownerEmail: `dono@${slug}-cnpj-bad.test`, ownerPassword: 'senha12345',
+        planId: plan.id,
+      })
+      .expect(400);
+  });
+
+  it('CNPJ ja usado por outro tenant no onboarding retorna 409', async () => {
+    const dupSlug = `${slug}-cnpj-dup`;
+    const first = await request(app.getHttpServer())
+      .post('/v1/admin/tenants/onboard')
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({
+        name: 'Pizza CNPJ Dup', slug: dupSlug, cnpj: '22233344000183',
+        ownerName: 'Dono', ownerEmail: `dono@${dupSlug}.test`, ownerPassword: 'senha12345',
+        planId: plan.id,
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/v1/admin/tenants/onboard')
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({
+        name: 'Pizza CNPJ Dup 2', slug: `${dupSlug}-2`, cnpj: '22233344000183',
+        ownerName: 'Dono2', ownerEmail: `dono2@${dupSlug}.test`, ownerPassword: 'senha12345',
+        planId: plan.id,
+      })
+      .expect(409);
+
+    const id = first.body.tenant.id;
+    await tenantContext.runInTenantContext(id, async (tx) => {
+      await tx.subscription.deleteMany({ where: { tenantId: id } });
+      await tx.refreshToken.deleteMany({ where: { tenantId: id } });
+      await tx.user.deleteMany({ where: { tenantId: id } });
+    });
+    await prisma.tenant.delete({ where: { id } });
+  });
+
   it('nao-superadmin recebe 403', async () => {
     await request(app.getHttpServer())
       .post('/v1/admin/tenants/onboard')

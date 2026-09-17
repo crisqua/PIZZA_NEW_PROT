@@ -71,6 +71,7 @@ interface TenantResponse {
   address: string;
   deliveryFee: number;
   minOrder: number;
+  cnpj: string | null;
 }
 
 export interface SubscriptionSummary {
@@ -95,6 +96,7 @@ function toTenant(t: TenantResponse): Tenant {
     address: t.address,
     deliveryFee: t.deliveryFee,
     minOrder: t.minOrder,
+    cnpj: t.cnpj,
     active: t.active,
   };
 }
@@ -120,6 +122,7 @@ export interface TenantBrandingInput {
   address?: string;
   deliveryFee?: number;
   minOrder?: number;
+  cnpj?: string;
 }
 
 export async function updateTenant(id: string, input: Partial<TenantBrandingInput>): Promise<Tenant> {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Save, Clock, DollarSign, MapPin, Palette } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, Button, Input, Textarea, formatPhone } from '@pizza/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Input, Textarea, formatPhone, formatCnpj } from '@pizza/ui';
 import { mockTenant, updateTenantSettings } from '../data/repository';
 
 // Campos que persistem de verdade (existem no schema de "tenants" -- ver
@@ -10,6 +10,7 @@ import { mockTenant, updateTenantSettings } from '../data/repository';
 // construido agora).
 export function Settings() {
   const [name, setName] = useState(mockTenant.name);
+  const [cnpj, setCnpj] = useState(formatCnpj(mockTenant.cnpj ?? ''));
   const [phone, setPhone] = useState(formatPhone(mockTenant.phone));
   const [address, setAddress] = useState(mockTenant.address);
   const [primaryColor, setPrimaryColor] = useState(mockTenant.primaryColor);
@@ -27,6 +28,7 @@ export function Settings() {
     try {
       await updateTenantSettings({
         name,
+        cnpj: cnpj || undefined,
         phone,
         address,
         primaryColor,
@@ -44,6 +46,7 @@ export function Settings() {
 
   function handleCancel() {
     setName(mockTenant.name);
+    setCnpj(formatCnpj(mockTenant.cnpj ?? ''));
     setPhone(formatPhone(mockTenant.phone));
     setAddress(mockTenant.address);
     setPrimaryColor(mockTenant.primaryColor);
@@ -77,6 +80,15 @@ export function Settings() {
             defaultValue="As melhores pizzas artesanais da cidade"
             placeholder="Descreva sua pizzaria"
             rows={3}
+          />
+          <Input
+            label="CNPJ"
+            type="text"
+            inputMode="numeric"
+            maxLength={18}
+            value={cnpj}
+            onChange={(e) => setCnpj(formatCnpj(e.target.value))}
+            placeholder="00.000.000/0000-00"
           />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input

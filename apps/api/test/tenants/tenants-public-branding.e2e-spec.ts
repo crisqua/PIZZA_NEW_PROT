@@ -14,7 +14,9 @@ describe('GET /v1/public/tenants/:slug', () => {
     app = await createTestApp();
     prisma = app.get(PrismaService);
     const tenant = await prisma.tenant.create({
-      data: { name: 'Public Branding Test', slug, primaryColor: '#ABCDEF', phone: '11988887777' },
+      // cnpj preenchido de proposito -- prova que o campo fica de fora mesmo quando
+      // EXISTE, nao so' porque nunca foi setado (teste mais forte que so' ausencia).
+      data: { name: 'Public Branding Test', slug, primaryColor: '#ABCDEF', phone: '11988887777', cnpj: '11222333000181' },
     });
     tenantId = tenant.id;
   });
@@ -51,5 +53,8 @@ describe('GET /v1/public/tenants/:slug', () => {
     expect(res.body).not.toHaveProperty('phone');
     expect(res.body).not.toHaveProperty('address');
     expect(res.body).not.toHaveProperty('id');
+    // CNPJ e' dado interno/legal (mesma regua de phone/address) -- nunca exposto aqui,
+    // mesmo o tenant tendo um cadastrado (ver beforeAll).
+    expect(res.body).not.toHaveProperty('cnpj');
   });
 });

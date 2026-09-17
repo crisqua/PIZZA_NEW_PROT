@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Globe } from 'lucide-react';
 import { Tenant, Plan } from '@pizza/types';
-import { Card, CardContent, Button, Input, formatCurrency, formatPhone, centsToDisplay, reaisToCentsDigits } from '@pizza/ui';
+import { Card, CardContent, Button, Input, formatCurrency, formatPhone, formatCnpj, centsToDisplay, reaisToCentsDigits } from '@pizza/ui';
 import { getSubscription, onboardTenant, updateSubscription, updateTenant } from '../data/repository';
 
 interface TenantFormProps {
@@ -23,6 +23,7 @@ export function TenantForm({ tenant, plans, onBack, onSaved }: TenantFormProps) 
     logo: tenant?.logo || '🍕',
     primaryColor: tenant?.primaryColor || '#C9A84C',
     phone: tenant?.phone ? formatPhone(tenant.phone) : '',
+    cnpj: tenant?.cnpj ? formatCnpj(tenant.cnpj) : '',
     address: tenant?.address || '',
     deliveryFee: tenant ? reaisToCentsDigits(tenant.deliveryFee) : '',
     minOrder: tenant ? reaisToCentsDigits(tenant.minOrder) : '',
@@ -60,6 +61,7 @@ export function TenantForm({ tenant, plans, onBack, onSaved }: TenantFormProps) 
         primaryColor: formData.primaryColor,
         logo: formData.logo,
         phone: formData.phone,
+        cnpj: formData.cnpj || undefined,
         address: formData.address,
         deliveryFee: formData.deliveryFee === '' ? undefined : Number(formData.deliveryFee) / 100,
         minOrder: formData.minOrder === '' ? undefined : Number(formData.minOrder) / 100,
@@ -150,6 +152,16 @@ export function TenantForm({ tenant, plans, onBack, onSaved }: TenantFormProps) 
                   onChange={(e) => updateField('address', e.target.value)}
                 />
               </div>
+
+              <Input
+                label="CNPJ"
+                type="text"
+                inputMode="numeric"
+                maxLength={18}
+                placeholder="00.000.000/0000-00"
+                value={formData.cnpj}
+                onChange={(e) => updateField('cnpj', formatCnpj(e.target.value))}
+              />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input

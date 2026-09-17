@@ -24,6 +24,7 @@ export let mockTenant: Tenant = {
   address: '',
   deliveryFee: 0,
   minOrder: 0,
+  cnpj: null,
   active: true,
 };
 export let mockCategories: Category[] = [];
@@ -97,6 +98,7 @@ interface TenantResponse {
   address: string;
   deliveryFee: number;
   minOrder: number;
+  cnpj: string | null;
 }
 
 interface SubscriptionResponse {
@@ -170,6 +172,7 @@ export async function loadDashboardBoot(): Promise<void> {
     address: tenant.address,
     deliveryFee: tenant.deliveryFee,
     minOrder: tenant.minOrder,
+    cnpj: tenant.cnpj,
     active: tenant.active,
   };
   unlockedModules = subscription.modules;
@@ -191,6 +194,7 @@ export interface TenantSettingsInput {
   logo?: string;
   deliveryFee?: number;
   minOrder?: number;
+  cnpj?: string;
 }
 
 export async function updateTenantSettings(input: TenantSettingsInput): Promise<void> {
@@ -204,6 +208,7 @@ export async function updateTenantSettings(input: TenantSettingsInput): Promise<
     address: tenant.address,
     deliveryFee: tenant.deliveryFee,
     minOrder: tenant.minOrder,
+    cnpj: tenant.cnpj,
   };
 }
 

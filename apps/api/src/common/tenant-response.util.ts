@@ -14,6 +14,7 @@ export interface TenantResponse {
   address: string;
   deliveryFee: number;
   minOrder: number;
+  cnpj: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +31,7 @@ export function toTenantResponse(tenant: Tenant): TenantResponse {
     address: tenant.address,
     deliveryFee: tenant.deliveryFee.toNumber(),
     minOrder: tenant.minOrder.toNumber(),
+    cnpj: tenant.cnpj,
     createdAt: tenant.createdAt,
     updatedAt: tenant.updatedAt,
   };

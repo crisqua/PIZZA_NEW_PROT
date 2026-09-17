@@ -32,6 +32,13 @@ model Tenant {
   // response precisa mapear .toNumber() explicitamente antes de devolver ao cliente.
   deliveryFee Decimal @default(0) @map("delivery_fee") @db.Decimal(10, 2)
   minOrder    Decimal @default(0) @map("min_order") @db.Decimal(10, 2)
+  // Documento legal da pizzaria -- opcional (nem toda pizzaria testando a plataforma tem
+  // em maos no cadastro), guardado formatado ("00.000.000/0000-00"). Nullable (sem
+  // @default) de proposito: Postgres nao trata multiplos NULL como colisao em @unique,
+  // entao tenants sem CNPJ nunca colidem entre si -- so' duas pizzarias com o MESMO CNPJ
+  // preenchido colidem, que e' o caso real que queremos barrar. Nunca exposto no endpoint
+  // publico (toTenantBrandingResponse) -- e' dado interno/legal, mesma regua de phone/address.
+  cnpj        String? @unique @db.VarChar(18)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

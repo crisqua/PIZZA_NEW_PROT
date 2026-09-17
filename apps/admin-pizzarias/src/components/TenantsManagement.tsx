@@ -97,6 +97,12 @@ export function TenantsManagement({ onEditTenant, onNewTenant }: TenantsManageme
                       <p className="text-xs text-muted-foreground mb-1">Telefone</p>
                       <p className="text-sm font-medium">{formatPhone(tenant.phone)}</p>
                     </div>
+                    {tenant.cnpj && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">CNPJ</p>
+                        <p className="text-sm font-medium">{tenant.cnpj}</p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Taxa de Entrega</p>
                       <p className="text-sm font-medium">{formatCurrency(tenant.deliveryFee)}</p>
