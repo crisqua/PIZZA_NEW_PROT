@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Clock, MapPin, Phone, Search, Calendar, ChevronDown, ChevronUp, CheckCircle2, XCircle, Inbox } from 'lucide-react';
 import { getOrders, updateOrderStatus, ApiOrder } from '../data/repository';
 import { Card, Badge, Button, Input, formatCurrency, formatTime, formatPhone } from '@pizza/ui';
@@ -49,6 +49,11 @@ export function OrdersPanel() {
   // lista so' cresce, misturando pedidos de semanas atras com os de agora) -- string
   // vazia = "todos os dias", pra quem precisar achar um pedido antigo pela busca.
   const [dateFilter, setDateFilter] = useState(toLocalDateStr(new Date()));
+  // Sem isso, o painel deixado aberto passando da meia-noite trava no dia em que foi
+  // aberto pra sempre (dateFilter e' um snapshot de useState, so' o dado poll(a) --
+  // bug real reportado pelo usuario). Ref (nao state) porque so' o poll() abaixo le,
+  // nao precisa re-renderizar por causa dela.
+  const dateFilterTouchedRef = useRef(false);
   const [openItemsIds, setOpenItemsIds] = useState<Set<string>>(new Set());
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [errorId, setErrorId] = useState<string | null>(null);
@@ -65,6 +70,13 @@ export function OrdersPanel() {
   useEffect(() => {
     let cancelled = false;
     const poll = () => {
+      // Re-sincroniza "hoje" a cada tick, so' se o usuario nunca mexeu no filtro de
+      // data manualmente -- vira o dia sozinho sem precisar de F5, sem sobrescrever
+      // uma data escolhida de proposito.
+      if (!dateFilterTouchedRef.current) {
+        const today = toLocalDateStr(new Date());
+        setDateFilter((prev) => (prev === today ? prev : today));
+      }
       getOrders()
         .then((res) => { if (!cancelled) setOrders(res); })
         .catch(() => undefined);
@@ -100,19 +112,24 @@ export function OrdersPanel() {
     }
   };
 
-  const filteredOrders = orders.filter((o) => {
+  // Base pro resto: respeita so' a data (nunca status/busca) -- e' o que os cards de KPI
+  // e o contador "Todos" abaixo usam. Sem isso eles mostravam contagem de TODO o
+  // historico mesmo com o filtro de "hoje" ativo (mesmo bug de fundo do dateFilter
+  // travado, so' que nos contadores em vez da lista).
+  const dateFilteredOrders = orders.filter((o) => !dateFilter || toLocalDateStr(new Date(o.createdAt)) === dateFilter);
+
+  const filteredOrders = dateFilteredOrders.filter((o) => {
     const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
     const term = searchTerm.trim().toLowerCase();
     const matchesSearch = !term || o.customerName.toLowerCase().includes(term) || o.orderCode.includes(term);
-    const matchesDate = !dateFilter || toLocalDateStr(new Date(o.createdAt)) === dateFilter;
-    return matchesStatus && matchesSearch && matchesDate;
+    return matchesStatus && matchesSearch;
   });
 
   const ordersByStatus = {
-    pending: orders.filter(o => o.status === 'pending').length,
-    preparing: orders.filter(o => o.status === 'preparing').length,
-    delivery: orders.filter(o => o.status === 'delivery').length,
-    completed: orders.filter(o => o.status === 'completed').length,
+    pending: dateFilteredOrders.filter(o => o.status === 'pending').length,
+    preparing: dateFilteredOrders.filter(o => o.status === 'preparing').length,
+    delivery: dateFilteredOrders.filter(o => o.status === 'delivery').length,
+    completed: dateFilteredOrders.filter(o => o.status === 'completed').length,
   };
 
   return (
@@ -156,12 +173,22 @@ export function OrdersPanel() {
           <Input
             type="date"
             value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
+            onChange={(e) => {
+              dateFilterTouchedRef.current = true;
+              setDateFilter(e.target.value);
+            }}
             className="pl-10"
           />
         </div>
         {dateFilter && (
-          <Button variant="outline" onClick={() => setDateFilter('')} className="shrink-0">
+          <Button
+            variant="outline"
+            onClick={() => {
+              dateFilterTouchedRef.current = true;
+              setDateFilter('');
+            }}
+            className="shrink-0"
+          >
             Ver todos os dias
           </Button>
         )}
@@ -176,7 +203,7 @@ export function OrdersPanel() {
               : 'bg-muted text-muted-foreground hover:bg-muted/80'
           }`}
         >
-          Todos ({orders.length})
+          Todos ({dateFilteredOrders.length})
         </button>
         {Object.entries(statusConfig).map(([status, config]) => (
           <button
