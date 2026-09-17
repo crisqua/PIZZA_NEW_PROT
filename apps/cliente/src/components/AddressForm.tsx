@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Input, formatCep } from '@pizza/ui';
 import { lookupCep } from '../data/cep';
 
@@ -27,13 +27,19 @@ export function AddressForm({ value, onChange, errors }: AddressFormProps) {
   // anterior) -- so' destrava se o cliente clicar em "editar manualmente".
   const [locked, setLocked] = useState(Boolean(value.cep && value.address));
   const [cepStatus, setCepStatus] = useState<'idle' | 'loading' | 'not-found' | 'error'>('idle');
+  // Digitos do ultimo CEP que a busca ja resolveu -- e' ISSO que evita refazer a busca
+  // a toa (ex.: o proprio onChange do resultado disparando o effect nele mesmo), nao o
+  // "locked". Antes o guard usava "|| locked", o que travava a busca PRA SEMPRE apos a
+  // primeira resolucao -- trocar o CEP depois (bug real reportado pelo usuario) nunca
+  // atualizava a rua, porque o effect nem chegava a rodar de novo.
+  const lastResolvedCepRef = useRef<string | null>(value.cep ? value.cep.replace(/\D/g, '') : null);
 
-  // So' dispara com os 8 digitos completos (nao a cada tecla) -- e nunca enquanto os
-  // campos ja estao travados (evita refazer a busca so' porque o valor "controlado"
-  // mudou por outro motivo).
+  // So' dispara com os 8 digitos completos (nao a cada tecla), e so' quando o CEP
+  // realmente mudou desde a ultima resolucao -- nunca trava por causa de "locked":
+  // trocar o CEP tem que re-resolver mesmo com os campos de endereco travados.
   useEffect(() => {
     const digits = value.cep.replace(/\D/g, '');
-    if (digits.length !== 8 || locked) {
+    if (digits.length !== 8 || digits === lastResolvedCepRef.current) {
       return;
     }
     let cancelled = false;
@@ -41,6 +47,7 @@ export function AddressForm({ value, onChange, errors }: AddressFormProps) {
     lookupCep(digits).then((result) => {
       if (cancelled) return;
       if (result.status === 'found') {
+        lastResolvedCepRef.current = digits;
         onChange({
           ...value,
           address: result.address,
