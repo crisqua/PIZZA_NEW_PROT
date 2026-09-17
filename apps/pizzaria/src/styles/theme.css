@@ -154,6 +154,11 @@
 
   html {
     font-size: var(--font-size);
+    /* Painel e' sempre escuro (sem alternancia claro/escuro) -- sem isso o navegador
+       desenha o icone/popup do seletor nativo de <input type="date"> com cores CLARAS
+       pensadas pra fundo branco, ficando quase invisivel sobre o fundo escuro do painel
+       (bug reportado pelo usuario no filtro de data do OrdersPanel.tsx). */
+    color-scheme: dark;
   }
 
   h1 {
