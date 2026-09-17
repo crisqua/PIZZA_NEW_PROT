@@ -51,6 +51,10 @@ export function AddressForm({ value, onChange, errors }: AddressFormProps) {
         onChange({
           ...value,
           address: result.address,
+          // Numero e' especifico do endereco anterior -- trocar de CEP pra uma rua
+          // diferente nao pode manter um numero de casa que nao tem nada a ver (pedido
+          // do usuario, mesmo raciocinio do bug do endereco travado corrigido antes).
+          addressNumber: '',
           neighborhood: result.neighborhood,
           city: result.city,
           state: result.state,
