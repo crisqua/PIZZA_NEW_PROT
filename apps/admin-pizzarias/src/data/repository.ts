@@ -108,9 +108,30 @@ interface PaginatedTenants {
   pageSize: number;
 }
 
-export async function getTenants(): Promise<AdminTenant[]> {
-  const res = await apiFetch<PaginatedTenants>('/admin/tenants?pageSize=100');
-  return res.items.map((t) => ({ ...toTenant(t), subscription: t.subscription }));
+export interface TenantsPage {
+  items: AdminTenant[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// Paginacao real (page/pageSize) + busca server-side (2026-09-22): a tela pedia
+// pageSize=100 pra ter todos os tenants em memoria e filtrar so' no cliente -- nao
+// escala (a listagem no backend abre 1 consulta por tenant pro resumo de assinatura,
+// entao pageSize alto = lento conforme a base cresce). Buscar no backend permite
+// paginar de verdade sem perder a busca por nome/slug.
+export async function getTenants(params: { page?: number; pageSize?: number; search?: string } = {}): Promise<TenantsPage> {
+  const { page = 1, pageSize = 20, search } = params;
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (search) query.set('search', search);
+
+  const res = await apiFetch<PaginatedTenants>(`/admin/tenants?${query.toString()}`);
+  return {
+    items: res.items.map((t) => ({ ...toTenant(t), subscription: t.subscription })),
+    total: res.total,
+    page: res.page,
+    pageSize: res.pageSize,
+  };
 }
 
 export interface TenantBrandingInput {

@@ -52,14 +52,23 @@ export class TenantsAdminService {
   // plano que TenantsManagement.tsx ja mostra hoje (mock); sem isso a lista real ficaria
   // pior que o prototipo. Bounded pelo tamanho da pagina (default 20), nao um full-table
   // scan -- cada resumo abre seu proprio runInTenantContext (subscriptions tem RLS).
-  async list(page: number, pageSize: number): Promise<Paginated<ReturnType<typeof toTenantResponse> & { subscription: SubscriptionSummary | null }>> {
+  async list(
+    page: number,
+    pageSize: number,
+    search?: string,
+  ): Promise<Paginated<ReturnType<typeof toTenantResponse> & { subscription: SubscriptionSummary | null }>> {
+    const where: Prisma.TenantWhereInput | undefined = search
+      ? { OR: [{ name: { contains: search, mode: 'insensitive' } }, { slug: { contains: search, mode: 'insensitive' } }] }
+      : undefined;
+
     const [rows, total] = await Promise.all([
       this.prisma.tenant.findMany({
+        where,
         orderBy: { createdAt: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      this.prisma.tenant.count(),
+      this.prisma.tenant.count({ where }),
     ]);
 
     // Bug real de producao (2026-09-22): com pageSize grande (o painel admin pede 100),

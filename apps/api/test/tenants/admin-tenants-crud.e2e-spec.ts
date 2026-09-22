@@ -94,6 +94,37 @@ describe('/v1/admin/tenants — CRUD superadmin', () => {
     expect(res.body.items.some((t: { id: string }) => t.id === createdTenantId)).toBe(true);
   });
 
+  // Busca server-side (2026-09-22): o painel admin passou a paginar de verdade em vez
+  // de pedir pageSize=100 e filtrar no cliente -- sem busca no backend a paginacao
+  // quebraria a experiencia (nao acharia um tenant fora da pagina atual).
+  it('search por nome encontra o tenant, case-insensitive e parcial', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/v1/admin/tenants?search=${encodeURIComponent('admin CRUD')}`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .expect(200);
+
+    expect(res.body.items.some((t: { id: string }) => t.id === createdTenantId)).toBe(true);
+  });
+
+  it('search por slug tambem encontra o tenant', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/v1/admin/tenants?search=${encodeURIComponent(slug)}`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .expect(200);
+
+    expect(res.body.items.some((t: { id: string }) => t.id === createdTenantId)).toBe(true);
+  });
+
+  it('search sem correspondencia retorna lista vazia (nao erro)', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/v1/admin/tenants?search=termo-que-nao-deve-bater-em-nenhum-tenant-xyz')
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .expect(200);
+
+    expect(res.body.items).toEqual([]);
+    expect(res.body.total).toBe(0);
+  });
+
   it('get por id inexistente retorna 404', async () => {
     await request(app.getHttpServer())
       .get('/v1/admin/tenants/00000000-0000-0000-0000-000000000000')

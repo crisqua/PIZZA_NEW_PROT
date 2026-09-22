@@ -35,7 +35,7 @@ export class TenantsAdminController {
 
   @Get()
   list(@Query() query: ListTenantsQueryDto) {
-    return this.tenantsAdminService.list(query.page ?? 1, query.pageSize ?? 20);
+    return this.tenantsAdminService.list(query.page ?? 1, query.pageSize ?? 20, query.search);
   }
 
   @Get(':id')

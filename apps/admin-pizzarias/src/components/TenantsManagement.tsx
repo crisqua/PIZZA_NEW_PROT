@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Plus, Search, Edit, Trash2, Eye, ExternalLink } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Eye, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getTenants, setTenantActive, AdminTenant } from '../data/repository';
 import { Card, CardContent, Button, Input, Badge, Switch, formatCurrency, formatPhone } from '@pizza/ui';
+
+const PAGE_SIZE = 20;
+// Espera o usuario parar de digitar antes de bater no backend -- sem isso cada tecla
+// dispararia uma requisicao nova (busca agora e' server-side, ver data/repository.ts).
+const SEARCH_DEBOUNCE_MS = 400;
 
 interface TenantsManagementProps {
   onEditTenant: (tenant: AdminTenant) => void;
@@ -10,16 +15,32 @@ interface TenantsManagementProps {
 
 export function TenantsManagement({ onEditTenant, onNewTenant }: TenantsManagementProps) {
   const [tenants, setTenants] = useState<AdminTenant[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   useEffect(() => {
-    getTenants().then(setTenants).catch(() => undefined);
-  }, []);
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-  const filteredTenants = tenants.filter((tenant) =>
-    tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tenant.subdomain.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Trocar a busca sempre volta pra pagina 1 -- pagina 3 de uma busca antiga quase
+  // certamente nao existe mais no resultado novo.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    getTenants({ page, pageSize: PAGE_SIZE, search: debouncedSearch || undefined })
+      .then((res) => {
+        setTenants(res.items);
+        setTotal(res.total);
+      })
+      .catch(() => undefined);
+  }, [page, debouncedSearch]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const handleToggleActive = async (tenant: AdminTenant) => {
     const updated = await setTenantActive(tenant.id, tenant.active === false);
@@ -52,7 +73,7 @@ export function TenantsManagement({ onEditTenant, onNewTenant }: TenantsManageme
       </div>
 
       <div className="grid grid-cols-1 gap-4">
-        {filteredTenants.map((tenant) => (
+        {tenants.map((tenant) => (
           <Card key={tenant.id} className={`hover:border-primary/40 transition-colors ${tenant.active === false ? 'opacity-60' : ''}`}>
             <CardContent className="p-6">
               <div className="flex items-start gap-6">
@@ -143,13 +164,31 @@ export function TenantsManagement({ onEditTenant, onNewTenant }: TenantsManageme
         ))}
       </div>
 
-      {filteredTenants.length === 0 && (
+      {tenants.length === 0 && (
         <div className="text-center py-12">
           <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">Nenhuma pizzaria encontrada</h3>
           <p className="text-muted-foreground">
             Tente ajustar a busca ou crie uma nova pizzaria
           </p>
+        </div>
+      )}
+
+      {tenants.length > 0 && (
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-sm text-muted-foreground">
+            {total} {total === 1 ? 'pizzaria' : 'pizzarias'} — página {page} de {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+              <ChevronLeft className="w-4 h-4" />
+              Anterior
+            </Button>
+            <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+              Próxima
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       )}
     </div>
