@@ -26,7 +26,7 @@ describe('GET /v1/tenants/me/subscription', () => {
     plan = await seedPlan(prisma, { modules: ['estoque', 'financeiro'] });
     tenantWithPlan = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'me-sub-with', role: 'tenant_owner' });
     tenantNoPlan = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'me-sub-none', role: 'tenant_owner' });
-    await seedSubscription(tenantContext, tenantWithPlan.tenantId, plan.id);
+    await seedSubscription(prisma, tenantContext, tenantWithPlan.tenantId, plan.id);
   });
 
   afterAll(async () => {

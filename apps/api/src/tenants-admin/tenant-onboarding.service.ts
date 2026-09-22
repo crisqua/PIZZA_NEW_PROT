@@ -70,6 +70,19 @@ export class TenantOnboardingService {
           include: { plan: true },
         });
 
+        // Resumo denormalizado em "tenants" (Sprint 22) -- mesma escrita que
+        // SubscriptionsAdminService.upsertForTenant faz na troca de plano, aqui dentro
+        // da propria transacao de onboarding (ja cria tenant+dono+assinatura juntos).
+        await tx.tenant.update({
+          where: { id: tenant.id },
+          data: {
+            subscriptionStatus: subscription.status,
+            planCode: subscription.plan.code,
+            planName: subscription.plan.name,
+            planModules: subscription.plan.modules ?? undefined,
+          },
+        });
+
         return {
           tenant: toTenantResponse(tenant),
           owner: { id: owner.id, email: owner.email, name: owner.name },

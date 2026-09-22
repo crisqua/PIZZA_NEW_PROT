@@ -29,7 +29,7 @@ describe('GET /v1/financial/revenue', () => {
 
     plan = await seedPlan(prisma, { modules: ['financeiro'] });
     tenant = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'fin-rev', role: 'tenant_owner' });
-    await seedSubscription(tenantContext, tenant.tenantId, plan.id);
+    await seedSubscription(prisma, tenantContext, tenant.tenantId, plan.id);
     category = await seedCategory(tenantContext, tenant.tenantId, 'Categoria Receita');
     // Preco do produto e' irrelevante aqui -- os OrderItems abaixo (seedOrder) sao
     // inseridos direto com unitPrice explicito, nunca passam por OrdersService/o preco
@@ -103,7 +103,7 @@ describe('GET /v1/financial/revenue', () => {
 
     const otherPlan = await seedPlan(prisma, { modules: [] });
     const other = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'fin-rev-nomod', role: 'tenant_owner' });
-    await seedSubscription(tenantContext, other.tenantId, otherPlan.id);
+    await seedSubscription(prisma, tenantContext, other.tenantId, otherPlan.id);
     try {
       const login = await request(app.getHttpServer())
         .post('/v1/auth/login')

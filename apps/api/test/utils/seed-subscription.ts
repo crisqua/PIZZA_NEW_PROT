@@ -25,15 +25,27 @@ export async function cleanupPlan(prisma: PrismaService, plan: SeededPlan): Prom
 
 // "subscriptions" tem RLS de verdade -- precisa rodar dentro do runInTenantContext,
 // mesma disciplina de refresh_tokens/users em seed-auth-fixtures.ts.
+//
+// Tambem grava o resumo denormalizado em "tenants" (Sprint 22, ver
+// tenant-subscription-summary.util.ts) -- reproduz o mesmo par de escritas que
+// SubscriptionsAdminService.upsertForTenant/TenantOnboardingService.onboard fazem em
+// producao. Sem isso, testes que seedam assinatura direto (bypassando os services reais)
+// nunca preencheriam os campos que a listagem/dashboard passaram a ler.
 export async function seedSubscription(
+  prisma: PrismaService,
   tenantContext: TenantContextService,
   tenantId: string,
   planId: string,
   status: 'active' | 'cancelled' = 'active',
 ): Promise<void> {
+  const plan = await prisma.plan.findUniqueOrThrow({ where: { id: planId } });
   await tenantContext.runInTenantContext(tenantId, (tx) =>
     tx.subscription.create({ data: { tenantId, planId, status } }),
   );
+  await prisma.tenant.update({
+    where: { id: tenantId },
+    data: { subscriptionStatus: status, planCode: plan.code, planName: plan.name, planModules: plan.modules ?? undefined },
+  });
 }
 
 // Chamar ANTES de cleanupTenantWithUser -- subscriptions.tenant_id tem FK RESTRICT contra

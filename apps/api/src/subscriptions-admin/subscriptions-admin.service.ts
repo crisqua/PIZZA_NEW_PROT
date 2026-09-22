@@ -71,6 +71,20 @@ export class SubscriptionsAdminService {
     });
 
     await this.cache.del(subscriptionCacheKey(tenantId));
+
+    // Resumo denormalizado em "tenants" (Sprint 22) -- unico outro ponto que escreve
+    // isso e' TenantOnboardingService.onboard. "tenants" nao tem RLS, PrismaService
+    // direto, fora da transacao de tenant (ja fechou acima).
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        subscriptionStatus: result.status,
+        planCode: result.plan.code,
+        planName: result.plan.name,
+        planModules: result.plan.modules ?? undefined,
+      },
+    });
+
     return toSubscriptionResponse(result);
   }
 }

@@ -36,9 +36,9 @@ describe('/v1/inventory', () => {
     tenantNoSubscription = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'inv-none', role: 'tenant_owner' });
     tenantCancelled = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'inv-cancelled', role: 'tenant_owner' });
 
-    await seedSubscription(tenantContext, tenantWithModule.tenantId, planWithEstoque.id);
-    await seedSubscription(tenantContext, tenantWithoutModule.tenantId, planWithoutEstoque.id);
-    await seedSubscription(tenantContext, tenantCancelled.tenantId, planWithEstoque.id, 'cancelled');
+    await seedSubscription(prisma, tenantContext, tenantWithModule.tenantId, planWithEstoque.id);
+    await seedSubscription(prisma, tenantContext, tenantWithoutModule.tenantId, planWithoutEstoque.id);
+    await seedSubscription(prisma, tenantContext, tenantCancelled.tenantId, planWithEstoque.id, 'cancelled');
 
     tokenWithModule = await loginAs(tenantWithModule);
   });
@@ -138,7 +138,7 @@ describe('/v1/inventory', () => {
   it('isolamento: outro tenant (mesmo com o modulo) nunca ve o item deste tenant', async () => {
     const other = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'inv-other', role: 'tenant_owner' });
     const otherPlan = await seedPlan(prisma, { modules: ['estoque'] });
-    await seedSubscription(tenantContext, other.tenantId, otherPlan.id);
+    await seedSubscription(prisma, tenantContext, other.tenantId, otherPlan.id);
     try {
       const token = await loginAs(other);
 

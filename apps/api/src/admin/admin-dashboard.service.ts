@@ -22,11 +22,14 @@ function monthKey(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-// Loop tenant-por-tenant e' a mesma necessidade documentada em AdminController.dashboard
-// original (orders/subscriptions tem RLS FORCADA -- nao da pra agregar entre tenants numa
-// query so'). Aqui o loop faz UMA passada por tenant (nao uma por metrica) e acumula tudo:
-// orders dos ultimos 6 meses + assinatura+plano + contagem de usuarios, tudo dentro do
-// mesmo runInTenantContext.
+// Ate a Sprint 22, o loop tenant-por-tenant tambem buscava a assinatura+plano de cada
+// tenant (subscriptions tem RLS forcada) -- 3 queries por tenant, cresceu junto com o
+// numero de pizzarias ate derrubar o endpoint com 500 em producao (44 tenants). MRR e
+// distribuicao por plano NAO precisam mais do loop: "tenants" ja carrega o resumo
+// denormalizado (subscriptionStatus/planCode/planName) e "plans" (preco) tambem nao tem
+// RLS -- as duas juntas resolvem isso numa unica leitura, sem abrir nenhuma transacao de
+// tenant. O loop por tenant continua existindo so' pro que genuinamente precisa de RLS:
+// pedidos e contagem de usuarios.
 @Injectable()
 export class AdminDashboardService {
   constructor(
@@ -35,7 +38,31 @@ export class AdminDashboardService {
   ) {}
 
   async getDashboard(): Promise<PlatformDashboard> {
-    const tenants = await this.prisma.tenant.findMany({ select: { id: true, name: true, slug: true } });
+    const [tenants, plans] = await Promise.all([
+      this.prisma.tenant.findMany({
+        select: { id: true, name: true, slug: true, subscriptionStatus: true, planCode: true, planName: true },
+      }),
+      this.prisma.plan.findMany({ select: { code: true, price: true } }),
+    ]);
+    const planPriceByCode = new Map(plans.map((plan) => [plan.code, plan.price?.toNumber() ?? 0]));
+
+    let mrr = 0;
+    const plansCount = new Map<string, { planCode: string; planName: string; tenantCount: number }>();
+    for (const tenant of tenants) {
+      if (tenant.subscriptionStatus !== 'active' || !tenant.planCode || !tenant.planName) {
+        continue;
+      }
+      // Plano "Enterprise" (price null = negociado fora do sistema) nao entra na soma
+      // do MRR -- nao ha valor pra somar, so' contabiliza na distribuicao por plano.
+      mrr += planPriceByCode.get(tenant.planCode) ?? 0;
+
+      const existing = plansCount.get(tenant.planCode);
+      if (existing) {
+        existing.tenantCount += 1;
+      } else {
+        plansCount.set(tenant.planCode, { planCode: tenant.planCode, planName: tenant.planName, tenantCount: 1 });
+      }
+    }
 
     const now = new Date();
     const currentMonthKey = monthKey(now);
@@ -49,16 +76,15 @@ export class AdminDashboardService {
     }
 
     // Lotes de TENANT_CONCURRENCY em vez de todos de uma vez (Promise.all direto) --
-    // ver comentario em concurrency.util.ts, mesmo bug de producao da listagem de
-    // tenants, aqui ainda mais exposto (3 queries por tenant dentro de cada transacao).
+    // ver comentario em concurrency.util.ts. So' pedidos + usuarios agora (a parte de
+    // assinatura saiu do loop acima).
     const perTenant = await mapWithConcurrency(tenants, TENANT_CONCURRENCY, (tenant) =>
       this.tenantContext.runInTenantContext(tenant.id, async (tx) => {
-          const [orders, subscription, userCount] = await Promise.all([
+          const [orders, userCount] = await Promise.all([
             tx.order.findMany({
               where: { createdAt: { gte: rangeStart } },
               select: { status: true, total: true, createdAt: true },
             }),
-            tx.subscription.findUnique({ where: { tenantId: tenant.id }, include: { plan: true } }),
             tx.user.count(),
           ]);
 
@@ -86,7 +112,6 @@ export class AdminDashboardService {
             ordersLastMonth,
             revenueThisMonth,
             volumeByMonth,
-            subscription,
             userCount,
           };
         }),
@@ -95,9 +120,7 @@ export class AdminDashboardService {
     let ordersThisMonth = 0;
     let ordersLastMonth = 0;
     let userCount = 0;
-    let mrr = 0;
     const monthlyTotals = new Map<string, number>(monthKeys.map((key) => [key, 0]));
-    const plansCount = new Map<string, { planCode: string; planName: string; tenantCount: number }>();
 
     for (const row of perTenant) {
       ordersThisMonth += row.ordersThisMonth;
@@ -107,20 +130,6 @@ export class AdminDashboardService {
       for (const [key, total] of row.volumeByMonth) {
         if (monthlyTotals.has(key)) {
           monthlyTotals.set(key, (monthlyTotals.get(key) ?? 0) + total);
-        }
-      }
-
-      if (row.subscription && row.subscription.status === 'active') {
-        // Plano "Enterprise" (price null = negociado fora do sistema) nao entra na soma
-        // do MRR -- nao ha valor pra somar, so' contabiliza na distribuicao por plano.
-        mrr += row.subscription.plan.price?.toNumber() ?? 0;
-
-        const code = row.subscription.plan.code;
-        const existing = plansCount.get(code);
-        if (existing) {
-          existing.tenantCount += 1;
-        } else {
-          plansCount.set(code, { planCode: code, planName: row.subscription.plan.name, tenantCount: 1 });
         }
       }
     }

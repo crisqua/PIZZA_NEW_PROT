@@ -35,7 +35,7 @@ describe('GET /v1/admin/dashboard', () => {
 
     tenant = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'dash', role: 'tenant_owner' });
     plan = await seedPlan(prisma, { price: 99 });
-    await seedSubscription(tenantContext, tenant.tenantId, plan.id);
+    await seedSubscription(prisma, tenantContext, tenant.tenantId, plan.id);
     const category = await tenantContext.runInTenantContext(tenant.tenantId, (tx) =>
       tx.category.create({ data: { tenantId: tenant.tenantId, name: 'Cat' } }),
     );

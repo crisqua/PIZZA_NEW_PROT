@@ -87,6 +87,19 @@ describe('/v1/admin/tenants/:tenantId/subscription', () => {
     expect(rows).toHaveLength(1);
   });
 
+  // Sprint 22: o resumo em GET /admin/tenants e' denormalizado em "tenants", escrito
+  // pela mesma chamada acima -- confirma que reflete o plano NOVO na proxima listagem,
+  // sem nenhum passo assincrono/job entre a troca de plano e a leitura.
+  it('GET /admin/tenants reflete o plano trocado imediatamente (resumo denormalizado)', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/v1/admin/tenants?pageSize=100')
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .expect(200);
+
+    const row = res.body.items.find((t: { id: string }) => t.id === tenantA.tenantId);
+    expect(row.subscription).toEqual({ status: 'active', planCode: planY.code, planName: planY.code, modules: ['estoque'] });
+  });
+
   it('PATCH so com status nao mexe no planId', async () => {
     const res = await request(app.getHttpServer())
       .patch(`/v1/admin/tenants/${tenantA.tenantId}/subscription`)
@@ -111,7 +124,7 @@ describe('/v1/admin/tenants/:tenantId/subscription', () => {
   });
 
   it('isolamento real: tenant B nunca enxerga a subscription do tenant A sob RLS', async () => {
-    await seedSubscription(tenantContext, tenantB.tenantId, planX.id);
+    await seedSubscription(prisma, tenantContext, tenantB.tenantId, planX.id);
 
     const rowsUnderA = await tenantContext.runInTenantContext(tenantA.tenantId, (tx) => tx.subscription.findMany());
     expect(rowsUnderA.every((r) => r.tenantId === tenantA.tenantId)).toBe(true);

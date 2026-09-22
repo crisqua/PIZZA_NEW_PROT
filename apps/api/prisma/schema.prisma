@@ -39,6 +39,20 @@ model Tenant {
   // preenchido colidem, que e' o caso real que queremos barrar. Nunca exposto no endpoint
   // publico (toTenantBrandingResponse) -- e' dado interno/legal, mesma regua de phone/address.
   cnpj        String? @unique @db.VarChar(18)
+  // Resumo denormalizado da assinatura (Sprint 22, 2026-09-22): "subscriptions" tem RLS
+  // (por tenant), entao listar/agregar assinatura de N tenants de uma vez (paineis do
+  // superadmin) exigia 1 transacao por tenant -- crescia linear com o numero de
+  // pizzarias e derrubava o servico com poucos vCPUs (500 real em producao, ver
+  // concurrency.util.ts). Fonte da verdade continua sendo "subscriptions" -- estes 4
+  // campos sao so' uma copia pra leitura cross-tenant O(1), escrita nos 2 unicos lugares
+  // que alteram assinatura (SubscriptionsAdminService.upsertForTenant e
+  // TenantOnboardingService.onboard). Todos nullable: tenant sem assinatura (nao deveria
+  // acontecer no fluxo normal, mas dado legado/de teste pode ter) fica com os 4 null,
+  // equivalente ao "subscription: null" que a API ja retorna hoje nesse caso.
+  subscriptionStatus String? @map("subscription_status") @db.VarChar(20)
+  planCode            String? @map("plan_code") @db.VarChar(40)
+  planName            String? @map("plan_name") @db.VarChar(120)
+  planModules         Json?   @map("plan_modules")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

@@ -2,11 +2,10 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { Prisma } from '@prisma/client';
 import { CacheService } from '../cache/cache.service';
 import { resolveCnpj } from '../common/cnpj.util';
-import { mapWithConcurrency } from '../common/concurrency.util';
 import { tenantBrandingCacheKey } from '../common/tenant-branding-cache-key';
 import { toTenantResponse } from '../common/tenant-response.util';
+import { SubscriptionSummary, toSubscriptionSummary } from '../common/tenant-subscription-summary.util';
 import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../prisma/tenant-context.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 
@@ -17,13 +16,6 @@ export interface Paginated<T> {
   pageSize: number;
 }
 
-export interface SubscriptionSummary {
-  status: string;
-  planCode: string;
-  planName: string;
-  modules: unknown;
-}
-
 const PRISMA_UNIQUE_CONSTRAINT = 'P2002';
 
 @Injectable()
@@ -31,7 +23,6 @@ export class TenantsAdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
-    private readonly tenantContext: TenantContextService,
   ) {}
 
   async create(dto: CreateTenantDto) {
@@ -49,10 +40,12 @@ export class TenantsAdminService {
     }
   }
 
-  // Enriquecido com um resumo de assinatura por tenant (Sprint 10) -- serve pro badge de
-  // plano que TenantsManagement.tsx ja mostra hoje (mock); sem isso a lista real ficaria
-  // pior que o prototipo. Bounded pelo tamanho da pagina (default 20), nao um full-table
-  // scan -- cada resumo abre seu proprio runInTenantContext (subscriptions tem RLS).
+  // Enriquecido com um resumo de assinatura por tenant (Sprint 10, denormalizado na
+  // Sprint 22) -- serve pro badge de plano que TenantsManagement.tsx ja mostra hoje. Ate
+  // a Sprint 22 cada resumo abria a propria transacao (subscriptions tem RLS) -- 1 por
+  // tenant, crescia linear com o numero de pizzarias e chegou a derrubar o endpoint com
+  // 500 em producao (44 tenants). Os 4 campos denormalizados em Tenant (ver
+  // schema.prisma) tornam isso 1 query so', independente de quantas pizzarias existirem.
   async list(
     page: number,
     pageSize: number,
@@ -72,29 +65,12 @@ export class TenantsAdminService {
       this.prisma.tenant.count({ where }),
     ]);
 
-    // Ver comentario em concurrency.util.ts -- bug real de producao (2026-09-22) com
-    // Promise.all direto sem limite de concorrencia.
-    const items = await mapWithConcurrency(rows, 5, async (tenant) => ({
+    const items = rows.map((tenant) => ({
       ...toTenantResponse(tenant),
-      subscription: await this.getSubscriptionSummary(tenant.id),
+      subscription: toSubscriptionSummary(tenant),
     }));
 
     return { items, total, page, pageSize };
-  }
-
-  private async getSubscriptionSummary(tenantId: string): Promise<SubscriptionSummary | null> {
-    const subscription = await this.tenantContext.runInTenantContext(tenantId, (tx) =>
-      tx.subscription.findUnique({ where: { tenantId }, include: { plan: true } }),
-    );
-    if (!subscription) {
-      return null;
-    }
-    return {
-      status: subscription.status,
-      planCode: subscription.plan.code,
-      planName: subscription.plan.name,
-      modules: subscription.plan.modules,
-    };
   }
 
   async findOne(id: string) {
