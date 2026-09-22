@@ -1,9 +1,20 @@
 import { Injectable } from '@nestjs/common';
+import { CacheService } from '../cache/cache.service';
 import { mapWithConcurrency } from '../common/concurrency.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
 
 const TENANT_CONCURRENCY = 5;
+
+// Sprint 23: mesmo depois da Sprint 22 (que tirou a assinatura do loop por tenant), o
+// dashboard ainda soma pedidos dos ultimos 6 meses de CADA tenant -- isso genuinamente
+// precisa de RLS, nao da pra denormalizar sem reagregar a cada pedido novo. E' uma foto
+// agregada da plataforma pro superadmin, nao precisa ser exata ao segundo -- cachear por
+// um tempo curto absorve a maior parte das chamadas repetidas sem esconder dado por
+// muito tempo. Sem invalidacao ativa de proposito (nenhum evento dispara "recalcula
+// agora") -- o TTL curto sozinho ja e' a garantia de frescor aceita aqui.
+const DASHBOARD_CACHE_KEY = 'admin:dashboard';
+const DASHBOARD_CACHE_TTL_SECONDS = 90;
 
 const MONTH_LABELS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -35,9 +46,21 @@ export class AdminDashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly cache: CacheService,
   ) {}
 
   async getDashboard(): Promise<PlatformDashboard> {
+    const cached = await this.cache.get<PlatformDashboard>(DASHBOARD_CACHE_KEY);
+    if (cached) {
+      return cached;
+    }
+
+    const dashboard = await this.computeDashboard();
+    await this.cache.set(DASHBOARD_CACHE_KEY, dashboard, DASHBOARD_CACHE_TTL_SECONDS);
+    return dashboard;
+  }
+
+  private async computeDashboard(): Promise<PlatformDashboard> {
     const [tenants, plans] = await Promise.all([
       this.prisma.tenant.findMany({
         select: { id: true, name: true, slug: true, subscriptionStatus: true, planCode: true, planName: true },
