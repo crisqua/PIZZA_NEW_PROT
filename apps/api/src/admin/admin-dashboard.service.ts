@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { mapWithConcurrency } from '../common/concurrency.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../prisma/tenant-context.service';
+
+const TENANT_CONCURRENCY = 5;
 
 const MONTH_LABELS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -45,9 +48,11 @@ export class AdminDashboardService {
       monthKeys.push(monthKey(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1))));
     }
 
-    const perTenant = await Promise.all(
-      tenants.map((tenant) =>
-        this.tenantContext.runInTenantContext(tenant.id, async (tx) => {
+    // Lotes de TENANT_CONCURRENCY em vez de todos de uma vez (Promise.all direto) --
+    // ver comentario em concurrency.util.ts, mesmo bug de producao da listagem de
+    // tenants, aqui ainda mais exposto (3 queries por tenant dentro de cada transacao).
+    const perTenant = await mapWithConcurrency(tenants, TENANT_CONCURRENCY, (tenant) =>
+      this.tenantContext.runInTenantContext(tenant.id, async (tx) => {
           const [orders, subscription, userCount] = await Promise.all([
             tx.order.findMany({
               where: { createdAt: { gte: rangeStart } },
@@ -85,7 +90,6 @@ export class AdminDashboardService {
             userCount,
           };
         }),
-      ),
     );
 
     let ordersThisMonth = 0;

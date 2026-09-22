@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { Prisma } from '@prisma/client';
 import { CacheService } from '../cache/cache.service';
 import { resolveCnpj } from '../common/cnpj.util';
+import { mapWithConcurrency } from '../common/concurrency.util';
 import { tenantBrandingCacheKey } from '../common/tenant-branding-cache-key';
 import { toTenantResponse } from '../common/tenant-response.util';
 import { PrismaService } from '../prisma/prisma.service';
@@ -71,24 +72,12 @@ export class TenantsAdminService {
       this.prisma.tenant.count({ where }),
     ]);
 
-    // Bug real de producao (2026-09-22): com pageSize grande (o painel admin pede 100),
-    // abrir uma transacao por tenant TODAS de uma vez via Promise.all estourava o pool
-    // de conexoes do Prisma em instancias com poucos vCPUs (Render) -- 500 "Internal
-    // server error" sem stack trace visivel pro cliente. Processar em lotes pequenos
-    // mantem o mesmo resultado, so' limitando quantas transacoes ficam abertas ao mesmo
-    // tempo.
-    const CONCURRENCY = 5;
-    const items: Array<ReturnType<typeof toTenantResponse> & { subscription: SubscriptionSummary | null }> = [];
-    for (let i = 0; i < rows.length; i += CONCURRENCY) {
-      const batch = rows.slice(i, i + CONCURRENCY);
-      const batchItems = await Promise.all(
-        batch.map(async (tenant) => ({
-          ...toTenantResponse(tenant),
-          subscription: await this.getSubscriptionSummary(tenant.id),
-        })),
-      );
-      items.push(...batchItems);
-    }
+    // Ver comentario em concurrency.util.ts -- bug real de producao (2026-09-22) com
+    // Promise.all direto sem limite de concorrencia.
+    const items = await mapWithConcurrency(rows, 5, async (tenant) => ({
+      ...toTenantResponse(tenant),
+      subscription: await this.getSubscriptionSummary(tenant.id),
+    }));
 
     return { items, total, page, pageSize };
   }
