@@ -62,12 +62,24 @@ export class TenantsAdminService {
       this.prisma.tenant.count(),
     ]);
 
-    const items = await Promise.all(
-      rows.map(async (tenant) => ({
-        ...toTenantResponse(tenant),
-        subscription: await this.getSubscriptionSummary(tenant.id),
-      })),
-    );
+    // Bug real de producao (2026-09-22): com pageSize grande (o painel admin pede 100),
+    // abrir uma transacao por tenant TODAS de uma vez via Promise.all estourava o pool
+    // de conexoes do Prisma em instancias com poucos vCPUs (Render) -- 500 "Internal
+    // server error" sem stack trace visivel pro cliente. Processar em lotes pequenos
+    // mantem o mesmo resultado, so' limitando quantas transacoes ficam abertas ao mesmo
+    // tempo.
+    const CONCURRENCY = 5;
+    const items: Array<ReturnType<typeof toTenantResponse> & { subscription: SubscriptionSummary | null }> = [];
+    for (let i = 0; i < rows.length; i += CONCURRENCY) {
+      const batch = rows.slice(i, i + CONCURRENCY);
+      const batchItems = await Promise.all(
+        batch.map(async (tenant) => ({
+          ...toTenantResponse(tenant),
+          subscription: await this.getSubscriptionSummary(tenant.id),
+        })),
+      );
+      items.push(...batchItems);
+    }
 
     return { items, total, page, pageSize };
   }
