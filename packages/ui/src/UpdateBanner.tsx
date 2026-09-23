@@ -6,9 +6,12 @@ declare const __APP_VERSION__: string;
 
 // Intervalo longo de proposito (estudo de impacto de performance feito com o usuario
 // antes de implementar): deploys nao acontecem a cada minuto, um intervalo curto so'
-// geraria requisicao a toa contra o arquivo estatico. `visibilitychange`/`online`
+// geraria requisicao a toa contra o arquivo estatico. `visibilitychange`/`focus`/`online`
 // cobrem o caso real (dono volta pra aba, ou a rede caiu e voltou) de forma orientada a
-// evento, sem custo nenhum em segundo plano.
+// evento, sem custo nenhum em segundo plano. `visibilitychange` sozinho nao basta pra
+// quem testa com 2 janelas lado a lado (nao abas da mesma janela) -- as duas ficam
+// "visiveis" ao mesmo tempo, so' o foco muda, e visibilityState nunca vira "hidden" pra
+// nenhuma delas (bug real encontrado testando o mesmo padrao no cliente/App.tsx).
 const CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
 async function fetchLatestVersion(): Promise<string | null> {
@@ -49,12 +52,14 @@ export function UpdateBanner() {
       if (document.visibilityState === 'visible') check();
     };
     document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', check);
     window.addEventListener('online', check);
 
     return () => {
       cancelled = true;
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', check);
       window.removeEventListener('online', check);
     };
   }, []);

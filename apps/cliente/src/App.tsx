@@ -71,9 +71,16 @@ export default function App() {
   // enquanto o cliente esta navegando ativamente resetaria a selecao de tamanho/
   // categoria aberta a toa. "Aba voltou do segundo plano" e' o sinal certo -- mesmo
   // momento em que um F5 manual ja teria corrigido o problema mesmo.
+  //
+  // Dois gatilhos, nao so' um: `visibilitychange` sozinho nao dispara quando o dono
+  // testa com 2 JANELAS lado a lado (nao abas da mesma janela) -- nesse caso as duas
+  // ficam "visiveis" ao mesmo tempo, so' o foco muda, e visibilityState nunca vira
+  // "hidden" pra nenhuma delas (bug real reportado pelo usuario, testando assim).
+  // `window.addEventListener('focus', ...)` cobre exatamente esse caso, ja que dispara
+  // por foco de verdade, independente de oclusao/visibilidade.
   useEffect(() => {
     if (!ready) return;
-    const onVisibility = async () => {
+    const refreshCatalog = async () => {
       if (document.visibilityState !== 'visible') return;
       try {
         await loadCatalog();
@@ -83,8 +90,12 @@ export default function App() {
         // quebrar a tela (mesmo raciocinio de fail-open ja usado em CepLookupService).
       }
     };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
+    document.addEventListener('visibilitychange', refreshCatalog);
+    window.addEventListener('focus', refreshCatalog);
+    return () => {
+      document.removeEventListener('visibilitychange', refreshCatalog);
+      window.removeEventListener('focus', refreshCatalog);
+    };
   }, [ready]);
 
   const handleStartHalfHalf = (pizza: Pizza, size: PizzaSizeId) => {
