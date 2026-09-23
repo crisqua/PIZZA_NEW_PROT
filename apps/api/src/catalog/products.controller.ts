@@ -8,7 +8,9 @@ import { CurrentTenant } from '../common/decorators/tenant.decorator';
 import { TenantContextInterceptor } from '../common/interceptors/tenant-context.interceptor';
 import { TenantTx } from '../prisma/tenant-context.service';
 import { CreateProductDto } from './dto/create-product.dto';
+import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ProductUploadService } from './product-upload.service';
 import { ProductsService } from './products.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -16,7 +18,10 @@ import { ProductsService } from './products.service';
 @Roles('tenant_owner', 'tenant_staff')
 @Controller('catalog/products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly productUploadService: ProductUploadService,
+  ) {}
 
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @CurrentTenant() tx: TenantTx, @Body() dto: CreateProductDto) {
@@ -24,6 +29,18 @@ export class ProductsController {
       throw new ForbiddenException();
     }
     return this.productsService.create(tx, user.tenantId, dto);
+  }
+
+  // Sem uso de "tx" de proposito -- nao toca no banco, so' gera uma URL assinada pro
+  // Supabase Storage (Sprint 16). O TenantContextInterceptor de classe ainda abre uma
+  // transacao por request (baixo custo, endpoint pouco frequente, nao vale reestruturar
+  // o controller so' por causa deste metodo).
+  @Post('upload-url')
+  createUploadUrl(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateUploadUrlDto) {
+    if (!user.tenantId) {
+      throw new ForbiddenException();
+    }
+    return this.productUploadService.createSignedUploadUrl(user.tenantId, dto.fileName);
   }
 
   @Get()

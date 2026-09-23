@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ArrowLeft, Upload, X, Check } from 'lucide-react';
 import { Category } from '@pizza/types';
 import { Card, CardContent, Button, Input, Textarea, centsToDisplay, reaisToCentsDigits } from '@pizza/ui';
-import { AdminProduct, ProductType } from '../data/repository';
+import { AdminProduct, ProductType, uploadProductImage } from '../data/repository';
 
 export interface ProductFormData {
   name: string;
@@ -77,12 +77,36 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  // Sprint 16: upload real de imagem (Supabase Storage) -- fileInputRef porque o <input
+  // type="file"> fica escondido, acionado clicando na area tracejada (mesmo padrao
+  // "clique pra enviar" ja sugerido no texto que existia antes de ter upload de verdade).
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+
   const isPizza = formData.type === 'pizza';
 
   const updateField = <K extends keyof ProductFormData>(field: K, value: ProductFormData[K]) => {
     setFormData({ ...formData, [field]: value });
     if (fieldErrors[field]) {
       setFieldErrors({ ...fieldErrors, [field]: '' });
+    }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite selecionar o MESMO arquivo de novo depois (ex. apos um erro)
+    if (!file) return;
+
+    setUploadError('');
+    setUploading(true);
+    try {
+      const publicUrl = await uploadProductImage(file);
+      updateField('image', publicUrl);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Não foi possível enviar a imagem.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -399,16 +423,35 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
                   </Button>
                 </div>
               ) : (
-                <div className="aspect-square w-full border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-3 bg-muted/50">
-                  <Upload className="w-12 h-12 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground text-center px-4">
-                    Clique para fazer upload ou cole a URL da imagem
-                  </p>
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="w-full aspect-square border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-3 bg-muted/50 hover:bg-muted transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <Upload className="w-12 h-12 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground text-center px-4">
+                      {uploading ? 'Enviando...' : 'Clique para fazer upload de uma imagem'}
+                    </p>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleFileSelect}
+                  />
+                  {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+                  <div className="flex items-center gap-2">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-xs text-muted-foreground">ou cole uma URL</span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
                   <Input
                     placeholder="URL da imagem"
                     value={formData.image}
                     onChange={(e) => updateField('image', e.target.value)}
-                    className="mt-2"
                   />
                 </div>
               )}

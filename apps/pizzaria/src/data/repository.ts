@@ -247,6 +247,32 @@ export async function deleteProduct(id: string): Promise<void> {
   await apiFetch(`/catalog/products/${id}`, { method: 'DELETE' });
 }
 
+interface UploadUrlResponse {
+  uploadUrl: string;
+  publicUrl: string;
+}
+
+// Sprint 16: sobe a imagem DIRETO pro Supabase Storage usando uma URL assinada de uso
+// unico (nunca passa pelo nosso backend, so' pede a URL pra ele) -- pega a URL, faz o
+// PUT do arquivo, devolve a URL publica final pra salvar no campo "image" do produto.
+export async function uploadProductImage(file: File): Promise<string> {
+  const { uploadUrl, publicUrl } = await apiFetch<UploadUrlResponse>('/catalog/products/upload-url', {
+    method: 'POST',
+    body: { fileName: file.name, contentType: file.type },
+  });
+
+  const res = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type },
+    body: file,
+  });
+  if (!res.ok) {
+    throw new Error('Nao foi possivel enviar a imagem. Tente novamente.');
+  }
+
+  return publicUrl;
+}
+
 // ---------- Pedidos ----------
 
 export interface ApiOrderItem {
