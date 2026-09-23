@@ -45,7 +45,23 @@ const SIZE_SHORT_LABEL: Record<PizzaSizeId, string> = {
 export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobremesa, cartItemsCount, onViewCart, isLoggedIn, onAccountClick }: MenuProps) {
   const [selectedSizes, setSelectedSizes] = useState<Record<string, PizzaSizeId>>({});
 
-  const sizeFor = (pizzaId: string): PizzaSizeId => selectedSizes[pizzaId] ?? DEFAULT_SIZE_ID;
+  // Bug real reportado pelo usuario: o dono pode deixar um tamanho sem preco de proposito
+  // (ex.: essa pizza nao sai em brotinho) -- antes disso o cliente conseguia selecionar e
+  // ate adicionar ao carrinho um tamanho sem preco, so' descobrindo que nao dava certo la'
+  // no checkout, com um erro confuso vindo do backend. Primeiro tamanho com preco
+  // cadastrado, na ordem de pizzaSizes -- null so' no caso extremo de nenhum tamanho ter
+  // preco (produto mal cadastrado).
+  const firstAvailableSize = (pizza: Pizza): PizzaSizeId | null =>
+    pizzaSizes.find((s) => priceForSize(pizza, s.id) != null)?.id ?? null;
+
+  // So' usa o tamanho selecionado se ele realmente tiver preco pra essa pizza -- senao
+  // cai pro primeiro disponivel (nunca trava numa selecao antiga que deixou de valer,
+  // por exemplo se o dono removeu o preco de um tamanho ja selecionado antes).
+  const sizeFor = (pizza: Pizza): PizzaSizeId => {
+    const selected = selectedSizes[pizza.id];
+    if (selected && priceForSize(pizza, selected) != null) return selected;
+    return firstAvailableSize(pizza) ?? DEFAULT_SIZE_ID;
+  };
 
   // Acordeao exclusivo (pedido do usuario): abrir uma categoria fecha qualquer outra que
   // estivesse aberta, Bebidas incluso -- guarda so' o id da categoria aberta, nao um mapa
@@ -131,22 +147,27 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
                             {pizza.featured && <Badge className="shrink-0">Especial</Badge>}
                           </div>
                           <span className="font-serif text-sm text-primary shrink-0">
-                            {formatCurrency(priceForSize(pizza, sizeFor(pizza.id)))}
+                            {formatCurrency(priceForSize(pizza, sizeFor(pizza)) ?? 0)}
                           </span>
                         </div>
                         <p className="text-xs text-primary mt-0.5">{pizza.description}</p>
                         <div className="flex items-center justify-between mt-2 gap-1">
                           <div className="flex gap-1">
                             {pizzaSizes.map((size) => {
-                              const isSelected = sizeFor(pizza.id) === size.id;
+                              const isSelected = sizeFor(pizza) === size.id;
+                              const isAvailable = priceForSize(pizza, size.id) != null;
                               return (
                                 <button
                                   key={size.id}
-                                  onClick={() => setSelectedSizes((prev) => ({ ...prev, [pizza.id]: size.id }))}
+                                  disabled={!isAvailable}
+                                  title={isAvailable ? undefined : 'Tamanho não disponível para esta pizza'}
+                                  onClick={() => isAvailable && setSelectedSizes((prev) => ({ ...prev, [pizza.id]: size.id }))}
                                   className={`px-1.5 py-1 rounded border text-[9px] font-semibold uppercase tracking-wide transition-colors ${
-                                    isSelected
-                                      ? 'border-primary bg-primary/[.13] text-primary'
-                                      : 'border-border text-muted-foreground hover:text-foreground'
+                                    !isAvailable
+                                      ? 'border-border text-muted-foreground/40 cursor-not-allowed line-through'
+                                      : isSelected
+                                        ? 'border-primary bg-primary/[.13] text-primary'
+                                        : 'border-border text-muted-foreground hover:text-foreground'
                                   }`}
                                 >
                                   {SIZE_SHORT_LABEL[size.id]}
@@ -156,18 +177,20 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             <button
-                              onClick={() => onStartHalfHalf(pizza, sizeFor(pizza.id))}
+                              onClick={() => onStartHalfHalf(pizza, sizeFor(pizza))}
+                              disabled={firstAvailableSize(pizza) == null}
                               title="Meio a meio"
                               aria-label={`Meio a meio com ${pizza.name}`}
-                              className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                              className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               <HalfHalfIcon />
                             </button>
                             <button
-                              onClick={() => onAddSingleFlavor(pizza, sizeFor(pizza.id))}
+                              onClick={() => onAddSingleFlavor(pizza, sizeFor(pizza))}
+                              disabled={firstAvailableSize(pizza) == null}
                               title="Adicionar"
                               aria-label={`Adicionar ${pizza.name}`}
-                              className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"
+                              className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               <Plus className="w-4 h-4" />
                             </button>

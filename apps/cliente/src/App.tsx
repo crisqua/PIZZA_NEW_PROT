@@ -75,6 +75,11 @@ export default function App() {
 
   const handleAddSingleFlavor = (pizza: Pizza, size: PizzaSizeId) => {
     const price = priceForSize(pizza, size);
+    // Defesa em profundidade: o botao desse tamanho ja vem desabilitado no Menu.tsx
+    // quando o dono nao cadastrou preco pra ele, mas nunca confiar so' na UI -- um
+    // tamanho sem preco nunca pode virar item no carrinho (o backend rejeitaria no
+    // checkout mesmo assim, so' que tarde e com um erro confuso pro cliente).
+    if (price == null) return;
     const existingItem = cart.find(
       item => item.type === 'pizza' && item.pizza && item.pizza.size === size && sameFlavors(item.pizza.flavors, [pizza])
     );

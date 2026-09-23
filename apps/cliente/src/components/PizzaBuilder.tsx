@@ -27,10 +27,17 @@ export function PizzaBuilder({ initialPizza, initialSize, onBack, onAddToCart }:
   // Media dos precos DE CADA SABOR ja' no tamanho selecionado -- sem multiplicador
   // (revertido nesta sprint), mesma logica de OrdersService.insertOrder no backend
   // (precisa bater exatamente, o servidor recalcula do zero e nunca confia neste valor).
-  const calculatePrice = () => {
-    const avgPrice = selectedFlavors.reduce((sum, f) => sum + priceForSize(f, selectedSize.id), 0) / selectedFlavors.length;
+  // null quando QUALQUER sabor selecionado nao tem preco cadastrado pro tamanho atual --
+  // mesmo bug reportado pelo usuario no Menu.tsx, aqui agravado porque o tamanho e'
+  // compartilhado entre os 2 sabores (um so' precisar ter o preco nao basta).
+  const calculatePrice = (): number | null => {
+    const prices = selectedFlavors.map((f) => priceForSize(f, selectedSize.id));
+    if (prices.some((p) => p == null)) return null;
+    const avgPrice = (prices as number[]).reduce((sum, p) => sum + p, 0) / prices.length;
     return Math.round(avgPrice * 100) / 100;
   };
+
+  const currentPrice = calculatePrice();
 
   const handleAddFlavor = (pizza: Pizza) => {
     if (canAddFlavor && !selectedFlavors.find(f => f.id === pizza.id)) {
@@ -46,10 +53,11 @@ export function PizzaBuilder({ initialPizza, initialSize, onBack, onAddToCart }:
   };
 
   const handleAddToCart = () => {
+    if (currentPrice == null) return;
     onAddToCart({
       size: selectedSize.id,
       flavors: selectedFlavors,
-      price: calculatePrice(),
+      price: currentPrice,
     });
   };
 
@@ -57,6 +65,7 @@ export function PizzaBuilder({ initialPizza, initialSize, onBack, onAddToCart }:
     return (
       <FlavorSelector
         selectedFlavors={selectedFlavors}
+        selectedSizeId={selectedSize.id}
         onSelect={handleAddFlavor}
         onBack={() => setShowFlavorSelector(false)}
       />
@@ -87,23 +96,35 @@ export function PizzaBuilder({ initialPizza, initialSize, onBack, onAddToCart }:
           </button>
           {showSizePicker && (
             <div className="flex gap-2 mt-2">
-              {pizzaSizes.map((size) => (
-                <button
-                  key={size.id}
-                  onClick={() => {
-                    setSelectedSizeId(size.id);
-                    setShowSizePicker(false);
-                  }}
-                  className={`flex-1 py-2 px-1 rounded border text-center transition-colors ${
-                    selectedSize.id === size.id
-                      ? 'border-primary bg-primary/[.13] text-primary'
-                      : 'border-border text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <span className="block text-xs font-semibold uppercase tracking-wide">{size.name}</span>
-                  <span className="block text-[11px] mt-0.5">{size.slices} pedaços</span>
-                </button>
-              ))}
+              {pizzaSizes.map((size) => {
+                // Tamanho so' fica disponivel aqui se TODOS os sabores selecionados
+                // tiverem preco pra ele -- diferente do Menu.tsx (1 sabor so'), aqui
+                // o tamanho e' compartilhado, entao um sabor sem preco pro tamanho
+                // ja' inviabiliza a combinacao inteira.
+                const isAvailable = selectedFlavors.every((f) => priceForSize(f, size.id) != null);
+                return (
+                  <button
+                    key={size.id}
+                    disabled={!isAvailable}
+                    onClick={() => {
+                      if (!isAvailable) return;
+                      setSelectedSizeId(size.id);
+                      setShowSizePicker(false);
+                    }}
+                    title={!isAvailable ? 'Tamanho não disponível para os sabores selecionados' : undefined}
+                    className={`flex-1 py-2 px-1 rounded border text-center transition-colors ${
+                      !isAvailable
+                        ? 'border-border text-muted-foreground/40 cursor-not-allowed line-through'
+                        : selectedSize.id === size.id
+                        ? 'border-primary bg-primary/[.13] text-primary'
+                        : 'border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <span className="block text-xs font-semibold uppercase tracking-wide">{size.name}</span>
+                    <span className="block text-[11px] mt-0.5">{size.slices} pedaços</span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -169,7 +190,9 @@ export function PizzaBuilder({ initialPizza, initialSize, onBack, onAddToCart }:
             </div>
             <div className="flex items-end justify-between">
               <span className="font-semibold text-foreground">Total</span>
-              <span className="font-serif text-2xl text-primary font-semibold">{formatCurrency(calculatePrice())}</span>
+              <span className="font-serif text-2xl text-primary font-semibold">
+                {currentPrice != null ? formatCurrency(currentPrice) : 'Indisponível'}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -179,8 +202,9 @@ export function PizzaBuilder({ initialPizza, initialSize, onBack, onAddToCart }:
         <Button
           fullWidth
           size="lg"
+          disabled={currentPrice == null}
           onClick={handleAddToCart}
-          className="h-14 rounded-lg text-base font-semibold flex items-center justify-center gap-2"
+          className="h-14 rounded-lg text-base font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ShoppingBag className="w-5 h-5" />
           Adicionar ao Carrinho
@@ -190,8 +214,9 @@ export function PizzaBuilder({ initialPizza, initialSize, onBack, onAddToCart }:
   );
 }
 
-function FlavorSelector({ selectedFlavors, onSelect, onBack }: {
+function FlavorSelector({ selectedFlavors, selectedSizeId, onSelect, onBack }: {
   selectedFlavors: Pizza[];
+  selectedSizeId: PizzaSizeId;
   onSelect: (pizza: Pizza) => void;
   onBack: () => void;
 }) {
@@ -243,12 +268,18 @@ function FlavorSelector({ selectedFlavors, onSelect, onBack }: {
                 <div className="border-t border-border">
                   {pizzas.map((pizza) => {
                     const isSelected = selectedFlavors.find((f) => f.id === pizza.id);
+                    // Sabor sem preco pro tamanho ja' escolhido nao pode virar 2a
+                    // metade -- senao a combinacao criada e' invalida por desenho
+                    // (o preco medio dos dois sabores ficaria impossivel de calcular).
+                    const isPriceAvailable = priceForSize(pizza, selectedSizeId) != null;
+                    const isDisabled = Boolean(isSelected) || !isPriceAvailable;
                     return (
                       <div
                         key={pizza.id}
-                        onClick={() => onSelect(pizza)}
+                        onClick={() => { if (isPriceAvailable && !isSelected) onSelect(pizza); }}
+                        title={!isPriceAvailable ? 'Sem preço cadastrado para o tamanho selecionado' : undefined}
                         className={`flex items-center gap-3 px-4 py-3.5 border-b border-border last:border-b-0 transition-opacity ${
-                          isSelected ? 'opacity-40 pointer-events-none' : 'cursor-pointer hover:bg-background/40'
+                          isDisabled ? 'opacity-40 pointer-events-none' : 'cursor-pointer hover:bg-background/40'
                         }`}
                       >
                         <img
@@ -263,6 +294,9 @@ function FlavorSelector({ selectedFlavors, onSelect, onBack }: {
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5 truncate">{pizza.description}</p>
                           {isSelected && <Badge variant="success" className="mt-1.5">Selecionado</Badge>}
+                          {!isSelected && !isPriceAvailable && (
+                            <Badge variant="destructive" className="mt-1.5">Tamanho indisponível</Badge>
+                          )}
                         </div>
                       </div>
                     );

@@ -14,16 +14,20 @@ export interface Pizza {
   description: string;
   // Preco explicito por tamanho (revertido de preco-base x multiplicador) -- o que o
   // dono digita no cadastro e' exatamente o que o cliente paga, sem conta escondida.
-  priceBrotinho: number;
-  priceOitoPedacos: number;
-  priceDozePedacos: number;
+  // Nullable: o dono pode deixar um tamanho em branco de proposito (ex.: essa pizza nao
+  // sai em brotinho) -- ate a correcao deste bug o tipo mentia "sempre number", o que
+  // deixava o cliente selecionar/comprar um tamanho sem preco (backend so' barrava isso
+  // tarde, no checkout, com um erro confuso).
+  priceBrotinho: number | null;
+  priceOitoPedacos: number | null;
+  priceDozePedacos: number | null;
   category: string;
   featured?: boolean;
   image: string;
   ingredients: string[];
 }
 
-export function priceForSize(pizza: Pizza, size: PizzaSizeId): number {
+export function priceForSize(pizza: Pizza, size: PizzaSizeId): number | null {
   return size === 'brotinho' ? pizza.priceBrotinho : size === 'oito-pedacos' ? pizza.priceOitoPedacos : pizza.priceDozePedacos;
 }
 
