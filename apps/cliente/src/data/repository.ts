@@ -99,9 +99,15 @@ function toPizza(p: ProductResponse): Pizza {
     id: p.id,
     name: p.name,
     description: p.description,
-    priceBrotinho: p.priceBrotinho ?? 0,
-    priceOitoPedacos: p.priceOitoPedacos ?? 0,
-    priceDozePedacos: p.priceDozePedacos ?? 0,
+    // Preserva null (NAO "?? 0") -- null e' o dono deixando de vender esse tamanho de
+    // proposito; convertido pra 0 aqui, Menu.tsx/PizzaBuilder.tsx nunca veriam null e
+    // tratariam o tamanho como disponivel com preco zero (bug real encontrado em
+    // producao: essa coercao sobrevivia mesmo depois do tipo Pizza.priceX virar
+    // number|null em packages/types, porque esta era a UNICA funcao que ainda
+    // convertia o valor antes dele chegar em qualquer componente).
+    priceBrotinho: p.priceBrotinho,
+    priceOitoPedacos: p.priceOitoPedacos,
+    priceDozePedacos: p.priceDozePedacos,
     category: p.categoryId,
     featured: p.featured,
     image: p.image,
