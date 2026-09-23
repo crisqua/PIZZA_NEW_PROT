@@ -10,7 +10,7 @@ import { OrderConfirmation } from './components/OrderConfirmation';
 
 import { mockTenant, isAuthenticated, loadCatalog, tryRestoreSession, logout, verifyEmail, ApiOrder } from './data/repository';
 import { Pizza, Drink, CartItem, PizzaSizeId, priceForSize } from '@pizza/types';
-import { Button } from '@pizza/ui';
+import { Button, UpdateBanner } from '@pizza/ui';
 
 export default function App() {
   type ClientView = 'menu' | 'builder' | 'cart' | 'auth' | 'checkout' | 'confirmation';
@@ -253,6 +253,7 @@ export default function App() {
       className="relative"
       style={{ '--primary': mockTenant.primaryColor, '--accent': mockTenant.primaryColor } as CSSProperties}
     >
+      <UpdateBanner />
       {view === 'menu' && (
         <Menu
           key={authVersion}

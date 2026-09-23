@@ -6,4 +6,5 @@ export * from './Textarea';
 export * from './Switch';
 export * from './Sidebar';
 export * from './ImageWithFallback';
+export * from './UpdateBanner';
 export * from './lib/utils';

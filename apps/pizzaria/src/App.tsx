@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { UpdateBanner } from '@pizza/ui';
 
 import { Sidebar } from './components/Sidebar';
 import { Login } from './components/Login';
@@ -147,6 +148,7 @@ export default function App() {
 
   return (
     <div className="flex">
+      <UpdateBanner />
       <Sidebar
         activePage={activePage}
         onNavigate={handleNavigate}

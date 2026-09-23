@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { UpdateBanner } from '@pizza/ui';
 
 import { AdminSidebar } from './components/AdminSidebar';
 import { Login } from './components/Login';
@@ -92,6 +93,7 @@ export default function App() {
 
   return (
     <div className="flex">
+      <UpdateBanner />
       <AdminSidebar activePage={activePage} onNavigate={handleNavigate} onLogout={handleLogout} />
       <div className="flex-1 min-w-0 min-h-screen bg-background relative pt-14 lg:pt-0">
         {activePage === 'dashboard' && <AdminDashboard />}
