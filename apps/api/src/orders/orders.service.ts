@@ -230,25 +230,68 @@ export class OrdersService {
     return toOrderResponse(order);
   }
 
-  async list(tx: TenantTx, user: AuthenticatedUser, date?: string) {
+  async list(tx: TenantTx, user: AuthenticatedUser, filter: { date?: string; from?: string; to?: string } = {}) {
     // RLS so' isola por tenant -- dentro do tenant, cliente ve so' os proprios pedidos,
     // staff ve todos (precisa pro painel da Sprint 9). Filtro de aplicacao, sem precedente
     // direto (o mais proximo e' o self-service de UsersController, mas la' e' sempre 1 linha).
     //
-    // "date" (opcional) filtra createdAt pro dia inteiro em Sao Paulo -- usado por
-    // OrdersPanel.tsx, que faz polling a cada 10s e ANTES desta correcao baixava o
-    // historico inteiro do tenant em toda chamada (custo so' cresce com o tempo de uso,
-    // nunca estabiliza). SEM "date", o comportamento continua sem filtro de periodo --
-    // Dashboard.tsx ("Produtos Mais Vendidos") e Financial.tsx (periodos 7/30/90 dias)
-    // ainda dependem disso pra ver o historico completo; ainda nao migrados pra pedir so'
-    // o recorte que precisam (registrado como pendente no plano de desempenho).
-    const dateFilter = date ? saoPauloDayRange(date) : null;
+    // Tres modos, nessa ordem de prioridade (ver ListOrdersQueryDto):
+    // 1) "from"/"to" (instante exato) -- usado por Dashboard.tsx pro "dia de operacao" que
+    //    corta as 5h da manha em vez de meia-noite (pizzaria pode fechar depois da 0h).
+    // 2) "date" (dia-calendario em Sao Paulo) -- usado por OrdersPanel.tsx, que faz
+    //    polling a cada 10s e ANTES desta correcao baixava o historico inteiro do tenant
+    //    em toda chamada (custo so' cresce com o tempo de uso, nunca estabiliza).
+    // 3) nenhum dos dois -- sem filtro de periodo, comportamento legado ainda usado por
+    //    Financial.tsx ate ser migrado (registrado como pendente no plano de desempenho).
+    const createdAtRange = filter.from && filter.to
+      ? { gte: new Date(filter.from), lt: new Date(filter.to) }
+      : filter.date
+        ? (() => {
+            const { start, end } = saoPauloDayRange(filter.date!);
+            return { gte: start, lt: end };
+          })()
+        : null;
     const where: Prisma.OrderWhereInput = {
-      ...(dateFilter ? { createdAt: { gte: dateFilter.start, lt: dateFilter.end } } : {}),
+      ...(createdAtRange ? { createdAt: createdAtRange } : {}),
       ...(user.role === 'customer' ? { customerId: user.id } : {}),
     };
     const orders = await tx.order.findMany({ where, include: { items: true }, orderBy: { createdAt: 'desc' } });
     return orders.map(toOrderResponse);
+  }
+
+  // "Produtos Mais Vendidos (Mensal)" (Sprint 24, item 2b) -- ultimos 30 dias corridos
+  // (nao mes-calendario, decisao do usuario: evita ficar com pouco dado logo apos o dia
+  // 1). Soma no BANCO (groupBy), nao traz todo item de pedido pro cliente somar -- antes
+  // disso, Dashboard.tsx baixava o historico de pedidos inteiro so' pra esse calculo.
+  async topProducts(tx: TenantTx, limit: number) {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const grouped = await tx.orderItem.groupBy({
+      by: ['name'],
+      where: { order: { status: 'completed', createdAt: { gte: since } } },
+      _sum: { quantity: true },
+    });
+
+    // Prisma groupBy nao soma "quantity * unitPrice" direto -- unitPrice pode variar
+    // entre itens do mesmo produto (promocao, tamanho), entao a receita precisa ser
+    // somada linha a linha sobre os itens do periodo (poucos grupos/itens num mes, nao
+    // o historico inteiro).
+    const items = await tx.orderItem.findMany({
+      where: { order: { status: 'completed', createdAt: { gte: since } } },
+      select: { name: true, unitPrice: true, quantity: true },
+    });
+    const revenueByName = new Map<string, number>();
+    for (const item of items) {
+      revenueByName.set(item.name, (revenueByName.get(item.name) ?? 0) + item.unitPrice.toNumber() * item.quantity);
+    }
+
+    return grouped
+      .map((g) => ({
+        name: g.name,
+        sales: g._sum.quantity ?? 0,
+        revenue: Math.round((revenueByName.get(g.name) ?? 0) * 100) / 100,
+      }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, limit);
   }
 
   async findOne(tx: TenantTx, user: AuthenticatedUser, id: string) {

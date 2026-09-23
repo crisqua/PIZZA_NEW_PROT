@@ -58,8 +58,16 @@ export function Financial() {
   const prevToStr = toLocalDateStr(prevTo);
 
   useEffect(() => {
+    // "to" e' exclusivo (inicio do dia SEGUINTE a toStr) -- cobre o dia inteiro de toStr,
+    // nao so' 00h00 dele. Filtro agora e' feito no BACKEND (GET /orders?from=&to=): antes
+    // baixava o historico de pedidos inteiro do tenant a cada troca de periodo (7/30/90
+    // dias), so' pra filtrar de novo aqui em JS.
+    const fromInstant = new Date(`${fromStr}T00:00:00`);
+    const toInstant = new Date(`${toStr}T00:00:00`);
+    toInstant.setDate(toInstant.getDate() + 1);
+
     getExpenses().then(setExpenses).catch(() => undefined);
-    getOrders().then(setOrders).catch(() => undefined);
+    getOrders({ from: fromInstant.toISOString(), to: toInstant.toISOString() }).then(setOrders).catch(() => undefined);
     getRevenue(fromStr, toStr).then(setDailyRevenue).catch(() => undefined);
     getRevenue(prevFromStr, prevToStr)
       .then((prev) => setPrevRevenueTotal(prev.reduce((sum, d) => sum + d.revenue, 0)))
@@ -69,10 +77,8 @@ export function Financial() {
 
   const periodExpenses = expenses.filter((e) => e.date >= fromStr && e.date <= toStr);
   const prevPeriodExpenses = expenses.filter((e) => e.date >= prevFromStr && e.date <= prevToStr);
-  const periodOrders = orders.filter((o) => {
-    const d = toLocalDateStr(new Date(o.createdAt));
-    return d >= fromStr && d <= toStr;
-  });
+  // "orders" ja vem filtrado pro periodo do backend -- sem filtro client-side de novo.
+  const periodOrders = orders;
   const periodCompleted = periodOrders.filter((o) => o.status === 'completed');
 
   const periodRevenue = dailyRevenue.reduce((sum, d) => sum + d.revenue, 0);

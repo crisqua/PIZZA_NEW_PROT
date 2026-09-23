@@ -60,7 +60,16 @@ export class OrdersController {
   @Roles('customer', 'tenant_owner', 'tenant_staff')
   @UseInterceptors(TenantContextInterceptor)
   list(@CurrentUser() user: AuthenticatedUser, @CurrentTenant() tx: TenantTx, @Query() query: ListOrdersQueryDto) {
-    return this.ordersService.list(tx, user, query.date);
+    return this.ordersService.list(tx, user, query);
+  }
+
+  // Rota fixa "top-products" ANTES de ":id" -- Nest casa rotas na ordem declarada,
+  // senao "top-products" seria interpretado como um :id de pedido.
+  @Get('top-products')
+  @Roles('tenant_owner', 'tenant_staff')
+  @UseInterceptors(TenantContextInterceptor)
+  topProducts(@CurrentTenant() tx: TenantTx) {
+    return this.ordersService.topProducts(tx, 4);
   }
 
   @Get(':id')

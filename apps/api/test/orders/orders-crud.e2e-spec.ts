@@ -429,6 +429,123 @@ describe('/v1/orders', () => {
       .expect(400);
   });
 
+  // "from"/"to" (instante ISO exato) -- usado por Dashboard.tsx pro "dia de operacao"
+  // que corta as 5h da manha em vez de meia-noite. Testa exatamente esse caso: um
+  // pedido as 2h da manha (depois da meia-noite, antes do corte das 5h) precisa contar
+  // pro dia anterior quando from/to representam essa janela.
+  it('GET com ?from=&to= filtra por instante exato (dia de operacao cruzando meia-noite)', async () => {
+    const backdated = await request(app.getHttpServer())
+      .post('/v1/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ items: [{ productId: drinkA.id, quantity: 1 }], phone: '119999', address: 'Rua W', paymentMethod: 'dinheiro', cep: VALID_CEP })
+      .expect(201);
+    const backdatedId = backdated.body.id;
+
+    try {
+      // "Ontem as 2h da manha" -- depois da meia-noite, antes de um corte as 5h.
+      const yesterday2am = new Date();
+      yesterday2am.setDate(yesterday2am.getDate() - 1);
+      yesterday2am.setHours(2, 0, 0, 0);
+
+      await tenantContext.runInTenantContext(tenantA.tenantId, (tx) =>
+        tx.order.update({ where: { id: backdatedId }, data: { createdAt: yesterday2am } }),
+      );
+
+      // Janela "dia de operacao de ontem": [ontem 5h, hoje 5h) -- o pedido das 2h de
+      // ontem NAO deveria estar aqui (ainda nao passou pelo corte das 5h).
+      const cutoffYesterday = new Date();
+      cutoffYesterday.setDate(cutoffYesterday.getDate() - 1);
+      cutoffYesterday.setHours(5, 0, 0, 0);
+      const cutoffToday = new Date(cutoffYesterday.getTime() + 24 * 60 * 60 * 1000);
+
+      const wrongWindow = await request(app.getHttpServer())
+        .get(`/v1/orders?from=${cutoffYesterday.toISOString()}&to=${cutoffToday.toISOString()}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+      expect(wrongWindow.body.some((o: { id: string }) => o.id === backdatedId)).toBe(false);
+
+      // Janela "dia de operacao de anteontem": [anteontem 5h, ontem 5h) -- o pedido das
+      // 2h de ontem PERTENCE a essa janela (ainda e' "a mesma noite" antes do corte).
+      const cutoffTwoDaysAgo = new Date(cutoffYesterday.getTime() - 24 * 60 * 60 * 1000);
+      const rightWindow = await request(app.getHttpServer())
+        .get(`/v1/orders?from=${cutoffTwoDaysAgo.toISOString()}&to=${cutoffYesterday.toISOString()}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+      expect(rightWindow.body.some((o: { id: string }) => o.id === backdatedId)).toBe(true);
+    } finally {
+      await tenantContext.runInTenantContext(tenantA.tenantId, async (tx) => {
+        await tx.orderItem.deleteMany({ where: { orderId: backdatedId } });
+        await tx.order.delete({ where: { id: backdatedId } });
+      });
+    }
+  });
+
+  it('GET com ?from= em formato invalido retorna 400', async () => {
+    await request(app.getHttpServer())
+      .get('/v1/orders?from=not-a-date&to=2026-01-01T00:00:00.000Z')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(400);
+  });
+
+  // "Produtos Mais Vendidos (Mensal)" -- soma no banco (groupBy), so' pedidos completed
+  // dos ultimos 30 dias corridos.
+  it('GET /orders/top-products soma so pedidos completed dentro dos ultimos 30 dias', async () => {
+    const withinWindow = await request(app.getHttpServer())
+      .post('/v1/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ items: [{ productId: drinkA.id, quantity: 2 }], phone: '119999', address: 'Rua Top', paymentMethod: 'dinheiro', cep: VALID_CEP })
+      .expect(201);
+    // Fora da janela de 30 dias -- quantidade bem maior, se contasse dominaria a soma
+    // (prova que realmente foi excluido, nao so' coincidencia de numero pequeno).
+    const outsideWindow = await request(app.getHttpServer())
+      .post('/v1/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ items: [{ productId: drinkA.id, quantity: 50 }], phone: '119999', address: 'Rua Top', paymentMethod: 'dinheiro', cep: VALID_CEP })
+      .expect(201);
+    // Dentro da janela, mas nunca fica completed -- tambem nao deveria contar.
+    const neverCompleted = await request(app.getHttpServer())
+      .post('/v1/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ items: [{ productId: drinkA.id, quantity: 30 }], phone: '119999', address: 'Rua Top', paymentMethod: 'dinheiro', cep: VALID_CEP })
+      .expect(201);
+
+    const ids = [withinWindow.body.id, outsideWindow.body.id, neverCompleted.body.id];
+    try {
+      const oldDate = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+      await tenantContext.runInTenantContext(tenantA.tenantId, async (tx) => {
+        await tx.order.update({ where: { id: withinWindow.body.id }, data: { status: 'completed' } });
+        await tx.order.update({ where: { id: outsideWindow.body.id }, data: { status: 'completed', createdAt: oldDate } });
+        // neverCompleted fica 'pending' mesmo, de proposito.
+      });
+
+      const res = await request(app.getHttpServer())
+        .get('/v1/orders/top-products')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+
+      const refrigerante = res.body.find((p: { name: string }) => p.name === 'Refrigerante');
+      expect(refrigerante).toBeDefined();
+      expect(refrigerante.sales).toBe(2);
+      expect(refrigerante.revenue).toBeCloseTo(16, 2);
+    } finally {
+      await tenantContext.runInTenantContext(tenantA.tenantId, async (tx) => {
+        await tx.orderItem.deleteMany({ where: { orderId: { in: ids } } });
+        await tx.order.deleteMany({ where: { id: { in: ids } } });
+      });
+    }
+  });
+
+  it('GET /orders/top-products cliente nao pode (403)', async () => {
+    await request(app.getHttpServer())
+      .get('/v1/orders/top-products')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .expect(403);
+  });
+
   it('maquina de estados: transicao valida (200), invalida (400), cliente nao pode (403)', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/orders/${createdOrderId}/status`)

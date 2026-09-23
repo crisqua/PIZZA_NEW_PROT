@@ -83,7 +83,7 @@ export function OrdersPanel() {
           return;
         }
       }
-      getOrders(dateFilter)
+      getOrders({ date: dateFilter })
         .then((res) => { if (!cancelled) setOrders(res); })
         .catch(() => undefined);
     };

@@ -282,13 +282,32 @@ export interface ApiOrder {
   updatedAt: string;
 }
 
-// "date" ("YYYY-MM-DD") filtra no BACKEND agora -- sem isso, GET /orders trazia o
-// historico inteiro do tenant a cada chamada (OrdersPanel.tsx faz polling disso a cada
-// 10s). Omitir "date" usa "hoje" (fuso Sao Paulo) como default no backend, nunca "todos
-// os dias" -- ver OrdersService.list().
-export async function getOrders(date?: string): Promise<ApiOrder[]> {
-  const query = date ? `?date=${encodeURIComponent(date)}` : '';
-  return apiFetch<ApiOrder[]>(`/orders${query}`);
+// Filtro no BACKEND agora -- sem isso, GET /orders trazia o historico inteiro do tenant
+// a cada chamada. "date" (YYYY-MM-DD, dia-calendario em Sao Paulo) usado por
+// OrdersPanel.tsx (polling a cada 10s); "from"/"to" (instante ISO exato) usado por
+// Dashboard.tsx pro "dia de operacao" que corta as 5h da manha em vez de meia-noite.
+// Sem nenhum dos dois, mantem o comportamento legado (sem filtro) -- ainda usado por
+// Financial.tsx ate ser migrado.
+export async function getOrders(filter: { date?: string; from?: string; to?: string } = {}): Promise<ApiOrder[]> {
+  const params = new URLSearchParams();
+  if (filter.date) params.set('date', filter.date);
+  if (filter.from) params.set('from', filter.from);
+  if (filter.to) params.set('to', filter.to);
+  const query = params.toString();
+  return apiFetch<ApiOrder[]>(`/orders${query ? `?${query}` : ''}`);
+}
+
+export interface TopProduct {
+  name: string;
+  sales: number;
+  revenue: number;
+}
+
+// "Produtos Mais Vendidos (Mensal)" -- ultimos 30 dias corridos, somado no BACKEND (ver
+// OrdersService.topProducts). Antes disso, Dashboard.tsx baixava o historico de pedidos
+// inteiro so' pra esse calculo, sem limite de tempo.
+export async function getTopProducts(): Promise<TopProduct[]> {
+  return apiFetch<TopProduct[]>('/orders/top-products');
 }
 
 export async function updateOrderStatus(id: string, status: ApiOrder['status']): Promise<ApiOrder> {

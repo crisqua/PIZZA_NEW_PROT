@@ -2,14 +2,23 @@ import { useEffect, useState } from 'react';
 import { DollarSign, ShoppingBag, Users, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, formatCurrency } from '@pizza/ui';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { getOrders, getRevenue, ApiOrder, DailyRevenue } from '../data/repository';
+import { getOrders, getRevenue, getTopProducts, ApiOrder, DailyRevenue, TopProduct } from '../data/repository';
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-function isToday(iso: string): boolean {
-  const d = new Date(iso);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+// "Dia de operacao" corta as 5h da manha, nao meia-noite -- pizzaria pode abrir 18h e
+// fechar depois da 0h, dia-calendario puro cortaria uma mesma noite em dois dias. So'
+// aqui no Dashboard (decisao do usuario 2026-09-23): OrdersPanel.tsx e o orderCode
+// continuam em dia-calendario puro de proposito, nao propagar esse conceito pro resto
+// do sistema.
+const BUSINESS_DAY_CUTOFF_HOUR = 5;
+
+function businessDayRange(now: Date): { from: Date; to: Date } {
+  const cutoffToday = new Date(now);
+  cutoffToday.setHours(BUSINESS_DAY_CUTOFF_HOUR, 0, 0, 0);
+  const from = now >= cutoffToday ? cutoffToday : new Date(cutoffToday.getTime() - 24 * 60 * 60 * 1000);
+  const to = new Date(from.getTime() + 24 * 60 * 60 * 1000);
+  return { from, to };
 }
 
 // Antes desta sprint, TODO numero aqui era inventado (sem nenhum import de repository/
@@ -18,15 +27,20 @@ function isToday(iso: string): boolean {
 // anterior) foram removidos: nao ha' baseline real pra comparar sem inventar numero de
 // novo, melhor mostrar so' o valor real do que uma tendencia fabricada.
 export function Dashboard() {
+  // "orders" ja vem filtrado pro dia de operacao atual (ver businessDayRange acima) --
+  // backend faz o corte, nao precisa mais filtrar aqui.
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [revenue, setRevenue] = useState<DailyRevenue[]>([]);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
 
   useEffect(() => {
-    getOrders().then(setOrders).catch(() => undefined);
+    const { from, to } = businessDayRange(new Date());
+    getOrders({ from: from.toISOString(), to: to.toISOString() }).then(setOrders).catch(() => undefined);
     getRevenue().then(setRevenue).catch(() => undefined);
+    getTopProducts().then(setTopProducts).catch(() => undefined);
   }, []);
 
-  const todayOrders = orders.filter((o) => isToday(o.createdAt));
+  const todayOrders = orders;
   const todayCompleted = todayOrders.filter((o) => o.status === 'completed');
   const salesToday = todayCompleted.reduce((sum, o) => sum + o.total, 0);
   const averageTicket = todayCompleted.length > 0 ? salesToday / todayCompleted.length : 0;
@@ -57,21 +71,6 @@ export function Dashboard() {
   const ordersData = Array.from(ordersByHour.entries())
     .sort(([a], [b]) => a - b)
     .map(([hour, count]) => ({ hour: `${hour}h`, orders: count }));
-
-  const revenueByProduct = new Map<string, { sales: number; revenue: number }>();
-  for (const order of orders) {
-    if (order.status !== 'completed') continue;
-    for (const item of order.items) {
-      const entry = revenueByProduct.get(item.name) ?? { sales: 0, revenue: 0 };
-      entry.sales += item.quantity;
-      entry.revenue += item.unitPrice * item.quantity;
-      revenueByProduct.set(item.name, entry);
-    }
-  }
-  const topProducts = Array.from(revenueByProduct.entries())
-    .map(([name, data]) => ({ name, ...data }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 4);
 
   return (
     <div className="p-6 space-y-6">
@@ -146,7 +145,7 @@ export function Dashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Produtos Mais Vendidos</CardTitle>
+          <CardTitle>Produtos Mais Vendidos (Mensal)</CardTitle>
         </CardHeader>
         <CardContent>
           {topProducts.length > 0 ? (
