@@ -19,23 +19,27 @@ export class UpdateProductDto {
   @Max(99999999.99)
   price?: number;
 
+  // Nullable de proposito -- ver create-product.dto.ts: PATCH com priceBrotinho: null
+  // e' o jeito de o dono desmarcar um tamanho que ja tinha preco (deixar de vender
+  // brotinho, por exemplo). Regra "pelo menos 1 dos 3" e' checada em
+  // ProductsService.update sobre o estado final apos o merge, nao aqui no DTO.
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(99999999.99)
-  priceBrotinho?: number;
+  priceBrotinho?: number | null;
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(99999999.99)
-  priceOitoPedacos?: number;
+  priceOitoPedacos?: number | null;
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(99999999.99)
-  priceDozePedacos?: number;
+  priceDozePedacos?: number | null;
 
   @IsOptional()
   @IsString()

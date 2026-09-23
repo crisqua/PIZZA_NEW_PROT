@@ -222,10 +222,13 @@ export interface ProductInput {
   name: string;
   description?: string;
   type: ProductType;
-  // Pizza: os 3 obrigatorios abaixo. Bebida/sobremesa: price obrigatorio, size opcional.
-  priceBrotinho?: number;
-  priceOitoPedacos?: number;
-  priceDozePedacos?: number;
+  // Pizza: pelo menos 1 dos 3 precisa vir preenchido (regra checada no backend,
+  // ProductsService.assertPizzaHasAtLeastOnePrice) -- null e' o dono deixando de
+  // vender aquele tamanho de proposito, nao um dado faltando. Bebida/sobremesa:
+  // price obrigatorio, size opcional.
+  priceBrotinho?: number | null;
+  priceOitoPedacos?: number | null;
+  priceDozePedacos?: number | null;
   price?: number;
   size?: string;
   categoryId: string;

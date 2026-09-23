@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { toProductResponse } from '../common/product-response.util';
 import { TenantTx } from '../prisma/tenant-context.service';
@@ -14,6 +14,9 @@ export class ProductsService {
     // RLS (null), mesmo padrao de UsersController.findOne -- 404 limpo, nunca confirma se
     // o id existe ou nao (mesma resposta pra "nao existe" e "e' de outro tenant").
     await this.assertCategoryExists(tx, dto.categoryId);
+    if ((dto.type ?? 'pizza') === 'pizza') {
+      this.assertPizzaHasAtLeastOnePrice(dto.priceBrotinho, dto.priceOitoPedacos, dto.priceDozePedacos);
+    }
 
     try {
       const product = await tx.product.create({
@@ -69,6 +72,17 @@ export class ProductsService {
       await this.assertCategoryExists(tx, dto.categoryId);
     }
 
+    const effectiveType = dto.type ?? existing.type;
+    if (effectiveType === 'pizza') {
+      // Estado final apos o merge, nao so' o que veio no PATCH -- um PATCH que so' zera
+      // priceOitoPedacos precisa ver que priceBrotinho/priceDozePedacos ja existentes
+      // continuam valendo (ou nao) pra decidir se a pizza ficaria sem nenhum tamanho.
+      const finalBrotinho = dto.priceBrotinho !== undefined ? dto.priceBrotinho : existing.priceBrotinho;
+      const finalOitoPedacos = dto.priceOitoPedacos !== undefined ? dto.priceOitoPedacos : existing.priceOitoPedacos;
+      const finalDozePedacos = dto.priceDozePedacos !== undefined ? dto.priceDozePedacos : existing.priceDozePedacos;
+      this.assertPizzaHasAtLeastOnePrice(finalBrotinho, finalOitoPedacos, finalDozePedacos);
+    }
+
     try {
       const updated = await tx.product.update({ where: { id }, data: { ...dto } });
       return toProductResponse(updated);
@@ -92,6 +106,19 @@ export class ProductsService {
     const category = await tx.category.findUnique({ where: { id: categoryId } });
     if (!category) {
       throw new NotFoundException('Categoria nao encontrada.');
+    }
+  }
+
+  // Pizza sem nenhum tamanho precificado nunca poderia ser pedida (getPizzaSizePrice
+  // rejeitaria os 3 tamanhos) -- barra aqui, na escrita, em vez de deixar o cliente
+  // descobrir isso tarde no checkout.
+  private assertPizzaHasAtLeastOnePrice(
+    priceBrotinho: unknown,
+    priceOitoPedacos: unknown,
+    priceDozePedacos: unknown,
+  ): void {
+    if (priceBrotinho == null && priceOitoPedacos == null && priceDozePedacos == null) {
+      throw new BadRequestException('Cadastre o preco de pelo menos um tamanho.');
     }
   }
 }

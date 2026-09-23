@@ -27,23 +27,30 @@ export class CreateProductDto {
   @Max(99999999.99)
   price?: number;
 
+  // Nullable de proposito: o dono pode deixar um tamanho sem preco pra nao vender a
+  // pizza naquele tamanho (ex.: nao faz brotinho dessa) -- so' precisa ter pelo menos
+  // 1 dos 3 preenchido, checado em ProductsService.create (regra de negocio, nao de
+  // formato de campo, mesmo padrao ja' documentado no CNPJ pra esse tipo de validacao).
   @ValidateIf(isPizza)
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(99999999.99)
-  priceBrotinho?: number;
+  priceBrotinho?: number | null;
 
   @ValidateIf(isPizza)
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(99999999.99)
-  priceOitoPedacos?: number;
+  priceOitoPedacos?: number | null;
 
   @ValidateIf(isPizza)
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(99999999.99)
-  priceDozePedacos?: number;
+  priceDozePedacos?: number | null;
 
   // Variante em texto livre pra bebida/sobremesa (ex. "2L"/"Fatia") -- opcional mesmo
   // pros tipos que usam, pizza ignora.

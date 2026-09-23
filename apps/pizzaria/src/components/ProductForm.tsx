@@ -21,12 +21,29 @@ export interface ProductFormData {
   image: string;
 }
 
+// Payload final enviado pro backend (diferente de ProductFormData: os 3 precos de
+// pizza ja' resolvidos pra number|null -- null quando o dono deixou o tamanho em
+// branco de proposito, nao um valor "0,00" fingindo ser um preco real).
+export interface ProductSavePayload {
+  name: string;
+  description: string;
+  type: ProductType;
+  priceBrotinho: number | null;
+  priceOitoPedacos: number | null;
+  priceDozePedacos: number | null;
+  price: number | null;
+  size: string;
+  category: string;
+  ingredients: string[];
+  image: string;
+}
+
 interface ProductFormProps {
   product?: AdminProduct;
   categories: Category[];
   onCreateCategory: (name: string, type: ProductType) => Promise<Category>;
   onBack: () => void;
-  onSave: (data: ProductFormData) => Promise<void>;
+  onSave: (data: ProductSavePayload) => Promise<void>;
 }
 
 const TABS: { id: ProductType; label: string }[] = [
@@ -141,9 +158,12 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
     if (!formData.name.trim()) newErrors.name = 'Nome é obrigatório';
     if (!formData.description.trim()) newErrors.description = 'Descrição é obrigatória';
     if (isPizza) {
-      if (!formData.priceBrotinho) newErrors.priceBrotinho = 'Obrigatório';
-      if (!formData.priceOitoPedacos) newErrors.priceOitoPedacos = 'Obrigatório';
-      if (!formData.priceDozePedacos) newErrors.priceDozePedacos = 'Obrigatório';
+      // Cada tamanho e' individualmente opcional (deixar em branco = "nao vendo
+      // nesse tamanho") -- so' precisa ter pelo menos 1 preenchido, senao a pizza
+      // fica impossivel de pedir em qualquer tamanho (mesma regra que o backend
+      // tambem checa, ProductsService.assertPizzaHasAtLeastOnePrice).
+      const hasAnyPrice = Boolean(formData.priceBrotinho) || Boolean(formData.priceOitoPedacos) || Boolean(formData.priceDozePedacos);
+      if (!hasAnyPrice) newErrors.priceBrotinho = 'Cadastre o preço de pelo menos 1 tamanho';
     } else {
       if (!formData.price) newErrors.price = 'Obrigatório';
     }
@@ -170,10 +190,12 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
     try {
       await onSave({
         ...formData,
-        priceBrotinho: Number(formData.priceBrotinho) / 100,
-        priceOitoPedacos: Number(formData.priceOitoPedacos) / 100,
-        priceDozePedacos: Number(formData.priceDozePedacos) / 100,
-        price: Number(formData.price) / 100,
+        // Campo em branco vira null (nao "0,00") -- e' o sinal que o backend usa pra
+        // saber que o dono nao vende esse tamanho, diferente de um preco de verdade.
+        priceBrotinho: formData.priceBrotinho ? Number(formData.priceBrotinho) / 100 : null,
+        priceOitoPedacos: formData.priceOitoPedacos ? Number(formData.priceOitoPedacos) / 100 : null,
+        priceDozePedacos: formData.priceDozePedacos ? Number(formData.priceDozePedacos) / 100 : null,
+        price: formData.price ? Number(formData.price) / 100 : null,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Nao foi possivel salvar o produto.');
@@ -257,6 +279,9 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
               {isPizza ? (
                 <div>
                   <label className="block mb-2 text-sm font-medium">Preços por Tamanho</label>
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Deixe um tamanho em branco para não vendê-lo nesta pizza.
+                  </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <Input
                       label="Brotinho"

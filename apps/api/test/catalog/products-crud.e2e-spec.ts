@@ -81,6 +81,59 @@ describe('/v1/catalog/products', () => {
       .expect(400);
   });
 
+  it('pizza com apenas 1 dos 3 tamanhos precificado retorna 201 (dono nao quer vender nos outros)', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/v1/catalog/products')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ name: 'So Grande', priceDozePedacos: 55, categoryId: categoryA.id })
+      .expect(201);
+
+    expect(res.body.priceDozePedacos).toBe(55);
+    expect(res.body.priceBrotinho).toBeNull();
+    expect(res.body.priceOitoPedacos).toBeNull();
+    await cleanupProduct(tenantContext, tenantA.tenantId, res.body.id);
+  });
+
+  it('PATCH pode zerar um tamanho pra null (dono deixa de vender aquele tamanho)', async () => {
+    const seeded = await seedProduct(tenantContext, tenantA.tenantId, categoryA.id, {
+      name: 'Zerando Tamanho',
+      priceBrotinho: 20,
+      priceOitoPedacos: 35,
+      priceDozePedacos: 50,
+    });
+    try {
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/catalog/products/${seeded.id}`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ priceBrotinho: null })
+        .expect(200);
+      expect(res.body.priceBrotinho).toBeNull();
+      expect(res.body.priceOitoPedacos).toBe(35);
+    } finally {
+      await cleanupProduct(tenantContext, tenantA.tenantId, seeded.id);
+    }
+  });
+
+  it('PATCH que deixaria a pizza sem nenhum tamanho precificado retorna 400', async () => {
+    // Criado via API (nao seedProduct -- o helper de seed sempre preenche os 3 tamanhos
+    // com um default, nao da' pra pedir "so' 1 preenchido" por ele) com apenas 1 dos 3
+    // tamanhos, exatamente o caso que este PATCH tentaria zerar.
+    const created = await request(app.getHttpServer())
+      .post('/v1/catalog/products')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ name: 'So Um Tamanho', priceOitoPedacos: 40, categoryId: categoryA.id })
+      .expect(201);
+    try {
+      await request(app.getHttpServer())
+        .patch(`/v1/catalog/products/${created.body.id}`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ priceOitoPedacos: null })
+        .expect(400);
+    } finally {
+      await cleanupProduct(tenantContext, tenantA.tenantId, created.body.id);
+    }
+  });
+
   it('categoryId inexistente retorna 404', async () => {
     await request(app.getHttpServer())
       .post('/v1/catalog/products')

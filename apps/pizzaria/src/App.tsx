@@ -4,7 +4,7 @@ import { Sidebar } from './components/Sidebar';
 import { Login } from './components/Login';
 import { Dashboard as RestaurantDashboard } from './components/Dashboard';
 import { MenuManagement } from './components/MenuManagement';
-import { ProductForm, ProductFormData } from './components/ProductForm';
+import { ProductForm, ProductSavePayload } from './components/ProductForm';
 import { OrdersPanel } from './components/OrdersPanel';
 import { Settings } from './components/Settings';
 import { Inventory } from './components/Inventory';
@@ -96,15 +96,15 @@ export default function App() {
     setActivePage('product-form');
   };
 
-  const handleSaveProduct = async (data: ProductFormData) => {
+  const handleSaveProduct = async (data: ProductSavePayload) => {
     const input = data.type === 'pizza'
       ? {
           name: data.name,
           description: data.description,
           type: data.type,
-          priceBrotinho: Number(data.priceBrotinho),
-          priceOitoPedacos: Number(data.priceOitoPedacos),
-          priceDozePedacos: Number(data.priceDozePedacos),
+          priceBrotinho: data.priceBrotinho,
+          priceOitoPedacos: data.priceOitoPedacos,
+          priceDozePedacos: data.priceDozePedacos,
           categoryId: data.category,
           image: data.image,
           ingredients: data.ingredients,
@@ -113,7 +113,7 @@ export default function App() {
           name: data.name,
           description: data.description,
           type: data.type,
-          price: Number(data.price),
+          price: data.price ?? undefined,
           size: data.size,
           categoryId: data.category,
           image: data.image,
