@@ -55,11 +55,14 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
     pizzaSizes.find((s) => priceForSize(pizza, s.id) != null)?.id ?? null;
 
   // So' usa o tamanho selecionado se ele realmente tiver preco pra essa pizza -- senao
-  // cai pro primeiro disponivel (nunca trava numa selecao antiga que deixou de valer,
-  // por exemplo se o dono removeu o preco de um tamanho ja selecionado antes).
+  // cai pro padrao (8 pedacos, DEFAULT_SIZE_ID -- pedido do usuario, todo card deve abrir
+  // com o mesmo tamanho selecionado, nao "o primeiro que o dono cadastrou"), e so' foge do
+  // padrao se ELE MESMO nao tiver preco (nunca trava numa selecao antiga que deixou de
+  // valer, por exemplo se o dono removeu o preco de um tamanho ja selecionado antes).
   const sizeFor = (pizza: Pizza): PizzaSizeId => {
     const selected = selectedSizes[pizza.id];
     if (selected && priceForSize(pizza, selected) != null) return selected;
+    if (priceForSize(pizza, DEFAULT_SIZE_ID) != null) return DEFAULT_SIZE_ID;
     return firstAvailableSize(pizza) ?? DEFAULT_SIZE_ID;
   };
 
