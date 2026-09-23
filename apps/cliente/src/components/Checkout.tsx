@@ -12,6 +12,39 @@ interface CheckoutProps {
   onSuccess: (order: ApiOrder) => void;
 }
 
+// Sprint 25: sessionStorage em vez de so' useRef -- sobrevive a um F5/reabrir a aba.
+// Achado real de producao: sob concorrencia (varios clientes da mesma pizzaria pedindo
+// ao mesmo tempo), alguns pedidos que pareciam ter falhado (erro pro cliente) na
+// verdade ja tinham sido criados no banco -- se o cliente so' clicasse "tentar de novo"
+// na MESMA tela, o backend devolvia o pedido ja existente (nunca duplicava, ver
+// OrdersService.create). Mas se o cliente atualizasse a pagina depois do erro, o
+// useRef sozinho perdia a chave e um novo pedido genuinamente duplicado era criado, sem
+// o cliente saber que o primeiro ja tinha ido pra pizzaria. Limpa a chave so' depois de
+// um pedido confirmado com sucesso -- o proximo checkout gera uma chave nova.
+const IDEMPOTENCY_KEY_STORAGE_KEY = 'checkout:idempotencyKey';
+
+function getOrCreateIdempotencyKey(): string {
+  try {
+    const stored = sessionStorage.getItem(IDEMPOTENCY_KEY_STORAGE_KEY);
+    if (stored) return stored;
+    const fresh = crypto.randomUUID();
+    sessionStorage.setItem(IDEMPOTENCY_KEY_STORAGE_KEY, fresh);
+    return fresh;
+  } catch {
+    // sessionStorage indisponivel (modo privado restrito, quota, etc.) -- cai pro
+    // comportamento antigo (so' sobrevive a um retry na mesma sessao do componente).
+    return crypto.randomUUID();
+  }
+}
+
+function clearIdempotencyKey(): void {
+  try {
+    sessionStorage.removeItem(IDEMPOTENCY_KEY_STORAGE_KEY);
+  } catch {
+    // noop -- mesma tolerancia de getOrCreateIdempotencyKey acima.
+  }
+}
+
 export interface CheckoutData {
   name: string;
   phone: string;
@@ -44,10 +77,11 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  // Gerada UMA vez ao montar a tela e reusada em qualquer reenvio (ex.: falha de rede) --
-  // e' isso que garante que um retry do MESMO checkout nunca vira um segundo pedido
-  // (arquitetura secao 3.2 item 7 / OrdersService.create no backend).
-  const idempotencyKeyRef = useRef(crypto.randomUUID());
+  // Reusada em qualquer reenvio (ex.: falha de rede, ou atualizar a pagina -- ver
+  // getOrCreateIdempotencyKey acima) -- e' isso que garante que um retry do MESMO
+  // checkout nunca vira um segundo pedido (arquitetura secao 3.2 item 7 /
+  // OrdersService.create no backend).
+  const idempotencyKeyRef = useRef(getOrCreateIdempotencyKey());
 
   const paymentMethods = [
     { id: 'dinheiro', name: 'Dinheiro', icon: Banknote },
@@ -103,6 +137,7 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
         city: formData.city,
         state: formData.state,
       }).catch(() => undefined);
+      clearIdempotencyKey();
       onSuccess(order);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Nao foi possivel enviar o pedido. Tente novamente.');

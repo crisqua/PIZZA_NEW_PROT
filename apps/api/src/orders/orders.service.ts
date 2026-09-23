@@ -98,9 +98,26 @@ export class OrdersService {
     // produto de outro tenant ja e' invisivel sob RLS (null), 404 limpo antes de gastar um
     // insert. A FK composta (fk_order_item_tenant_matches_product) e' o backstop de banco
     // pro mesmo caso (teste obrigatorio: arquitetura secao 3.2 item 5).
+    //
+    // Sprint 25: busca TODOS os produtos do pedido numa unica query (nao mais 1-2 por
+    // item, uma de cada vez, num loop com await) -- pedido de N itens agora faz 1 ida ao
+    // banco pra produtos, nao ate 2N. Achado real de producao: pedidos simultaneos da
+    // mesma pizzaria ficavam presos na fila do pool de conexao (Render Free), e alguns
+    // "erros" reportados ao cliente na verdade ja tinham criado o pedido no banco --
+    // encurtar o tempo que a transacao fica aberta reduz diretamente essa janela.
+    const requestedProductIds = new Set<string>();
+    for (const itemDto of dto.items) {
+      requestedProductIds.add(itemDto.productId);
+      if (itemDto.secondProductId) {
+        requestedProductIds.add(itemDto.secondProductId);
+      }
+    }
+    const products = await tx.product.findMany({ where: { id: { in: [...requestedProductIds] } } });
+    const productById = new Map(products.map((p) => [p.id, p]));
+
     const items: ComputedItem[] = [];
     for (const itemDto of dto.items) {
-      const product = await tx.product.findUnique({ where: { id: itemDto.productId } });
+      const product = productById.get(itemDto.productId);
       if (!product) {
         throw new NotFoundException('Produto nao encontrado.');
       }
@@ -136,7 +153,7 @@ export class OrdersService {
       const size = itemDto.size as PizzaSizeId;
 
       if (itemDto.secondProductId) {
-        const secondProduct = await tx.product.findUnique({ where: { id: itemDto.secondProductId } });
+        const secondProduct = productById.get(itemDto.secondProductId);
         if (!secondProduct) {
           throw new NotFoundException('Segundo sabor nao encontrado.');
         }
