@@ -28,6 +28,14 @@ export default function App() {
   // So' pra forcar um re-render depois de logout()/login bem sucedido -- isAuthenticated()
   // le um token em memoria (data/api.ts), nao e' estado reativo por si so'.
   const [authVersion, setAuthVersion] = useState(0);
+  // Mesma tecnica, motivo diferente: mockPizzas/mockCategories/etc (repository.ts) sao
+  // lidos como bindings de modulo sincronos por Menu.tsx, nunca via props/estado -- uma
+  // aba que fica aberta enquanto o dono edita um produto em outra sessao nunca saberia
+  // disso sozinha (loadCatalog so' roda uma vez, no boot). Bug real reportado pelo
+  // usuario: preco alterado no painel nao refletia no Menu ja aberto do cliente, so'
+  // corrigia com F5. Incrementar isso remonta <Menu/> (key abaixo) depois de recarregar
+  // o catalogo, forcando o componente a ler os bindings ja atualizados.
+  const [catalogVersion, setCatalogVersion] = useState(0);
   // Confirmacao de e-mail (Sprint 14) -- unico ponto de entrada por URL deste app (SPA
   // sem router). null = nao veio de um link de confirmacao (boot normal).
   const [emailVerifyResult, setEmailVerifyResult] = useState<'ok' | 'error' | null>(null);
@@ -55,6 +63,29 @@ export default function App() {
       setReady(true);
     })();
   }, []);
+
+  // Recarrega o catalogo quando a aba volta a ficar em foco -- so' depois do boot
+  // (ready), pra nao competir com o loadCatalog() inicial acima. Sem intervalo fixo de
+  // proposito (diferente do UpdateBanner, que checa versao de app): um catalogo inteiro
+  // e' mais pesado que um arquivo de versao, e refazer isso a cada poucos minutos
+  // enquanto o cliente esta navegando ativamente resetaria a selecao de tamanho/
+  // categoria aberta a toa. "Aba voltou do segundo plano" e' o sinal certo -- mesmo
+  // momento em que um F5 manual ja teria corrigido o problema mesmo.
+  useEffect(() => {
+    if (!ready) return;
+    const onVisibility = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        await loadCatalog();
+        setCatalogVersion((v) => v + 1);
+      } catch {
+        // Falha de rede pontual -- mantem o catalogo antigo em memoria em vez de
+        // quebrar a tela (mesmo raciocinio de fail-open ja usado em CepLookupService).
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [ready]);
 
   const handleStartHalfHalf = (pizza: Pizza, size: PizzaSizeId) => {
     setSelectedPizza(pizza);
@@ -256,7 +287,7 @@ export default function App() {
       <UpdateBanner />
       {view === 'menu' && (
         <Menu
-          key={authVersion}
+          key={`${authVersion}-${catalogVersion}`}
           onAddSingleFlavor={handleAddSingleFlavor}
           onStartHalfHalf={handleStartHalfHalf}
           onAddDrink={handleAddDrink}
