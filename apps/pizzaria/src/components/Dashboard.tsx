@@ -99,7 +99,7 @@ export function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Vendas da Semana</CardTitle>
           </CardHeader>
@@ -119,7 +119,7 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Pedidos por Hora (hoje)</CardTitle>
           </CardHeader>
