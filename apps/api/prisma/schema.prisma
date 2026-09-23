@@ -359,6 +359,11 @@ model Order {
   @@unique([tenantId, orderCode])
   @@index([tenantId, customerId], map: "idx_orders_tenant_customer")
   @@index([tenantId, status], map: "idx_orders_tenant_status")
+  // GET /orders?date= (Sprint 24) filtra por tenant_id + createdAt -- sem este indice, o
+  // Postgres nao tem como pular direto pro intervalo de data pedido, precisa varrer mais
+  // linhas do tenant do que o necessario conforme o historico cresce (exatamente o cenario
+  // de "500 pedidos" que motivou essa correcao).
+  @@index([tenantId, createdAt], map: "idx_orders_tenant_created_at")
   @@map("orders")
 }
 
