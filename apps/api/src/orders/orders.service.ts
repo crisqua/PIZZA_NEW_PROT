@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { CepLookupResult, CepLookupService } from '../common/cep-lookup.service';
 import { toOrderResponse } from '../common/order-response.util';
 import { getPizzaSizePrice } from '../common/product-price.util';
+import { dateKeySaoPaulo, saoPauloDayRange } from '../common/sao-paulo-date.util';
 import { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { TenantContextService, TenantTx } from '../prisma/tenant-context.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -10,20 +11,6 @@ import { assertValidTransition } from './order-status';
 import { PizzaSizeId } from './pizza-size';
 
 const PRISMA_UNIQUE_CONSTRAINT = 'P2002';
-
-// "AAAAMMDD" no fuso de Brasilia, nao UTC -- um pedido feito as 21h horario local ainda
-// e' "hoje" pro dono da pizzaria, mesmo ja sendo o dia seguinte em UTC. Projeto assume
-// Brasil inteiro num fuso so' (nenhuma tela tem seletor de fuso por tenant).
-function dateKeySaoPaulo(date: Date): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-  const byType = Object.fromEntries(parts.map((p) => [p.type, p.value]));
-  return `${byType.year}${byType.month}${byType.day}`;
-}
 
 interface ComputedItem {
   tenantId: string;
@@ -243,11 +230,23 @@ export class OrdersService {
     return toOrderResponse(order);
   }
 
-  async list(tx: TenantTx, user: AuthenticatedUser) {
+  async list(tx: TenantTx, user: AuthenticatedUser, date?: string) {
     // RLS so' isola por tenant -- dentro do tenant, cliente ve so' os proprios pedidos,
     // staff ve todos (precisa pro painel da Sprint 9). Filtro de aplicacao, sem precedente
     // direto (o mais proximo e' o self-service de UsersController, mas la' e' sempre 1 linha).
-    const where = user.role === 'customer' ? { customerId: user.id } : {};
+    //
+    // "date" (opcional) filtra createdAt pro dia inteiro em Sao Paulo -- usado por
+    // OrdersPanel.tsx, que faz polling a cada 10s e ANTES desta correcao baixava o
+    // historico inteiro do tenant em toda chamada (custo so' cresce com o tempo de uso,
+    // nunca estabiliza). SEM "date", o comportamento continua sem filtro de periodo --
+    // Dashboard.tsx ("Produtos Mais Vendidos") e Financial.tsx (periodos 7/30/90 dias)
+    // ainda dependem disso pra ver o historico completo; ainda nao migrados pra pedir so'
+    // o recorte que precisam (registrado como pendente no plano de desempenho).
+    const dateFilter = date ? saoPauloDayRange(date) : null;
+    const where: Prisma.OrderWhereInput = {
+      ...(dateFilter ? { createdAt: { gte: dateFilter.start, lt: dateFilter.end } } : {}),
+      ...(user.role === 'customer' ? { customerId: user.id } : {}),
+    };
     const orders = await tx.order.findMany({ where, include: { items: true }, orderBy: { createdAt: 'desc' } });
     return orders.map(toOrderResponse);
   }

@@ -10,6 +10,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
@@ -22,6 +23,7 @@ import { CurrentTenant } from '../common/decorators/tenant.decorator';
 import { TenantContextInterceptor } from '../common/interceptors/tenant-context.interceptor';
 import { TenantTx } from '../prisma/tenant-context.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrdersService } from './orders.service';
 
@@ -57,8 +59,8 @@ export class OrdersController {
   @Get()
   @Roles('customer', 'tenant_owner', 'tenant_staff')
   @UseInterceptors(TenantContextInterceptor)
-  list(@CurrentUser() user: AuthenticatedUser, @CurrentTenant() tx: TenantTx) {
-    return this.ordersService.list(tx, user);
+  list(@CurrentUser() user: AuthenticatedUser, @CurrentTenant() tx: TenantTx, @Query() query: ListOrdersQueryDto) {
+    return this.ordersService.list(tx, user, query.date);
   }
 
   @Get(':id')

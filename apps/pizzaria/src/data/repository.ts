@@ -282,8 +282,13 @@ export interface ApiOrder {
   updatedAt: string;
 }
 
-export async function getOrders(): Promise<ApiOrder[]> {
-  return apiFetch<ApiOrder[]>('/orders');
+// "date" ("YYYY-MM-DD") filtra no BACKEND agora -- sem isso, GET /orders trazia o
+// historico inteiro do tenant a cada chamada (OrdersPanel.tsx faz polling disso a cada
+// 10s). Omitir "date" usa "hoje" (fuso Sao Paulo) como default no backend, nunca "todos
+// os dias" -- ver OrdersService.list().
+export async function getOrders(date?: string): Promise<ApiOrder[]> {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return apiFetch<ApiOrder[]>(`/orders${query}`);
 }
 
 export async function updateOrderStatus(id: string, status: ApiOrder['status']): Promise<ApiOrder> {

@@ -45,9 +45,10 @@ export function OrdersPanel() {
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [statusFilter, setStatusFilter] = useState<ApiOrder['status'] | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  // Painel abre so' com os pedidos de HOJE por padrao (pedido do usuario: sem isso, a
-  // lista so' cresce, misturando pedidos de semanas atras com os de agora) -- string
-  // vazia = "todos os dias", pra quem precisar achar um pedido antigo pela busca.
+  // Painel sempre mostra UM dia por vez (hoje por padrao) -- o filtro agora e' aplicado
+  // no BACKEND (ver getOrders/OrdersService.list), nao mais baixando o historico inteiro
+  // e filtrando aqui. Sem opcao de "ver todos os dias" de proposito: pra historico longo
+  // existe o Financeiro, este painel e' operacional (pedidos de hoje/de um dia especifico).
   const [dateFilter, setDateFilter] = useState(toLocalDateStr(new Date()));
   // Sem isso, o painel deixado aberto passando da meia-noite trava no dia em que foi
   // aberto pra sempre (dateFilter e' um snapshot de useState, so' o dado poll(a) --
@@ -72,12 +73,17 @@ export function OrdersPanel() {
     const poll = () => {
       // Re-sincroniza "hoje" a cada tick, so' se o usuario nunca mexeu no filtro de
       // data manualmente -- vira o dia sozinho sem precisar de F5, sem sobrescrever
-      // uma data escolhida de proposito.
+      // uma data escolhida de proposito. setDateFilter aqui dispara o efeito de novo
+      // (dateFilter esta nas deps abaixo) e a busca com a data nova acontece nesse
+      // proximo disparo, nao nesta mesma tick.
       if (!dateFilterTouchedRef.current) {
         const today = toLocalDateStr(new Date());
-        setDateFilter((prev) => (prev === today ? prev : today));
+        if (dateFilter !== today) {
+          setDateFilter(today);
+          return;
+        }
       }
-      getOrders()
+      getOrders(dateFilter)
         .then((res) => { if (!cancelled) setOrders(res); })
         .catch(() => undefined);
     };
@@ -87,7 +93,7 @@ export function OrdersPanel() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [dateFilter]);
 
   const toggleItems = (orderId: string) => {
     setOpenItemsIds((prev) => {
@@ -112,13 +118,9 @@ export function OrdersPanel() {
     }
   };
 
-  // Base pro resto: respeita so' a data (nunca status/busca) -- e' o que os cards de KPI
-  // e o contador "Todos" abaixo usam. Sem isso eles mostravam contagem de TODO o
-  // historico mesmo com o filtro de "hoje" ativo (mesmo bug de fundo do dateFilter
-  // travado, so' que nos contadores em vez da lista).
-  const dateFilteredOrders = orders.filter((o) => !dateFilter || toLocalDateStr(new Date(o.createdAt)) === dateFilter);
-
-  const filteredOrders = dateFilteredOrders.filter((o) => {
+  // "orders" ja vem filtrado por dia do backend (ver useEffect acima) -- so' resta
+  // aplicar status/busca aqui, sem re-filtrar por data em JS.
+  const filteredOrders = orders.filter((o) => {
     const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
     const term = searchTerm.trim().toLowerCase();
     const matchesSearch = !term || o.customerName.toLowerCase().includes(term) || o.orderCode.includes(term);
@@ -126,10 +128,10 @@ export function OrdersPanel() {
   });
 
   const ordersByStatus = {
-    pending: dateFilteredOrders.filter(o => o.status === 'pending').length,
-    preparing: dateFilteredOrders.filter(o => o.status === 'preparing').length,
-    delivery: dateFilteredOrders.filter(o => o.status === 'delivery').length,
-    completed: dateFilteredOrders.filter(o => o.status === 'completed').length,
+    pending: orders.filter(o => o.status === 'pending').length,
+    preparing: orders.filter(o => o.status === 'preparing').length,
+    delivery: orders.filter(o => o.status === 'delivery').length,
+    completed: orders.filter(o => o.status === 'completed').length,
   };
 
   return (
@@ -180,18 +182,6 @@ export function OrdersPanel() {
             className="pl-10"
           />
         </div>
-        {dateFilter && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              dateFilterTouchedRef.current = true;
-              setDateFilter('');
-            }}
-            className="shrink-0"
-          >
-            Ver todos os dias
-          </Button>
-        )}
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-2">
@@ -203,7 +193,7 @@ export function OrdersPanel() {
               : 'bg-muted text-muted-foreground hover:bg-muted/80'
           }`}
         >
-          Todos ({dateFilteredOrders.length})
+          Todos ({orders.length})
         </button>
         {Object.entries(statusConfig).map(([status, config]) => (
           <button
@@ -338,9 +328,7 @@ export function OrdersPanel() {
           <p className="text-muted-foreground">
             {dateFilter === toLocalDateStr(new Date()) && statusFilter === 'all'
               ? 'Aguardando novos pedidos...'
-              : dateFilter
-                ? 'Nenhum pedido nesta data'
-                : 'Nenhum pedido com este status'}
+              : 'Nenhum pedido encontrado para esse dia/status'}
           </p>
         </div>
       )}

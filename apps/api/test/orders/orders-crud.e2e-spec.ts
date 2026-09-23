@@ -368,6 +368,67 @@ describe('/v1/orders', () => {
     expect(staffList.body.some((o: { id: string }) => o.id === createdOrderId)).toBe(true);
   });
 
+  // Sprint "OrdersPanel sem historico inteiro" (2026-09-22): GET /orders?date= filtra
+  // createdAt pro dia inteiro em Sao Paulo. Pedido proprio (nao createdOrderId) pra nao
+  // interferir nos testes de maquina de estados abaixo, que dependem de createdOrderId
+  // continuar com o status/timing original.
+  it('GET com ?date= filtra pro dia (fuso Sao Paulo), sem date mantem o historico completo', async () => {
+    const backdated = await request(app.getHttpServer())
+      .post('/v1/orders')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ items: [{ productId: drinkA.id, quantity: 1 }], phone: '119999', address: 'Rua Y', paymentMethod: 'dinheiro', cep: VALID_CEP })
+      .expect(201);
+    const backdatedId = backdated.body.id;
+
+    try {
+      // Chaves de data calculadas no fuso de Sao Paulo (nao Date.now()/toISOString() cru)
+      // -- entre 21h e 23h59 em Brasilia o dia UTC ja virou mas o dia em Sao Paulo nao
+      // (bug real encontrado rodando este teste: "ontem" calculado como "now - 24h" em
+      // UTC caiu no MESMO dia de Sao Paulo que "hoje" nesse horario). "Ontem" e' derivado
+      // de todayKey (meio-dia SP de hoje menos 24h), nunca de Date.now() bruto.
+      const spDateKey = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(d);
+      const todayKey = spDateKey(new Date());
+      const todayNoonSp = new Date(`${todayKey}T12:00:00.000-03:00`);
+      const yesterday = new Date(todayNoonSp.getTime() - 24 * 60 * 60 * 1000);
+      const yesterdayKey = spDateKey(yesterday);
+
+      await tenantContext.runInTenantContext(tenantA.tenantId, (tx) =>
+        tx.order.update({ where: { id: backdatedId }, data: { createdAt: yesterday } }),
+      );
+
+      const todayList = await request(app.getHttpServer())
+        .get(`/v1/orders?date=${todayKey}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+      expect(todayList.body.some((o: { id: string }) => o.id === backdatedId)).toBe(false);
+
+      const yesterdayList = await request(app.getHttpServer())
+        .get(`/v1/orders?date=${yesterdayKey}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+      expect(yesterdayList.body.some((o: { id: string }) => o.id === backdatedId)).toBe(true);
+
+      const fullList = await request(app.getHttpServer())
+        .get('/v1/orders')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+      expect(fullList.body.some((o: { id: string }) => o.id === backdatedId)).toBe(true);
+    } finally {
+      await tenantContext.runInTenantContext(tenantA.tenantId, async (tx) => {
+        await tx.orderItem.deleteMany({ where: { orderId: backdatedId } });
+        await tx.order.delete({ where: { id: backdatedId } });
+      });
+    }
+  });
+
+  it('GET com ?date= em formato invalido retorna 400', async () => {
+    await request(app.getHttpServer())
+      .get('/v1/orders?date=not-a-date')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(400);
+  });
+
   it('maquina de estados: transicao valida (200), invalida (400), cliente nao pode (403)', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/orders/${createdOrderId}/status`)
