@@ -31,24 +31,27 @@ export class CreateProductDto {
   // pizza naquele tamanho (ex.: nao faz brotinho dessa) -- so' precisa ter pelo menos
   // 1 dos 3 preenchido, checado em ProductsService.create (regra de negocio, nao de
   // formato de campo, mesmo padrao ja' documentado no CNPJ pra esse tipo de validacao).
+  // Min(0.01), nao Min(0): R$0,00 nao e' um preco de verdade, ninguem vende pizza de
+  // graca -- bug real encontrado em producao onde um tamanho zerado (dado de antes desta
+  // sprint) ficava selecionavel pro cliente igual a um tamanho com preco de verdade.
   @ValidateIf(isPizza)
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @Min(0.01)
   @Max(99999999.99)
   priceBrotinho?: number | null;
 
   @ValidateIf(isPizza)
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @Min(0.01)
   @Max(99999999.99)
   priceOitoPedacos?: number | null;
 
   @ValidateIf(isPizza)
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @Min(0.01)
   @Max(99999999.99)
   priceDozePedacos?: number | null;
 

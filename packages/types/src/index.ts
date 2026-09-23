@@ -27,8 +27,15 @@ export interface Pizza {
   ingredients: string[];
 }
 
+// R$0,00 conta como "sem preco cadastrado" (nao null, mas equivalente) -- dado real
+// encontrado em producao: tamanhos zerados de antes desta correcao existir (quando o
+// dono era obrigado a preencher algo). Ninguem vende pizza de graca, entao trata os dois
+// casos igual em todo lugar que consome esta funcao (Menu.tsx, PizzaBuilder.tsx, App.tsx
+// ja checam so' "!= null" -- resolver aqui, uma vez so', em vez de duplicar ">0" em cada
+// call site).
 export function priceForSize(pizza: Pizza, size: PizzaSizeId): number | null {
-  return size === 'brotinho' ? pizza.priceBrotinho : size === 'oito-pedacos' ? pizza.priceOitoPedacos : pizza.priceDozePedacos;
+  const raw = size === 'brotinho' ? pizza.priceBrotinho : size === 'oito-pedacos' ? pizza.priceOitoPedacos : pizza.priceDozePedacos;
+  return raw != null && raw > 0 ? raw : null;
 }
 
 export interface Drink {

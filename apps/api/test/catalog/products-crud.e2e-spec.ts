@@ -94,6 +94,27 @@ describe('/v1/catalog/products', () => {
     await cleanupProduct(tenantContext, tenantA.tenantId, res.body.id);
   });
 
+  it('pizza com priceBrotinho: 0 retorna 400 (R$0,00 nao e preco valido, so null)', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/catalog/products')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ name: 'Preco Zero', priceBrotinho: 0, priceOitoPedacos: 40, categoryId: categoryA.id })
+      .expect(400);
+  });
+
+  it('PATCH com priceOitoPedacos: 0 retorna 400 (mesma regra do create)', async () => {
+    const seeded = await seedProduct(tenantContext, tenantA.tenantId, categoryA.id, { name: 'Pra Zerar Via Patch', priceOitoPedacos: 35 });
+    try {
+      await request(app.getHttpServer())
+        .patch(`/v1/catalog/products/${seeded.id}`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ priceOitoPedacos: 0 })
+        .expect(400);
+    } finally {
+      await cleanupProduct(tenantContext, tenantA.tenantId, seeded.id);
+    }
+  });
+
   it('PATCH pode zerar um tamanho pra null (dono deixa de vender aquele tamanho)', async () => {
     const seeded = await seedProduct(tenantContext, tenantA.tenantId, categoryA.id, {
       name: 'Zerando Tamanho',

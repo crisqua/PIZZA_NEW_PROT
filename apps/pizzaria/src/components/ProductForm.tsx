@@ -161,8 +161,11 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
       // Cada tamanho e' individualmente opcional (deixar em branco = "nao vendo
       // nesse tamanho") -- so' precisa ter pelo menos 1 preenchido, senao a pizza
       // fica impossivel de pedir em qualquer tamanho (mesma regra que o backend
-      // tambem checa, ProductsService.assertPizzaHasAtLeastOnePrice).
-      const hasAnyPrice = Boolean(formData.priceBrotinho) || Boolean(formData.priceOitoPedacos) || Boolean(formData.priceDozePedacos);
+      // tambem checa, ProductsService.assertPizzaHasAtLeastOnePrice). Number(...) > 0,
+      // nao Boolean(...): "0"/"000" digitado no campo e' string nao-vazia (truthy),
+      // mas representa R$0,00 -- nao e' um preco de verdade, precisa contar como
+      // "em branco" tambem (mesmo raciocinio do backend, Min(0.01) em vez de Min(0)).
+      const hasAnyPrice = Number(formData.priceBrotinho) > 0 || Number(formData.priceOitoPedacos) > 0 || Number(formData.priceDozePedacos) > 0;
       if (!hasAnyPrice) newErrors.priceBrotinho = 'Cadastre o preço de pelo menos 1 tamanho';
     } else {
       if (!formData.price) newErrors.price = 'Obrigatório';
@@ -190,11 +193,13 @@ export function ProductForm({ product, categories, onCreateCategory, onBack, onS
     try {
       await onSave({
         ...formData,
-        // Campo em branco vira null (nao "0,00") -- e' o sinal que o backend usa pra
-        // saber que o dono nao vende esse tamanho, diferente de um preco de verdade.
-        priceBrotinho: formData.priceBrotinho ? Number(formData.priceBrotinho) / 100 : null,
-        priceOitoPedacos: formData.priceOitoPedacos ? Number(formData.priceOitoPedacos) / 100 : null,
-        priceDozePedacos: formData.priceDozePedacos ? Number(formData.priceDozePedacos) / 100 : null,
+        // Campo em branco (ou "0"/"000" digitado, que e' string truthy mas vale
+        // R$0,00) vira null -- e' o sinal que o backend usa pra saber que o dono nao
+        // vende esse tamanho, diferente de um preco de verdade (mesmo raciocinio do
+        // hasAnyPrice em validate() acima).
+        priceBrotinho: Number(formData.priceBrotinho) > 0 ? Number(formData.priceBrotinho) / 100 : null,
+        priceOitoPedacos: Number(formData.priceOitoPedacos) > 0 ? Number(formData.priceOitoPedacos) / 100 : null,
+        priceDozePedacos: Number(formData.priceDozePedacos) > 0 ? Number(formData.priceDozePedacos) / 100 : null,
         price: formData.price ? Number(formData.price) / 100 : null,
       });
     } catch (err) {

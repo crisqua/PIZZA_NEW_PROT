@@ -16,8 +16,13 @@ export function getPizzaSizePrice(product: Product, size: PizzaSizeId): number {
         ? product.priceOitoPedacos
         : product.priceDozePedacos;
 
-  if (field == null) {
+  // <= 0, nao so' null: R$0,00 nao e' um preco de verdade (ninguem vende pizza de
+  // graca) -- o DTO ja rejeita 0 na entrada (catalog/dto/*-product.dto.ts,
+  // Min(0.01)), mas produtos criados antes dessa regra existir podem ter um 0
+  // residual gravado, e essa e' a ultima linha de defesa antes de cobrar o cliente.
+  const value = field == null ? null : field.toNumber();
+  if (value == null || value <= 0) {
     throw new BadRequestException(`Produto "${product.name}" nao tem preco cadastrado para o tamanho "${size}".`);
   }
-  return field.toNumber();
+  return value;
 }

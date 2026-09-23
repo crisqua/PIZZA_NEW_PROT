@@ -129,6 +129,34 @@ describe('/v1/orders', () => {
       .expect(400);
   });
 
+  it('pedido de tamanho com preco 0 (residual, nao null) retorna 400 -- R$0,00 nao e preco valido', async () => {
+    // Seedado direto no banco (bypassa o DTO de catalogo, que ja rejeita 0 na entrada
+    // desde a correcao -- este teste cobre dado LEGADO que ainda pode existir de antes
+    // dessa regra, exatamente o bug real encontrado em producao).
+    const pizzaZerada = await seedProduct(tenantContext, tenantA.tenantId, categoryA.id, {
+      name: 'Pizza Zerada',
+      priceBrotinho: 0,
+      priceOitoPedacos: 40,
+      priceDozePedacos: 55,
+    });
+    try {
+      await request(app.getHttpServer())
+        .post('/v1/orders')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .set('Idempotency-Key', randomUUID())
+        .send({
+          items: [{ productId: pizzaZerada.id, size: 'brotinho', quantity: 1 }],
+          phone: '119999',
+          address: 'Rua X',
+          paymentMethod: 'dinheiro',
+          cep: VALID_CEP,
+        })
+        .expect(400);
+    } finally {
+      await cleanupProduct(tenantContext, tenantA.tenantId, pizzaZerada.id);
+    }
+  });
+
   it('bebida com secondProductId retorna 400', async () => {
     await request(app.getHttpServer())
       .post('/v1/orders')

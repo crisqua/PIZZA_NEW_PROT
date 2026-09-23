@@ -111,14 +111,23 @@ export class ProductsService {
 
   // Pizza sem nenhum tamanho precificado nunca poderia ser pedida (getPizzaSizePrice
   // rejeitaria os 3 tamanhos) -- barra aqui, na escrita, em vez de deixar o cliente
-  // descobrir isso tarde no checkout.
+  // descobrir isso tarde no checkout. R$0,00 conta como "sem preco" (hasRealPrice),
+  // nao so' null -- DTO ja rejeita 0 de entrada (Min(0.01)), mas o estado FINAL no
+  // update() mistura com dado ja existente no banco, que pode ter um 0 residual de
+  // antes dessa regra existir (bug real encontrado em producao).
   private assertPizzaHasAtLeastOnePrice(
-    priceBrotinho: unknown,
-    priceOitoPedacos: unknown,
-    priceDozePedacos: unknown,
+    priceBrotinho: number | Prisma.Decimal | null | undefined,
+    priceOitoPedacos: number | Prisma.Decimal | null | undefined,
+    priceDozePedacos: number | Prisma.Decimal | null | undefined,
   ): void {
-    if (priceBrotinho == null && priceOitoPedacos == null && priceDozePedacos == null) {
+    if (!this.hasRealPrice(priceBrotinho) && !this.hasRealPrice(priceOitoPedacos) && !this.hasRealPrice(priceDozePedacos)) {
       throw new BadRequestException('Cadastre o preco de pelo menos um tamanho.');
     }
+  }
+
+  private hasRealPrice(value: number | Prisma.Decimal | null | undefined): boolean {
+    if (value == null) return false;
+    const num = typeof value === 'number' ? value : value.toNumber();
+    return num > 0;
   }
 }
