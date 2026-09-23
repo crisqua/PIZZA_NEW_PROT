@@ -23,12 +23,23 @@ function formatElapsed(order: ApiOrder): string {
 }
 
 // "YYYY-MM-DD" no fuso LOCAL do navegador (nao UTC) -- combina com o que um <input
-// type="date"> le'/escreve e com o que o usuario entende por "hoje".
+// type="date"> le'/escreve.
 function toLocalDateStr(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+// "Dia de operacao" corta as 5h da manha, nao meia-noite -- mesmo conceito e mesmo corte
+// do orderCode/backend (ver sao-paulo-date.util.ts): um pedido as 00h20 ainda pertence
+// "a noite de ontem". Usado pro valor padrao do filtro e pra saber quando virar o dia
+// sozinho (ver poll() abaixo) -- sem isso o painel viraria o dia a meia-noite enquanto o
+// backend (e o orderCode) so' consideram "amanha" a partir das 5h, uma inconsistencia
+// nova que apareceria bem nesse ponto.
+const BUSINESS_DAY_CUTOFF_HOUR = 5;
+function toBusinessDayStr(date: Date): string {
+  return toLocalDateStr(new Date(date.getTime() - BUSINESS_DAY_CUTOFF_HOUR * 60 * 60 * 1000));
 }
 
 // Pedido criado pelo cliente precisa aparecer aqui "em tempo habil" (DoD da Sprint 9) --
@@ -49,7 +60,7 @@ export function OrdersPanel() {
   // no BACKEND (ver getOrders/OrdersService.list), nao mais baixando o historico inteiro
   // e filtrando aqui. Sem opcao de "ver todos os dias" de proposito: pra historico longo
   // existe o Financeiro, este painel e' operacional (pedidos de hoje/de um dia especifico).
-  const [dateFilter, setDateFilter] = useState(toLocalDateStr(new Date()));
+  const [dateFilter, setDateFilter] = useState(toBusinessDayStr(new Date()));
   // Sem isso, o painel deixado aberto passando da meia-noite trava no dia em que foi
   // aberto pra sempre (dateFilter e' um snapshot de useState, so' o dado poll(a) --
   // bug real reportado pelo usuario). Ref (nao state) porque so' o poll() abaixo le,
@@ -77,7 +88,7 @@ export function OrdersPanel() {
       // (dateFilter esta nas deps abaixo) e a busca com a data nova acontece nesse
       // proximo disparo, nao nesta mesma tick.
       if (!dateFilterTouchedRef.current) {
-        const today = toLocalDateStr(new Date());
+        const today = toBusinessDayStr(new Date());
         if (dateFilter !== today) {
           setDateFilter(today);
           return;
@@ -326,7 +337,7 @@ export function OrdersPanel() {
           <Inbox className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">Nenhum pedido encontrado</h3>
           <p className="text-muted-foreground">
-            {dateFilter === toLocalDateStr(new Date()) && statusFilter === 'all'
+            {dateFilter === toBusinessDayStr(new Date()) && statusFilter === 'all'
               ? 'Aguardando novos pedidos...'
               : 'Nenhum pedido encontrado para esse dia/status'}
           </p>

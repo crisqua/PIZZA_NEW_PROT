@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { CepLookupResult, CepLookupService } from '../common/cep-lookup.service';
 import { toOrderResponse } from '../common/order-response.util';
 import { getPizzaSizePrice } from '../common/product-price.util';
-import { dateKeySaoPaulo, saoPauloDayRange } from '../common/sao-paulo-date.util';
+import { businessDayKeySaoPaulo, businessDayRangeSaoPaulo } from '../common/sao-paulo-date.util';
 import { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { TenantContextService, TenantTx } from '../prisma/tenant-context.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -186,12 +186,14 @@ export class OrdersService {
     const deliveryFee = tenant.deliveryFee.toNumber();
     const total = round2(items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) + deliveryFee);
 
-    // Codigo sequencial por tenant+dia ("AAAAMMDDNNNN") -- INSERT...ON CONFLICT DO
-    // UPDATE...RETURNING numa linha so' e' atomico por si (Postgres serializa a
-    // concorrencia na propria constraint), dentro da MESMA transacao do pedido: nao
-    // precisa de lock manual nem de uma segunda transacao pra evitar corrida entre
-    // dois pedidos simultaneos do mesmo tenant no mesmo dia.
-    const dateKey = dateKeySaoPaulo(new Date());
+    // Codigo sequencial por tenant+dia de OPERACAO ("AAAAMMDDNNNN", corte as 5h da manha
+    // -- ver sao-paulo-date.util.ts: pedido as 00h20 conta pro dia anterior, mesma noite
+    // de expediente). INSERT...ON CONFLICT DO UPDATE...RETURNING numa linha so' e'
+    // atomico por si (Postgres serializa a concorrencia na propria constraint), dentro
+    // da MESMA transacao do pedido: nao precisa de lock manual nem de uma segunda
+    // transacao pra evitar corrida entre dois pedidos simultaneos do mesmo tenant no
+    // mesmo dia de operacao.
+    const dateKey = businessDayKeySaoPaulo(new Date());
     const [{ last_seq: lastSeq }] = await tx.$queryRaw<{ last_seq: number }[]>`
       INSERT INTO order_daily_sequences (tenant_id, date_key, last_seq)
       VALUES (${tenantId}::uuid, ${dateKey}, 1)
@@ -236,18 +238,21 @@ export class OrdersService {
     // direto (o mais proximo e' o self-service de UsersController, mas la' e' sempre 1 linha).
     //
     // Tres modos, nessa ordem de prioridade (ver ListOrdersQueryDto):
-    // 1) "from"/"to" (instante exato) -- usado por Dashboard.tsx pro "dia de operacao" que
-    //    corta as 5h da manha em vez de meia-noite (pizzaria pode fechar depois da 0h).
-    // 2) "date" (dia-calendario em Sao Paulo) -- usado por OrdersPanel.tsx, que faz
-    //    polling a cada 10s e ANTES desta correcao baixava o historico inteiro do tenant
-    //    em toda chamada (custo so' cresce com o tempo de uso, nunca estabiliza).
+    // 1) "from"/"to" (instante exato) -- usado por Dashboard.tsx pro "dia de operacao"
+    //    (corte as 5h, calculado la' mesmo em from/to explicito).
+    // 2) "date" (dia de OPERACAO em Sao Paulo, corte as 5h -- mesmo conceito e mesma
+    //    funcao usada por businessDayKeySaoPaulo no orderCode, de proposito: um pedido
+    //    com orderCode "22..." PRECISA aparecer filtrando por "22" aqui, os dois tem que
+    //    concordar entre si) -- usado por OrdersPanel.tsx, que faz polling a cada 10s e
+    //    ANTES desta correcao baixava o historico inteiro do tenant em toda chamada
+    //    (custo so' cresce com o tempo de uso, nunca estabiliza).
     // 3) nenhum dos dois -- sem filtro de periodo, comportamento legado ainda usado por
     //    Financial.tsx ate ser migrado (registrado como pendente no plano de desempenho).
     const createdAtRange = filter.from && filter.to
       ? { gte: new Date(filter.from), lt: new Date(filter.to) }
       : filter.date
         ? (() => {
-            const { start, end } = saoPauloDayRange(filter.date!);
+            const { start, end } = businessDayRangeSaoPaulo(filter.date!);
             return { gte: start, lt: end };
           })()
         : null;
