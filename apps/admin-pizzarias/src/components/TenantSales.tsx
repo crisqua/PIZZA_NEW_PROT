@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Download, ShoppingBag, DollarSign, Users, TrendingUp, TrendingDown } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, formatCurrency } from '@pizza/ui';
@@ -10,11 +10,18 @@ import { getTenantSales, TenantSales as TenantSalesData } from '../data/reposito
 // pizzarias somado" nao e' util no dia a dia, prefere consultar uma pizzaria por vez,
 // sob demanda. Cada troca de selecao dispara 1 unica consulta (GET /admin/tenants/:id/
 // sales) -- tempo constante, nao cresce com o total de pizzarias na plataforma.
-const TENANT_LIST_PAGE_SIZE = 500;
+//
+// Lista de pizzarias do seletor busca no SERVIDOR (mesmo padrao de debounce de
+// TenantsManagement.tsx), nao carrega tudo de uma vez: ListTenantsQueryDto.pageSize
+// tem @Max(100) -- pedir mais que isso (chegou a ser tentado com 500) da' 400 da API,
+// que ficava engolido pelo .catch() e a lista aparecia vazia sem erro nenhum visivel.
+const TENANT_LIST_PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 400;
 
 export function TenantSales() {
   const [tenants, setTenants] = useState<AdminTenant[]>([]);
   const [filter, setFilter] = useState('');
+  const [debouncedFilter, setDebouncedFilter] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [sales, setSales] = useState<TenantSalesData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -22,14 +29,17 @@ export function TenantSales() {
   const [exportedAt, setExportedAt] = useState<string | null>(null);
 
   useEffect(() => {
-    getTenants({ pageSize: TENANT_LIST_PAGE_SIZE }).then((res) => setTenants(res.items)).catch(() => undefined);
-  }, []);
+    const timer = setTimeout(() => setDebouncedFilter(filter), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [filter]);
 
-  const filteredTenants = useMemo(() => {
-    const term = filter.trim().toLowerCase();
-    if (!term) return tenants;
-    return tenants.filter((t) => t.name.toLowerCase().includes(term) || t.subdomain.toLowerCase().includes(term));
-  }, [tenants, filter]);
+  useEffect(() => {
+    getTenants({ pageSize: TENANT_LIST_PAGE_SIZE, search: debouncedFilter || undefined })
+      .then((res) => setTenants(res.items))
+      .catch(() => setTenants([]));
+  }, [debouncedFilter]);
+
+  const filteredTenants = tenants;
 
   useEffect(() => {
     if (!selectedId) {
