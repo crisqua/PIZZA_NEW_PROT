@@ -94,6 +94,16 @@ export class OrdersService {
       throw new NotFoundException();
     }
 
+    // Requisito nao-negociavel (Sprint 27): loja fechada = ZERO pedido criado, sem
+    // excecao. Le "isOpen" fresco do banco (mesmo tx, mesma transacao) -- nunca um
+    // valor em cache/frontend -- entao fecha a janela de corrida por construcao: se o
+    // dono fechar a loja no meio de um checkout em andamento, a proxima requisicao
+    // (inclusive um retry da idempotencia, que refaz este mesmo insertOrder) ja ve
+    // isOpen=false e e' barrada aqui, antes de qualquer produto/preco ser processado.
+    if (!tenant.isOpen) {
+      throw new BadRequestException('Esta pizzaria esta fechada no momento.');
+    }
+
     // Pre-validacao RLS-scoped de cada produto -- mesmo padrao de ProductsService.create:
     // produto de outro tenant ja e' invisivel sob RLS (null), 404 limpo antes de gastar um
     // insert. A FK composta (fk_order_item_tenant_matches_product) e' o backstop de banco

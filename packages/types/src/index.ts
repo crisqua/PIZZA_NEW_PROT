@@ -101,6 +101,17 @@ export interface Tenant {
   cnpj?: string | null;
   active?: boolean;
   planId?: string;
+  // Loja aberta/fechada (Sprint 27) -- interruptor manual, controlado pelo dono no
+  // Dashboard/Pedidos (apps/pizzaria) e refletido de verdade no Menu do cliente
+  // (apps/cliente). Horario/tempo de entrega sao so' informativos (nao fecham a loja
+  // sozinhos fora do horario cadastrado). Opcionais pelo mesmo motivo de cnpj/active
+  // acima -- nem todo lugar que monta um Tenant parcial (ex. admin-pizzarias) precisa
+  // deles.
+  isOpen?: boolean;
+  openingTime?: string | null;
+  closingTime?: string | null;
+  openWeekends?: boolean;
+  estimatedDeliveryMinutes?: number | null;
 }
 
 export type PlanCode = 'trial' | 'pro' | 'enterprise';

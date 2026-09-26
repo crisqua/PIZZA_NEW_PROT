@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Clock, MapPin, Phone, Search, Calendar, ChevronDown, ChevronUp, CheckCircle2, XCircle, Inbox } from 'lucide-react';
 import { getOrders, updateOrderStatus, ApiOrder } from '../data/repository';
 import { Card, Badge, Button, Input, formatCurrency, formatTime, formatPhone } from '@pizza/ui';
+import { StoreOpenToggle } from './StoreOpenToggle';
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -147,9 +148,12 @@ export function OrdersPanel() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold mb-1">Pedidos em Tempo Real</h1>
-        <p className="text-muted-foreground">Gerencie todos os pedidos da sua pizzaria</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold mb-1">Pedidos em Tempo Real</h1>
+          <p className="text-muted-foreground">Gerencie todos os pedidos da sua pizzaria</p>
+        </div>
+        <StoreOpenToggle />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

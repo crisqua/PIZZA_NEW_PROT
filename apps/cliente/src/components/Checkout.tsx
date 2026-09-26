@@ -282,6 +282,11 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
         </Card>
 
         {submitError && <p className="text-sm text-destructive text-center">{submitError}</p>}
+        {!mockTenant.isOpen && (
+          <p className="text-sm text-destructive text-center font-medium">
+            Esta pizzaria está fechada no momento. Não é possível confirmar o pedido agora.
+          </p>
+        )}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border p-4">
@@ -289,11 +294,11 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
           fullWidth
           size="lg"
           onClick={handleSubmit}
-          disabled={submitting}
-          className="h-14 rounded-lg text-base font-semibold"
+          disabled={submitting || !mockTenant.isOpen}
+          className="h-14 rounded-lg text-base font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <CheckCircle2 className="w-5 h-5" />
-          {submitting ? 'Enviando...' : 'Confirmar Pedido'}
+          {submitting ? 'Enviando...' : mockTenant.isOpen ? 'Confirmar Pedido' : 'Pizzaria Fechada'}
         </Button>
       </div>
     </div>

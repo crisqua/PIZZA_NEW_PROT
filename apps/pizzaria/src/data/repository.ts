@@ -26,6 +26,11 @@ export let mockTenant: Tenant = {
   minOrder: 0,
   cnpj: null,
   active: true,
+  isOpen: true,
+  openingTime: null,
+  closingTime: null,
+  openWeekends: true,
+  estimatedDeliveryMinutes: null,
 };
 export let mockCategories: Category[] = [];
 export let mockPizzas: AdminProduct[] = [];
@@ -99,6 +104,11 @@ interface TenantResponse {
   deliveryFee: number;
   minOrder: number;
   cnpj: string | null;
+  isOpen: boolean;
+  openingTime: string | null;
+  closingTime: string | null;
+  openWeekends: boolean;
+  estimatedDeliveryMinutes: number | null;
 }
 
 interface SubscriptionResponse {
@@ -174,6 +184,11 @@ export async function loadDashboardBoot(): Promise<void> {
     minOrder: tenant.minOrder,
     cnpj: tenant.cnpj,
     active: tenant.active,
+    isOpen: tenant.isOpen,
+    openingTime: tenant.openingTime,
+    closingTime: tenant.closingTime,
+    openWeekends: tenant.openWeekends,
+    estimatedDeliveryMinutes: tenant.estimatedDeliveryMinutes,
   };
   unlockedModules = subscription.modules;
   mockCategories = categories;
@@ -183,9 +198,12 @@ export async function loadDashboardBoot(): Promise<void> {
 // ---------- Configurações da loja (Settings.tsx) ----------
 
 // So' os campos que "tenants" de fato tem no schema (name/phone/address/primaryColor/
-// logo/deliveryFee/minOrder) -- Settings.tsx tinha varios outros inputs (descricao,
-// e-mail, cidade/estado, horario de funcionamento, tempo de entrega estimado) que nunca
-// tiveram coluna nenhuma no banco, sao mock puro ainda (nao mexidos aqui).
+// logo/deliveryFee/minOrder/isOpen/openingTime/closingTime/openWeekends/
+// estimatedDeliveryMinutes) -- Settings.tsx ainda tem alguns outros inputs (descricao,
+// e-mail, cidade/estado) que nunca tiveram coluna nenhuma no banco, continuam mock puro
+// (nao mexidos aqui). Horario de funcionamento e tempo de entrega estimado DEIXARAM de
+// ser mock nesta sprint (27) -- ver StoreOpenToggle.tsx pro interruptor manual de
+// aberto/fechado, campo separado de horario (so' informativo, nao fecha a loja sozinho).
 export interface TenantSettingsInput {
   name?: string;
   phone?: string;
@@ -195,6 +213,11 @@ export interface TenantSettingsInput {
   deliveryFee?: number;
   minOrder?: number;
   cnpj?: string;
+  isOpen?: boolean;
+  openingTime?: string;
+  closingTime?: string;
+  openWeekends?: boolean;
+  estimatedDeliveryMinutes?: number;
 }
 
 export async function updateTenantSettings(input: TenantSettingsInput): Promise<void> {
@@ -209,7 +232,20 @@ export async function updateTenantSettings(input: TenantSettingsInput): Promise<
     deliveryFee: tenant.deliveryFee,
     minOrder: tenant.minOrder,
     cnpj: tenant.cnpj,
+    isOpen: tenant.isOpen,
+    openingTime: tenant.openingTime,
+    closingTime: tenant.closingTime,
+    openWeekends: tenant.openWeekends,
+    estimatedDeliveryMinutes: tenant.estimatedDeliveryMinutes,
   };
+}
+
+// Interruptor manual de loja aberta/fechada (Sprint 27) -- chamado pelo StoreOpenToggle
+// em Dashboard.tsx e OrdersPanel.tsx, os 2 lugares pedidos. So' um PATCH normal
+// reaproveitando updateTenantSettings (mesmo binding de mockTenant.isOpen atualizado
+// pra ambas as telas lerem o valor mais recente ao montar).
+export async function toggleStoreOpen(isOpen: boolean): Promise<void> {
+  await updateTenantSettings({ isOpen });
 }
 
 // ---------- Categorias / Produtos (CRUD real) ----------

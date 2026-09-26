@@ -116,4 +116,33 @@ describe('Idempotencia na criacao de pedido (POST /v1/orders)', () => {
 
     expect(resA.body.id).not.toBe(resB.body.id);
   });
+
+  it('loja fechada + mesma Idempotency-Key: retry NUNCA "reaproveita" um pedido -- as duas tentativas dao 400, zero pedido criado (Sprint 27)', async () => {
+    await prisma.tenant.update({ where: { id: tenant.tenantId }, data: { isOpen: false } });
+    try {
+      const idempotencyKey = randomUUID();
+      const payload = { items: [{ productId: drink.id, quantity: 1 }], phone: '119999', address: 'Rua Idem', paymentMethod: 'dinheiro', cep: '01310-100' };
+
+      const resA = await request(app.getHttpServer())
+        .post('/v1/orders')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .set('Idempotency-Key', idempotencyKey)
+        .send(payload);
+      const resB = await request(app.getHttpServer())
+        .post('/v1/orders')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .set('Idempotency-Key', idempotencyKey)
+        .send(payload);
+
+      expect(resA.status).toBe(400);
+      expect(resB.status).toBe(400);
+
+      const count = await tenantContext.runInTenantContext(tenant.tenantId, (tx) =>
+        tx.order.count({ where: { tenantId: tenant.tenantId, idempotencyKey } }),
+      );
+      expect(count).toBe(0);
+    } finally {
+      await prisma.tenant.update({ where: { id: tenant.tenantId }, data: { isOpen: true } });
+    }
+  });
 });

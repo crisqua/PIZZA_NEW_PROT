@@ -121,6 +121,42 @@ describe('/v1/tenants/me — self-service', () => {
       .expect(409);
   });
 
+  it('PATCH com os 5 campos de loja aberta/fechada (Sprint 27) salva e volta corretamente', async () => {
+    const res = await request(app.getHttpServer())
+      .patch('/v1/tenants/me')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        isOpen: false,
+        openingTime: '18:00',
+        closingTime: '23:30',
+        openWeekends: false,
+        estimatedDeliveryMinutes: 45,
+      })
+      .expect(200);
+
+    expect(res.body.isOpen).toBe(false);
+    expect(res.body.openingTime).toBe('18:00');
+    expect(res.body.closingTime).toBe('23:30');
+    expect(res.body.openWeekends).toBe(false);
+    expect(res.body.estimatedDeliveryMinutes).toBe(45);
+
+    // Devolve a loja pro estado aberto -- outros testes desta suite (e de orders)
+    // assumem isOpen=true por padrao.
+    await request(app.getHttpServer())
+      .patch('/v1/tenants/me')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ isOpen: true })
+      .expect(200);
+  });
+
+  it.each(['25:99', '9:00', 'abc'])('PATCH com horario mal formatado ("%s") retorna 400', async (value) => {
+    await request(app.getHttpServer())
+      .patch('/v1/tenants/me')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ openingTime: value })
+      .expect(400);
+  });
+
   it('papel "customer" nao acessa /tenants/me (403)', async () => {
     const customer = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'me-iso-cust', role: 'customer' });
     try {

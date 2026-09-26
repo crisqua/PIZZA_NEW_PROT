@@ -15,6 +15,11 @@ export interface TenantResponse {
   deliveryFee: number;
   minOrder: number;
   cnpj: string | null;
+  isOpen: boolean;
+  openingTime: string | null;
+  closingTime: string | null;
+  openWeekends: boolean;
+  estimatedDeliveryMinutes: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +37,11 @@ export function toTenantResponse(tenant: Tenant): TenantResponse {
     deliveryFee: tenant.deliveryFee.toNumber(),
     minOrder: tenant.minOrder.toNumber(),
     cnpj: tenant.cnpj,
+    isOpen: tenant.isOpen,
+    openingTime: tenant.openingTime,
+    closingTime: tenant.closingTime,
+    openWeekends: tenant.openWeekends,
+    estimatedDeliveryMinutes: tenant.estimatedDeliveryMinutes,
     createdAt: tenant.createdAt,
     updatedAt: tenant.updatedAt,
   };
@@ -43,6 +53,10 @@ export function toTenantResponse(tenant: Tenant): TenantResponse {
 // apps/cliente precisa deles pra montar o total do carrinho ANTES do checkout confirmar
 // (o servidor recalcula o total de verdade em OrdersService.create de qualquer jeito,
 // isso aqui e' so' preview).
+// isOpen/openingTime/closingTime/openWeekends/estimatedDeliveryMinutes (Sprint 27)
+// entram aqui de proposito, diferente de phone/address/active/cnpj -- sao pra aparecer
+// pro cliente final, e' o proprio propósito deles (Menu.tsx mostra Aberto/Fechado e
+// bloqueia pedido quando fechado).
 export interface TenantBrandingResponse {
   name: string;
   slug: string;
@@ -50,10 +64,28 @@ export interface TenantBrandingResponse {
   logo: string;
   deliveryFee: number;
   minOrder: number;
+  isOpen: boolean;
+  openingTime: string | null;
+  closingTime: string | null;
+  openWeekends: boolean;
+  estimatedDeliveryMinutes: number | null;
 }
 
 export function toTenantBrandingResponse(
-  tenant: Pick<Tenant, 'name' | 'slug' | 'primaryColor' | 'logo' | 'deliveryFee' | 'minOrder'>,
+  tenant: Pick<
+    Tenant,
+    | 'name'
+    | 'slug'
+    | 'primaryColor'
+    | 'logo'
+    | 'deliveryFee'
+    | 'minOrder'
+    | 'isOpen'
+    | 'openingTime'
+    | 'closingTime'
+    | 'openWeekends'
+    | 'estimatedDeliveryMinutes'
+  >,
 ): TenantBrandingResponse {
   return {
     name: tenant.name,
@@ -62,5 +94,10 @@ export function toTenantBrandingResponse(
     logo: tenant.logo,
     deliveryFee: tenant.deliveryFee.toNumber(),
     minOrder: tenant.minOrder.toNumber(),
+    isOpen: tenant.isOpen,
+    openingTime: tenant.openingTime,
+    closingTime: tenant.closingTime,
+    openWeekends: tenant.openWeekends,
+    estimatedDeliveryMinutes: tenant.estimatedDeliveryMinutes,
   };
 }

@@ -27,7 +27,19 @@ export class TenantsPublicController {
     // um campo interno novo nunca vaza por esquecimento nesta rota publica.
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug },
-      select: { name: true, slug: true, primaryColor: true, logo: true, deliveryFee: true, minOrder: true },
+      select: {
+        name: true,
+        slug: true,
+        primaryColor: true,
+        logo: true,
+        deliveryFee: true,
+        minOrder: true,
+        isOpen: true,
+        openingTime: true,
+        closingTime: true,
+        openWeekends: true,
+        estimatedDeliveryMinutes: true,
+      },
     });
     if (!tenant) {
       throw new NotFoundException();

@@ -4,10 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle, Button, Input, Textarea, form
 import { mockTenant, updateTenantSettings } from '../data/repository';
 
 // Campos que persistem de verdade (existem no schema de "tenants" -- ver
-// TenantSettingsInput em data/repository.ts). Descricao/e-mail/cidade/estado/horario de
-// funcionamento/tempo de entrega estimado abaixo continuam mock: nao ha coluna nenhuma
-// pra eles hoje, "Salvar" nao teria o que persistir (gap conhecido, documentado, nao
-// construido agora).
+// TenantSettingsInput em data/repository.ts). Descricao/e-mail/cidade/estado abaixo
+// continuam mock: nao ha coluna nenhuma pra eles hoje, "Salvar" nao teria o que
+// persistir. Horario de funcionamento e tempo de entrega estimado DEIXARAM de ser mock
+// na Sprint 27 -- sao so' informativos pro cliente (Menu.tsx), nao fecham a loja
+// sozinhos; quem controla se aceita pedido agora e' o StoreOpenToggle (Dashboard/
+// Pedidos), nao esses campos.
 export function Settings() {
   const [name, setName] = useState(mockTenant.name);
   const [cnpj, setCnpj] = useState(formatCnpj(mockTenant.cnpj ?? ''));
@@ -17,6 +19,12 @@ export function Settings() {
   const [logo, setLogo] = useState(mockTenant.logo);
   const [deliveryFee, setDeliveryFee] = useState(String(mockTenant.deliveryFee));
   const [minOrder, setMinOrder] = useState(String(mockTenant.minOrder));
+  const [openingTime, setOpeningTime] = useState(mockTenant.openingTime ?? '');
+  const [closingTime, setClosingTime] = useState(mockTenant.closingTime ?? '');
+  const [openWeekends, setOpenWeekends] = useState(mockTenant.openWeekends ?? true);
+  const [estimatedDeliveryMinutes, setEstimatedDeliveryMinutes] = useState(
+    mockTenant.estimatedDeliveryMinutes != null ? String(mockTenant.estimatedDeliveryMinutes) : '',
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
@@ -35,6 +43,10 @@ export function Settings() {
         logo,
         deliveryFee: Number(deliveryFee) || 0,
         minOrder: Number(minOrder) || 0,
+        openingTime: openingTime || undefined,
+        closingTime: closingTime || undefined,
+        openWeekends,
+        estimatedDeliveryMinutes: estimatedDeliveryMinutes ? Number(estimatedDeliveryMinutes) : undefined,
       });
       setSaved(true);
     } catch (err) {
@@ -53,6 +65,10 @@ export function Settings() {
     setLogo(mockTenant.logo);
     setDeliveryFee(String(mockTenant.deliveryFee));
     setMinOrder(String(mockTenant.minOrder));
+    setOpeningTime(mockTenant.openingTime ?? '');
+    setClosingTime(mockTenant.closingTime ?? '');
+    setOpenWeekends(mockTenant.openWeekends ?? true);
+    setEstimatedDeliveryMinutes(mockTenant.estimatedDeliveryMinutes != null ? String(mockTenant.estimatedDeliveryMinutes) : '');
     setError('');
     setSaved(false);
   }
@@ -145,12 +161,23 @@ export function Settings() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Só informativo pro cliente (aparece no cardápio) — não fecha a loja
+            sozinho fora desse horário. Quem controla se aceita pedido agora é o
+            interruptor "Loja Aberta/Fechada" no Dashboard e em Pedidos.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="Abertura" type="time" defaultValue="18:00" />
-            <Input label="Fechamento" type="time" defaultValue="23:30" />
+            <Input label="Abertura" type="time" value={openingTime} onChange={(e) => setOpeningTime(e.target.value)} />
+            <Input label="Fechamento" type="time" value={closingTime} onChange={(e) => setClosingTime(e.target.value)} />
           </div>
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="weekend" defaultChecked className="w-4 h-4" />
+            <input
+              type="checkbox"
+              id="weekend"
+              checked={openWeekends}
+              onChange={(e) => setOpenWeekends(e.target.checked)}
+              className="w-4 h-4"
+            />
             <label htmlFor="weekend" className="text-sm">Aberto aos finais de semana</label>
           </div>
         </CardContent>
@@ -185,7 +212,8 @@ export function Settings() {
           <Input
             label="Tempo de Entrega Estimado (minutos)"
             type="number"
-            defaultValue="40"
+            value={estimatedDeliveryMinutes}
+            onChange={(e) => setEstimatedDeliveryMinutes(e.target.value)}
             placeholder="40"
           />
         </CardContent>

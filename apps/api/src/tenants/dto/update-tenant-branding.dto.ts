@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, Matches, MaxLength, Min, MinLength } from 'class-validator';
+import { IsBoolean, IsInt, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 // Deliberadamente SEM "active" nem "slug" -- active e' so' via toggle superadmin;
 // mudar o proprio slug fica superadmin-mediado (maior risco de quebrar link externo).
@@ -46,4 +46,31 @@ export class UpdateTenantBrandingDto {
   @IsString()
   @Matches(/^\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}$/)
   cnpj?: string;
+
+  // Loja aberta/fechada (Sprint 27) -- interruptor manual, controlado pelo Dashboard/
+  // Pedidos. Horario/tempo de entrega abaixo sao so' informativos (nao fecham a loja
+  // sozinhos fora do horario), ver schema.prisma pra contexto completo.
+  @IsOptional()
+  @IsBoolean()
+  isOpen?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  openingTime?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  closingTime?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  openWeekends?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(240)
+  estimatedDeliveryMinutes?: number;
 }

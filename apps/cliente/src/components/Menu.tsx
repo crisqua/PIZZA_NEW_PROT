@@ -85,9 +85,15 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
             </div>
             <div className="min-w-0">
               <h1 className="font-serif text-2xl font-semibold text-foreground truncate">{mockTenant.name}</h1>
-              <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-success" />
-                Aberto • Entrega em 40-60 min
+              <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5 flex-wrap">
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${mockTenant.isOpen ? 'bg-success' : 'bg-destructive'}`} />
+                <span>{mockTenant.isOpen ? 'Aberto' : 'Fechado'}</span>
+                {mockTenant.openingTime && mockTenant.closingTime && (
+                  <span>• Funciona das {mockTenant.openingTime} às {mockTenant.closingTime}</span>
+                )}
+                {mockTenant.isOpen && (
+                  <span>• Entrega em até {mockTenant.estimatedDeliveryMinutes ?? 60} min</span>
+                )}
               </p>
             </div>
           </div>
@@ -104,6 +110,11 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
           <Badge>Pedido mínimo {formatCurrency(mockTenant.minOrder)}</Badge>
           <Badge>Taxa {formatCurrency(mockTenant.deliveryFee)}</Badge>
         </div>
+        {!mockTenant.isOpen && (
+          <div className="mt-4 px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm font-medium">
+            Esta pizzaria está fechada no momento. Volte mais tarde para fazer seu pedido.
+          </div>
+        )}
       </div>
 
       <div className="p-6 max-w-md mx-auto space-y-3">
@@ -181,8 +192,8 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               onClick={() => onStartHalfHalf(pizza, sizeFor(pizza))}
-                              disabled={firstAvailableSize(pizza) == null}
-                              title="Meio a meio"
+                              disabled={firstAvailableSize(pizza) == null || !mockTenant.isOpen}
+                              title={!mockTenant.isOpen ? 'Pizzaria fechada no momento' : 'Meio a meio'}
                               aria-label={`Meio a meio com ${pizza.name}`}
                               className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
@@ -190,8 +201,8 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
                             </button>
                             <button
                               onClick={() => onAddSingleFlavor(pizza, sizeFor(pizza))}
-                              disabled={firstAvailableSize(pizza) == null}
-                              title="Adicionar"
+                              disabled={firstAvailableSize(pizza) == null || !mockTenant.isOpen}
+                              title={!mockTenant.isOpen ? 'Pizzaria fechada no momento' : 'Adicionar'}
                               aria-label={`Adicionar ${pizza.name}`}
                               className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                             >

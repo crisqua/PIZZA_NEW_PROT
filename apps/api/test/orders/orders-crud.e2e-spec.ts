@@ -129,6 +129,27 @@ describe('/v1/orders', () => {
       .expect(400);
   });
 
+  it('loja fechada (isOpen=false): POST /v1/orders retorna 400 e ZERO linha criada no banco (requisito nao-negociavel, Sprint 27)', async () => {
+    await prisma.tenant.update({ where: { id: tenantA.tenantId }, data: { isOpen: false } });
+    try {
+      const before = await tenantContext.runInTenantContext(tenantA.tenantId, (tx) => tx.order.count());
+
+      await request(app.getHttpServer())
+        .post('/v1/orders')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .set('Idempotency-Key', randomUUID())
+        .send({ items: [{ productId: pizzaA1.id, size: 'oito-pedacos', quantity: 1 }], phone: '119999', address: 'Rua X', paymentMethod: 'dinheiro', cep: VALID_CEP })
+        .expect(400);
+
+      // Nao basta o 400 -- confirma que NENHUMA linha entrou em orders/order_items
+      // (mesma disciplina de verificacao da investigacao de pedido fantasma, Sprint 25).
+      const after = await tenantContext.runInTenantContext(tenantA.tenantId, (tx) => tx.order.count());
+      expect(after).toBe(before);
+    } finally {
+      await prisma.tenant.update({ where: { id: tenantA.tenantId }, data: { isOpen: true } });
+    }
+  });
+
   it('pedido de tamanho com preco 0 (residual, nao null) retorna 400 -- R$0,00 nao e preco valido', async () => {
     // Seedado direto no banco (bypassa o DTO de catalogo, que ja rejeita 0 na entrada
     // desde a correcao -- este teste cobre dado LEGADO que ainda pode existir de antes

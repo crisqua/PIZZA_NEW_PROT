@@ -53,6 +53,18 @@ model Tenant {
   planCode            String? @map("plan_code") @db.VarChar(40)
   planName            String? @map("plan_name") @db.VarChar(120)
   planModules         Json?   @map("plan_modules")
+  // Loja aberta/fechada (Sprint 27) -- interruptor MANUAL, controlado pelo dono no
+  // Dashboard/Pedidos. So' isso decide se o backend aceita pedido novo
+  // (OrdersService.create rejeita 400 se isOpen=false, ANTES de qualquer outro
+  // processamento -- requisito nao-negociavel: zero pedido criado com a loja fechada,
+  // sem excecao, sem brecha de retry/idempotencia). Horario de funcionamento abaixo e'
+  // so' informativo nesta sprint -- NAO fecha a loja sozinho fora do horario cadastrado
+  // (decisao explicita: automatizar isso e' evolucao futura separada).
+  isOpen                   Boolean @default(true) @map("is_open")
+  openingTime              String? @map("opening_time") @db.VarChar(5)   // "18:00"
+  closingTime              String? @map("closing_time") @db.VarChar(5)   // "23:30"
+  openWeekends             Boolean @default(true) @map("open_weekends")
+  estimatedDeliveryMinutes Int?    @map("estimated_delivery_minutes")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

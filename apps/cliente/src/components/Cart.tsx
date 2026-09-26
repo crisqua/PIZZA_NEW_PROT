@@ -197,9 +197,10 @@ export function Cart({ items, onUpdateQuantity, onRemoveItem, onBack, onCheckout
             fullWidth
             size="lg"
             onClick={onCheckout}
-            className="h-14 rounded-lg text-base font-semibold"
+            disabled={!mockTenant.isOpen}
+            className="h-14 rounded-lg text-base font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Avançar para o Checkout
+            {mockTenant.isOpen ? 'Avançar para o Checkout' : 'Pizzaria fechada no momento'}
           </Button>
         </div>
       </div>

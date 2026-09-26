@@ -3,6 +3,7 @@ import { DollarSign, ShoppingBag, Users, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, formatCurrency } from '@pizza/ui';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { getOrders, getRevenue, getTopProducts, ApiOrder, DailyRevenue, TopProduct } from '../data/repository';
+import { StoreOpenToggle } from './StoreOpenToggle';
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -74,9 +75,12 @@ export function Dashboard() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
-        <p className="text-muted-foreground">Visão geral do seu negócio</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
+          <p className="text-muted-foreground">Visão geral do seu negócio</p>
+        </div>
+        <StoreOpenToggle />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -30,6 +30,11 @@ export let mockTenant: Tenant = {
   deliveryFee: 0,
   minOrder: 0,
   active: true,
+  isOpen: true,
+  openingTime: null,
+  closingTime: null,
+  openWeekends: true,
+  estimatedDeliveryMinutes: null,
 };
 export let mockCategories: Category[] = [];
 export let mockPizzas: Pizza[] = [];
@@ -46,6 +51,11 @@ interface TenantBrandingResponse {
   logo: string;
   deliveryFee: number;
   minOrder: number;
+  isOpen: boolean;
+  openingTime: string | null;
+  closingTime: string | null;
+  openWeekends: boolean;
+  estimatedDeliveryMinutes: number | null;
 }
 
 interface ProductResponse {
@@ -87,6 +97,11 @@ export async function loadCatalog(): Promise<void> {
     deliveryFee: branding.deliveryFee,
     minOrder: branding.minOrder,
     active: true,
+    isOpen: branding.isOpen,
+    openingTime: branding.openingTime,
+    closingTime: branding.closingTime,
+    openWeekends: branding.openWeekends,
+    estimatedDeliveryMinutes: branding.estimatedDeliveryMinutes,
   };
   mockCategories = catalog.categories;
   mockPizzas = catalog.products.filter((p) => p.type === 'pizza').map(toPizza);

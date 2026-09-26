@@ -38,7 +38,10 @@ describe('GET /v1/public/tenants/:slug', () => {
   // deliveryFee/minOrder entraram na Sprint 7 (ver tenant-response.util.ts): diferente de
   // active/phone/address/id (dado operacional/interno, continua fora), sao preco pro
   // cliente -- apps/cliente precisa deles pra montar o total do carrinho antes do checkout.
-  it('resposta e' + ' exatamente {name,slug,primaryColor,logo,deliveryFee,minOrder} — sem campos internos', async () => {
+  // isOpen/openingTime/closingTime/openWeekends/estimatedDeliveryMinutes (Sprint 27)
+  // entram pelo mesmo motivo: sao pra aparecer pro cliente final, e' o proprio
+  // propósito deles (Menu.tsx mostra Aberto/Fechado e bloqueia pedido quando fechado).
+  it('resposta e' + ' exatamente os campos publicos esperados — sem campos internos', async () => {
     const res = await request(app.getHttpServer()).get(`/v1/public/tenants/${slug}`).expect(200);
 
     expect(res.body).toEqual({
@@ -48,6 +51,11 @@ describe('GET /v1/public/tenants/:slug', () => {
       logo: '🍕',
       deliveryFee: 0,
       minOrder: 0,
+      isOpen: true,
+      openingTime: null,
+      closingTime: null,
+      openWeekends: true,
+      estimatedDeliveryMinutes: null,
     });
     expect(res.body).not.toHaveProperty('active');
     expect(res.body).not.toHaveProperty('phone');
@@ -56,5 +64,30 @@ describe('GET /v1/public/tenants/:slug', () => {
     // CNPJ e' dado interno/legal (mesma regua de phone/address) -- nunca exposto aqui,
     // mesmo o tenant tendo um cadastrado (ver beforeAll).
     expect(res.body).not.toHaveProperty('cnpj');
+  });
+
+  it('loja fechada com horario customizado aparece de verdade na resposta publica (Sprint 27)', async () => {
+    const closedSlug = `public-branding-closed-${randomUUID().slice(0, 8)}`;
+    const closedTenant = await prisma.tenant.create({
+      data: {
+        name: 'Fechada Test',
+        slug: closedSlug,
+        isOpen: false,
+        openingTime: '18:00',
+        closingTime: '23:30',
+        openWeekends: false,
+        estimatedDeliveryMinutes: 45,
+      },
+    });
+    try {
+      const res = await request(app.getHttpServer()).get(`/v1/public/tenants/${closedSlug}`).expect(200);
+      expect(res.body.isOpen).toBe(false);
+      expect(res.body.openingTime).toBe('18:00');
+      expect(res.body.closingTime).toBe('23:30');
+      expect(res.body.openWeekends).toBe(false);
+      expect(res.body.estimatedDeliveryMinutes).toBe(45);
+    } finally {
+      await prisma.tenant.delete({ where: { id: closedTenant.id } });
+    }
   });
 });
