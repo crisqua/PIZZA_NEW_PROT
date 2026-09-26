@@ -266,15 +266,30 @@ export interface DashboardStats {
   tenantCount: number;
   openTenantCount: number;
   closedTenantCount: number;
-  ordersThisMonth: number;
-  ordersLastMonth: number;
   mrr: number;
-  userCount: number;
-  monthlyOrderVolume: { month: string; total: number }[];
   plansDistribution: { planCode: string; planName: string; tenantCount: number }[];
-  topTenants: { name: string; slug: string; ordersThisMonth: number; revenueThisMonth: number }[];
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {
   return apiFetch<DashboardStats>('/admin/dashboard');
+}
+
+// ---------- Vendas por Pizzaria (Sprint "Mudanca de Dashboard", 2026-09-26) ----------
+// Consulta pedidos/receita/usuarios de UMA pizzaria por vez, sob demanda -- substitui o
+// agregado cross-tenant que saiu do Dashboard (nao era util no dia a dia, decisao do
+// usuario). Ver AdminController "getSales" (backend) pro calculo.
+
+export interface TenantSales {
+  tenantId: string;
+  tenantName: string;
+  tenantSlug: string;
+  ordersThisMonth: number;
+  ordersLastMonth: number;
+  revenueThisMonth: number;
+  userCount: number;
+  monthlyOrderVolume: { month: string; ordersCompleted: number; revenue: number }[];
+}
+
+export async function getTenantSales(tenantId: string): Promise<TenantSales> {
+  return apiFetch<TenantSales>(`/admin/tenants/${tenantId}/sales`);
 }

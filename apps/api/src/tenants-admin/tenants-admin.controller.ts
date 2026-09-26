@@ -43,6 +43,14 @@ export class TenantsAdminController {
     return this.tenantsAdminService.findOne(id);
   }
 
+  // Rota fixa "sales" nao colide com "PATCH :id" (metodos HTTP diferentes) nem com
+  // "GET :id" (segmentos diferentes) -- consulta pedidos/receita/usuarios de UMA
+  // pizzaria, sob demanda (ver TenantsAdminService.getSales).
+  @Get(':id/sales')
+  getSales(@Param('id') id: string) {
+    return this.tenantsAdminService.getSales(id);
+  }
+
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateTenantDto) {
     return this.tenantsAdminService.update(id, dto);

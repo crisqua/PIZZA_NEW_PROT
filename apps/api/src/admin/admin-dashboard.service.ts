@@ -1,65 +1,42 @@
 import { Injectable } from '@nestjs/common';
 import { CacheService } from '../cache/cache.service';
-import { mapWithConcurrency } from '../common/concurrency.util';
 import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../prisma/tenant-context.service';
 
-const TENANT_CONCURRENCY = 5;
-
-// Sprint 23: mesmo depois da Sprint 22 (que tirou a assinatura do loop por tenant), o
-// dashboard ainda soma pedidos dos ultimos 6 meses de CADA tenant -- isso genuinamente
-// precisa de RLS, nao da pra denormalizar sem reagregar a cada pedido novo. E' uma foto
-// agregada da plataforma pro superadmin, nao precisa ser exata ao segundo -- cachear
-// absorve a maior parte das chamadas repetidas sem esconder dado por muito tempo. Sem
-// invalidacao ativa de proposito (nenhum evento dispara "recalcula agora") -- o TTL
-// sozinho ja e' a garantia de frescor aceita aqui.
-//
-// TTL subiu de 90s pra 10min em 2026-09-26: medido ~47s de carga fria com 135 tenants
-// no homolog (era ~20-27s com 44 tenants na Sprint 23 -- cresce linear com o numero de
-// tenants, o loop por tenant nao mudou). 90s virou curto demais: qualquer superadmin
-// abrindo o painel algumas vezes por hora ja pagava o custo frio na maioria das vezes.
-// Correcao estrutural de verdade (denormalizar pedidos/usuarios em Tenant, igual ja foi
-// feito com assinatura na Sprint 22) fica registrada como pendencia separada -- essa
-// mudanca aqui e' so' um alivio tatico, nao resolve o tempo de carga fria em si.
+// Sprint "Mudanca de Dashboard" (2026-09-26): ate aqui, este servico tambem somava
+// pedidos/usuarios dos ultimos 6 meses de CADA tenant, abrindo 1 transacao por tenant
+// (RLS de orders/users) -- 47s de carga fria com 135 tenants no homolog, crescendo
+// linear com o numero de pizzarias (ver Sprint 23). Removido por completo: o usuario
+// decidiu que esse agregado cross-tenant nao e' util no dia a dia -- ele consulta
+// pedidos/receita/usuarios de UMA pizzaria por vez (ver TenantsAdminService.getSales).
+// O que sobra aqui (MRR/distribuicao por plano/contagem aberta-fechada) ja e' O(1)
+// desde as Sprints 22/27 -- nunca abriu transacao de tenant, so' le "tenants"+"plans".
 const DASHBOARD_CACHE_KEY = 'admin:dashboard';
-const DASHBOARD_CACHE_TTL_SECONDS = 600;
-
-const MONTH_LABELS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+// TTL curto de novo (era 600s so' pra absorver o custo do loop que acabou de sair) --
+// recalcular agora e' 1 consulta so', barato o suficiente pra nao precisar de TTL longo.
+const DASHBOARD_CACHE_TTL_SECONDS = 90;
 
 export interface PlatformDashboard {
   tenantCount: number;
   // Sprint 27 introduziu Tenant.isOpen (toggle manual do dono) -- "tenants" ja' vem
   // carregado por completo aqui pra somar MRR/distribuicao por plano, entao contar
-  // aberto/fechado e' so' um filter() sobre o MESMO dado, sem consulta nova nem o loop
-  // por tenant que a parte de pedidos/usuarios deste dashboard precisa (essa sim tem RLS).
+  // aberto/fechado e' so' um filter() sobre o MESMO dado, sem consulta nova.
   openTenantCount: number;
   closedTenantCount: number;
-  ordersThisMonth: number;
-  ordersLastMonth: number;
   mrr: number;
-  userCount: number;
-  monthlyOrderVolume: Array<{ month: string; total: number }>;
   plansDistribution: Array<{ planCode: string; planName: string; tenantCount: number }>;
-  topTenants: Array<{ name: string; slug: string; ordersThisMonth: number; revenueThisMonth: number }>;
-}
-
-function monthKey(date: Date): string {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 // Ate a Sprint 22, o loop tenant-por-tenant tambem buscava a assinatura+plano de cada
 // tenant (subscriptions tem RLS forcada) -- 3 queries por tenant, cresceu junto com o
 // numero de pizzarias ate derrubar o endpoint com 500 em producao (44 tenants). MRR e
-// distribuicao por plano NAO precisam mais do loop: "tenants" ja carrega o resumo
+// distribuicao por plano NAO precisam de loop: "tenants" ja carrega o resumo
 // denormalizado (subscriptionStatus/planCode/planName) e "plans" (preco) tambem nao tem
 // RLS -- as duas juntas resolvem isso numa unica leitura, sem abrir nenhuma transacao de
-// tenant. O loop por tenant continua existindo so' pro que genuinamente precisa de RLS:
-// pedidos e contagem de usuarios.
+// tenant.
 @Injectable()
 export class AdminDashboardService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantContext: TenantContextService,
     private readonly cache: CacheService,
   ) {}
 
@@ -77,7 +54,7 @@ export class AdminDashboardService {
   private async computeDashboard(): Promise<PlatformDashboard> {
     const [tenants, plans] = await Promise.all([
       this.prisma.tenant.findMany({
-        select: { id: true, name: true, slug: true, subscriptionStatus: true, planCode: true, planName: true, isOpen: true },
+        select: { subscriptionStatus: true, planCode: true, planName: true, isOpen: true },
       }),
       this.prisma.plan.findMany({ select: { code: true, price: true } }),
     ]);
@@ -101,103 +78,14 @@ export class AdminDashboardService {
       }
     }
 
-    const now = new Date();
-    const currentMonthKey = monthKey(now);
-    const lastMonthDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-    const lastMonthKey = monthKey(lastMonthDate);
-    const rangeStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
-
-    const monthKeys: string[] = [];
-    for (let i = 5; i >= 0; i--) {
-      monthKeys.push(monthKey(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1))));
-    }
-
-    // Lotes de TENANT_CONCURRENCY em vez de todos de uma vez (Promise.all direto) --
-    // ver comentario em concurrency.util.ts. So' pedidos + usuarios agora (a parte de
-    // assinatura saiu do loop acima).
-    const perTenant = await mapWithConcurrency(tenants, TENANT_CONCURRENCY, (tenant) =>
-      this.tenantContext.runInTenantContext(tenant.id, async (tx) => {
-          const [orders, userCount] = await Promise.all([
-            tx.order.findMany({
-              where: { createdAt: { gte: rangeStart } },
-              select: { status: true, total: true, createdAt: true },
-            }),
-            tx.user.count(),
-          ]);
-
-          let ordersThisMonth = 0;
-          let ordersLastMonth = 0;
-          let revenueThisMonth = 0;
-          const volumeByMonth = new Map<string, number>();
-
-          for (const order of orders) {
-            const key = monthKey(order.createdAt);
-            if (key === currentMonthKey) ordersThisMonth += 1;
-            if (key === lastMonthKey) ordersLastMonth += 1;
-            // Mesma convencao da Sprint 8 (RevenueService): so' pedido 'completed' e'
-            // dinheiro que entrou de verdade.
-            if (order.status === 'completed') {
-              const total = order.total.toNumber();
-              if (key === currentMonthKey) revenueThisMonth += total;
-              volumeByMonth.set(key, (volumeByMonth.get(key) ?? 0) + total);
-            }
-          }
-
-          return {
-            tenant,
-            ordersThisMonth,
-            ordersLastMonth,
-            revenueThisMonth,
-            volumeByMonth,
-            userCount,
-          };
-        }),
-    );
-
-    let ordersThisMonth = 0;
-    let ordersLastMonth = 0;
-    let userCount = 0;
-    const monthlyTotals = new Map<string, number>(monthKeys.map((key) => [key, 0]));
-
-    for (const row of perTenant) {
-      ordersThisMonth += row.ordersThisMonth;
-      ordersLastMonth += row.ordersLastMonth;
-      userCount += row.userCount;
-
-      for (const [key, total] of row.volumeByMonth) {
-        if (monthlyTotals.has(key)) {
-          monthlyTotals.set(key, (monthlyTotals.get(key) ?? 0) + total);
-        }
-      }
-    }
-
-    const topTenants = perTenant
-      .filter((row) => row.revenueThisMonth > 0)
-      .sort((a, b) => b.revenueThisMonth - a.revenueThisMonth)
-      .slice(0, 5)
-      .map((row) => ({
-        name: row.tenant.name,
-        slug: row.tenant.slug,
-        ordersThisMonth: row.ordersThisMonth,
-        revenueThisMonth: Math.round(row.revenueThisMonth * 100) / 100,
-      }));
-
     const openTenantCount = tenants.filter((t) => t.isOpen).length;
 
     return {
       tenantCount: tenants.length,
       openTenantCount,
       closedTenantCount: tenants.length - openTenantCount,
-      ordersThisMonth,
-      ordersLastMonth,
       mrr: Math.round(mrr * 100) / 100,
-      userCount,
-      monthlyOrderVolume: monthKeys.map((key) => ({
-        month: MONTH_LABELS_PT[Number(key.split('-')[1]) - 1],
-        total: Math.round((monthlyTotals.get(key) ?? 0) * 100) / 100,
-      })),
       plansDistribution: [...plansCount.values()],
-      topTenants,
     };
   }
 }

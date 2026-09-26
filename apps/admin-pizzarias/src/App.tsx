@@ -8,11 +8,12 @@ import { TenantsManagement } from './components/TenantsManagement';
 import { TenantForm } from './components/TenantForm';
 import { PlansManagement } from './components/PlansManagement';
 import { UsersManagement } from './components/UsersManagement';
+import { TenantSales } from './components/TenantSales';
 
 import { getPlans, isAuthenticated, tryRestoreSession, logout, createPlan, updatePlan, PlanInput } from './data/repository';
 import { Tenant, Plan } from '@pizza/types';
 
-type AdminView = 'dashboard' | 'tenants' | 'tenant-form' | 'plans' | 'users' | 'settings';
+type AdminView = 'dashboard' | 'tenants' | 'tenant-form' | 'sales' | 'plans' | 'users' | 'settings';
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -97,10 +98,11 @@ export default function App() {
       <UpdateBanner />
       <AdminSidebar activePage={activePage} onNavigate={handleNavigate} onLogout={handleLogout} />
       <div className="flex-1 min-w-0 min-h-screen bg-background relative pt-14 lg:pt-0">
-        {activePage === 'dashboard' && <AdminDashboard />}
+        {activePage === 'dashboard' && <AdminDashboard onNavigateToSales={() => setActivePage('sales')} />}
         {activePage === 'tenants' && (
           <TenantsManagement onEditTenant={handleEditTenant} onNewTenant={handleNewTenant} />
         )}
+        {activePage === 'sales' && <TenantSales />}
         {activePage === 'tenant-form' && (
           <TenantForm
             tenant={selectedTenant ?? undefined}
