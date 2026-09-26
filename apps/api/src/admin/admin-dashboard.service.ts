@@ -20,6 +20,12 @@ const MONTH_LABELS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago',
 
 export interface PlatformDashboard {
   tenantCount: number;
+  // Sprint 27 introduziu Tenant.isOpen (toggle manual do dono) -- "tenants" ja' vem
+  // carregado por completo aqui pra somar MRR/distribuicao por plano, entao contar
+  // aberto/fechado e' so' um filter() sobre o MESMO dado, sem consulta nova nem o loop
+  // por tenant que a parte de pedidos/usuarios deste dashboard precisa (essa sim tem RLS).
+  openTenantCount: number;
+  closedTenantCount: number;
   ordersThisMonth: number;
   ordersLastMonth: number;
   mrr: number;
@@ -63,7 +69,7 @@ export class AdminDashboardService {
   private async computeDashboard(): Promise<PlatformDashboard> {
     const [tenants, plans] = await Promise.all([
       this.prisma.tenant.findMany({
-        select: { id: true, name: true, slug: true, subscriptionStatus: true, planCode: true, planName: true },
+        select: { id: true, name: true, slug: true, subscriptionStatus: true, planCode: true, planName: true, isOpen: true },
       }),
       this.prisma.plan.findMany({ select: { code: true, price: true } }),
     ]);
@@ -168,8 +174,12 @@ export class AdminDashboardService {
         revenueThisMonth: Math.round(row.revenueThisMonth * 100) / 100,
       }));
 
+    const openTenantCount = tenants.filter((t) => t.isOpen).length;
+
     return {
       tenantCount: tenants.length,
+      openTenantCount,
+      closedTenantCount: tenants.length - openTenantCount,
       ordersThisMonth,
       ordersLastMonth,
       mrr: Math.round(mrr * 100) / 100,

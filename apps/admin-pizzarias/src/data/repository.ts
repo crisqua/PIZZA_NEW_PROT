@@ -264,6 +264,8 @@ export async function updatePlan(id: string, input: Partial<PlanInput>): Promise
 
 export interface DashboardStats {
   tenantCount: number;
+  openTenantCount: number;
+  closedTenantCount: number;
   ordersThisMonth: number;
   ordersLastMonth: number;
   mrr: number;

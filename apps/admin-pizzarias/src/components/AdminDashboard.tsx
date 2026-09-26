@@ -34,6 +34,9 @@ export function AdminDashboard() {
     {
       title: 'Pizzarias na Plataforma',
       value: stats?.tenantCount ?? '—',
+      // Sprint 27 introduziu o toggle manual de loja aberta/fechada -- subtitulo
+      // reaproveita o mesmo dado ja' carregado no card acima, sem consulta nova.
+      subtitle: stats ? `🟢 ${stats.openTenantCount} abertas · 🔴 ${stats.closedTenantCount} fechadas` : undefined,
       icon: Store,
       iconClass: 'bg-info/10 text-info',
     },
@@ -79,6 +82,9 @@ export function AdminDashboard() {
                 </div>
                 <h3 className="text-sm text-muted-foreground mb-1">{card.title}</h3>
                 <p className="text-2xl font-bold">{card.value}</p>
+                {'subtitle' in card && card.subtitle && (
+                  <p className="text-xs text-muted-foreground mt-1">{card.subtitle}</p>
+                )}
               </CardContent>
             </Card>
           );

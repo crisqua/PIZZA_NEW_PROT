@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { CacheService } from '../../src/cache/cache.service';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { TenantContextService } from '../../src/prisma/tenant-context.service';
 import { createTestApp } from '../utils/create-test-app';
@@ -16,6 +17,7 @@ describe('GET /v1/admin/dashboard', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let tenantContext: TenantContextService;
+  let cache: CacheService;
   let superAdmin: SeededSuperAdmin;
   let superAdminToken: string;
   let tenant: SeededTenantUser;
@@ -25,6 +27,7 @@ describe('GET /v1/admin/dashboard', () => {
     app = await createTestApp();
     prisma = app.get(PrismaService);
     tenantContext = app.get(TenantContextService);
+    cache = app.get(CacheService);
 
     superAdmin = await seedSuperAdmin(prisma);
     const loginRes = await request(app.getHttpServer())
@@ -117,6 +120,27 @@ describe('GET /v1/admin/dashboard', () => {
     expect(res.body.monthlyOrderVolume).toHaveLength(6);
     const currentMonth = res.body.monthlyOrderVolume[5];
     expect(currentMonth.total).toBeGreaterThanOrEqual(150);
+  });
+
+  it('openTenantCount/closedTenantCount refletem Tenant.isOpen (Sprint 27, dado ja carregado, sem consulta nova)', async () => {
+    // Dashboard e' cacheado por 90s (Sprint 23, sem invalidacao ativa) -- os testes
+    // anteriores desta suite ja' esquentaram o cache antes de eu mudar isOpen aqui, entao
+    // preciso limpar a chave manualmente pra nao ler um resultado obsoleto (mesma chave
+    // hard-coded de admin-dashboard.service.ts, nao exportada).
+    await cache.del('admin:dashboard');
+    await prisma.tenant.update({ where: { id: tenant.tenantId }, data: { isOpen: false } });
+    try {
+      const res = await request(app.getHttpServer())
+        .get('/v1/admin/dashboard')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .expect(200);
+
+      expect(res.body.closedTenantCount).toBeGreaterThanOrEqual(1);
+      expect(res.body.openTenantCount + res.body.closedTenantCount).toBe(res.body.tenantCount);
+    } finally {
+      await prisma.tenant.update({ where: { id: tenant.tenantId }, data: { isOpen: true } });
+      await cache.del('admin:dashboard');
+    }
   });
 
   it('nao-superadmin recebe 403; sem token 401', async () => {
