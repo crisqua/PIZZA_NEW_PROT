@@ -3,11 +3,11 @@
 
 ---
 
-**✅ Executado em 2026-08-28 (Sprint 0 do `MVP_SPRINTS.md`).** Este documento registra o
+**✅ Executado em 2026-08-28 (Sprint 0 do `pizzaria_sprints.md`).** Este documento registra o
 plano *como foi escrito antes da execução* — mantido como referência histórica de
 decisão, não como descrição do estado atual do código. Divergências reais encontradas
 durante a execução (uma delas séria — ver nota na seção 1) estão registradas em
-`MVP_SPRINTS.md`, seção "Sprint 0". Para instruções de como rodar os 3 apps hoje, use o
+`pizzaria_sprints.md`, seção "Sprint 0". Para instruções de como rodar os 3 apps hoje, use o
 `README.md` na raiz do repo, não os comandos deste documento.
 
 ---
@@ -26,7 +26,7 @@ Hoje o código (`PIZZA_NEW_PROT`) é **1 único build Vite**, com React Router e
 
 **Decisão confirmada:** a `HomePage.tsx` é **descartada**, não vira landing page separada. Motivo: o projeto Barberaria — arquitetura irmã já validada em produção local — não tem nenhuma tela seletora entre os 3 apps; cada um é publicado isoladamente no seu próprio (sub)domínio. Uma central de navegação só faz sentido enquanto os 3 módulos moram artificialmente no mesmo domínio de protótipo.
 
-Este plano cobre a separação em si. É trabalho **100% frontend**, sem dependência do backend real — pode começar imediatamente, em paralelo com a Fase 0 do `PLANO_DE_PROJETO_PIZZA_SAAS.md`. No `MVP_SPRINTS.md` isso é o **Sprint 0**.
+Este plano cobre a separação em si. É trabalho **100% frontend**, sem dependência do backend real — pode começar imediatamente, em paralelo com a Fase 0 do `PLANO_DE_PROJETO_PIZZA_SAAS.md`. No `pizzaria_sprints.md` isso é o **Sprint 0**.
 
 ### 0.1 O que o Barberaria confirma sobre esta separação
 
@@ -150,7 +150,7 @@ PIZZA_NEW_PROT/
 | E — Descomissionar SPA única | 0,5 dia |
 | **Total** | **~5–6 dias** |
 
-Este é o **Sprint 0** do `MVP_SPRINTS.md` — roda antes e em paralelo à Fase 0 de backend (`PLANO_DE_PROJETO_PIZZA_SAAS.md`), já que não depende de nenhuma decisão de stack de backend.
+Este é o **Sprint 0** do `pizzaria_sprints.md` — roda antes e em paralelo à Fase 0 de backend (`PLANO_DE_PROJETO_PIZZA_SAAS.md`), já que não depende de nenhuma decisão de stack de backend.
 
 ---
 

@@ -12,7 +12,7 @@ import {
   SeededTenantUser,
 } from '../utils/seed-auth-fixtures';
 
-// O teste literal do DoD da Sprint 3 (docs/MVP_SPRINTS.md): "desativar um tenant via
+// O teste literal do DoD da Sprint 3 (docs/pizzaria_sprints.md): "desativar um tenant via
 // PATCH /v1/admin/tenants/:id/active faz o proximo login de tenant_owner/tenant_staff
 // desse tenant falhar com 403".
 describe('PATCH /v1/admin/tenants/:id/active — bloqueio de login', () => {

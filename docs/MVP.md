@@ -42,7 +42,7 @@ Tudo isso com isolamento multi-tenant real (RLS) e autenticação/autorização 
 | 12 | Pizzaria com plano que inclui o módulo usa Controle de Estoque (ingredientes/insumos, alerta de estoque baixo) | Pizzaria |
 | 13 | Pizzaria com plano que inclui o módulo usa Controle Financeiro (receita dos pedidos x despesas lançadas, saldo do período) | Pizzaria |
 
-**Nota (adicionada após validação de protótipo, 2026-08-28):** os itens 10–13 nasceram de um protótipo funcional (mock, sem backend) já validado com o usuário nas telas reais do App do Cliente, Painel da Pizzaria e Admin-Pizzarias — ver `MVP_SPRINTS.md` Sprints 4, 6 e 8 para o desenho de como isso vira backend real. Estoque e Financeiro são módulos pagos opcionais (add-on por plano ou avulso), não incluídos por padrão em todo tenant — daí exigirem o módulo `plans` (item 3 abaixo) para o enforcement de acesso.
+**Nota (adicionada após validação de protótipo, 2026-08-28):** os itens 10–13 nasceram de um protótipo funcional (mock, sem backend) já validado com o usuário nas telas reais do App do Cliente, Painel da Pizzaria e Admin-Pizzarias — ver `pizzaria_sprints.md` Sprints 4, 6 e 8 para o desenho de como isso vira backend real. Estoque e Financeiro são módulos pagos opcionais (add-on por plano ou avulso), não incluídos por padrão em todo tenant — daí exigirem o módulo `plans` (item 3 abaixo) para o enforcement de acesso.
 
 ---
 
@@ -102,7 +102,7 @@ Mesmo cortando escopo, os seguintes pontos continuam obrigatórios porque são e
 
 ## 6. Cronograma estimado (9–10 semanas)
 
-**Atualizado em 2026-08-28** — o escopo cresceu 4 sprints (`plans`, `inventory`, `financial` + ativação/desativação de tenant) em relação à estimativa original de 6–7 semanas, depois de validar esses módulos como protótipo funcional. Ver `MVP_SPRINTS.md` para o detalhe sprint a sprint (0–11).
+**Atualizado em 2026-08-28** — o escopo cresceu 4 sprints (`plans`, `inventory`, `financial` + ativação/desativação de tenant) em relação à estimativa original de 6–7 semanas, depois de validar esses módulos como protótipo funcional. Ver `pizzaria_sprints.md` para o detalhe sprint a sprint (0–11).
 
 | Semana | Foco |
 |---|---|

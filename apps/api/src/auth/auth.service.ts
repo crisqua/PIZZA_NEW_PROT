@@ -60,7 +60,7 @@ export class AuthService {
       // jeito. 403 (nao 401) e' distinguivel aqui SEM reabrir a enumeracao que o 401
       // generico acima evita -- aquele esconde se um SLUG existe; este so' dispara depois
       // do slug ja confirmado existente, e nao revela nada sobre email/senha (Sprint 3,
-      // ver docs/MVP_SPRINTS.md).
+      // ver docs/pizzaria_sprints.md).
       if (!tenant.active) {
         throw new ForbiddenException('Tenant desativado.');
       }

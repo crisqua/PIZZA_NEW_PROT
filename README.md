@@ -26,7 +26,7 @@
 
   Cada app ainda usa dados mockados localmente (`apps/<app>/src/data/mockData.ts`,
   acessados via `apps/<app>/src/data/repository.ts`) — não há backend real ainda
-  (ver `docs/MVP_SPRINTS.md`, Sprints 1+).
+  (ver `docs/pizzaria_sprints.md`, Sprints 1+).
 
   ## Documentação de arquitetura e roadmap
 
@@ -38,7 +38,7 @@
   - [`docs/ARQUITETURA_SISTEMA_PIZZA_SAAS.md`](docs/ARQUITETURA_SISTEMA_PIZZA_SAAS.md) — arquitetura de sistema, multi-tenancy (RLS + mecanismo de connection pooling), auth/RBAC, segurança de pagamentos, LGPD, OWASP, stack (Supabase + Render + Vercel).
   - [`docs/PLANO_DE_PROJETO_PIZZA_SAAS.md`](docs/PLANO_DE_PROJETO_PIZZA_SAAS.md) — plano de projeto completo por fase (Fundação → Core → Pagamentos → Realtime → Compliance), ~16–20 semanas.
   - [`docs/MVP.md`](docs/MVP.md) — recorte de MVP (9–10 semanas): o que é inegociável (RLS, RBAC, auth) vs. o que fica para depois (pagamento online, WhatsApp, WebSocket, LGPD formal).
-  - [`docs/MVP_SPRINTS.md`](docs/MVP_SPRINTS.md) — o MVP acima traduzido em sprints executáveis (Sprint 0 a 11), com entregável e Definition of Done por sprint.
+  - [`docs/pizzaria_sprints.md`](docs/pizzaria_sprints.md) — histórico completo de todas as sprints e planos do projeto (Sprint 0 até o roadmap pós-piloto), com entregável, Definition of Done e status por sprint.
   - [`docs/PLANO_SEPARACAO_FRONTENDS.md`](docs/PLANO_SEPARACAO_FRONTENDS.md) — plano que guiou a separação da SPA única em `apps/cliente`, `apps/pizzaria`, `apps/admin-pizzarias` (Sprint 0, já executada).
   - [`docs/DESIGN_JORNADA_CLIENTE.md`](docs/DESIGN_JORNADA_CLIENTE.md) — sistema visual (dark + acento único por tenant) e jornada de pedido do App do Cliente, **aprovados em 27/08/2026**. Inclui link para o protótipo visual de referência.
   

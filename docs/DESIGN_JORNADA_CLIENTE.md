@@ -5,7 +5,7 @@
 
 ## 0. Status
 
-**Aprovado pelo usuário em 27/08/2026.** Este documento registra o que foi decidido durante a exploração visual (protótipo em canvas de design, não código) para que a implementação real (Sprint 0 do `MVP_SPRINTS.md`) siga exatamente isso, sem redecidir nada.
+**Aprovado pelo usuário em 27/08/2026.** Este documento registra o que foi decidido durante a exploração visual (protótipo em canvas de design, não código) para que a implementação real (Sprint 0 do `pizzaria_sprints.md`) siga exatamente isso, sem redecidir nada.
 
 Referência visual viva: [Jornada do Cliente — Pizza Express](https://claude.ai/code/artifact/bab19a07-7208-494e-b980-83bbc14233ce) (canvas com as 5 telas mockadas).
 
@@ -94,7 +94,7 @@ Multiplicadores mantidos de `pizzaSizes` em `mockData.ts` (Brotinho = pequena, 8
 ## 3. O que isso muda nos documentos já existentes
 
 - **`PLANO_SEPARACAO_FRONTENDS.md`**: quando a Fase D (criar os 3 apps separados) rodar, `apps/cliente` já nasce com este sistema visual, não com o CSS atual de `default_shadcn_theme.css`/gradientes. `packages/ui` deve ser extraído já limpo dessa forma — não faz sentido migrar os componentes antigos (com gradiente/emoji) para o pacote compartilhado e depois limpar; limpa antes ou durante a extração.
-- **`MVP_SPRINTS.md`**: o Sprint 0 (separação dos frontends) passa a incluir a reescrita visual dos componentes do App do Cliente conforme este documento, não só a reorganização de pastas.
+- **`pizzaria_sprints.md`**: o Sprint 0 (separação dos frontends) passa a incluir a reescrita visual dos componentes do App do Cliente conforme este documento, não só a reorganização de pastas.
 
 ---
 
@@ -103,4 +103,4 @@ Multiplicadores mantidos de `pizzaSizes` em `mockData.ts` (Brotinho = pequena, 8
 1. ~~Desenhar a tela "Escolha o 2º sabor"~~ — ✅ feito em 2026-08-28, restilizada dentro de `PizzaBuilder.tsx` (`FlavorSelector`).
 2. ~~Aplicar este sistema visual e esta jornada no código real~~ — ✅ feito em 2026-08-28: `Menu.tsx`, `PizzaBuilder.tsx`, `Cart.tsx`, `Checkout.tsx`, `OrderConfirmation.tsx`, hoje vivendo em `apps/cliente/src/components/`.
 3. **Pendente**: estender o mesmo sistema visual (não necessariamente a mesma jornada, que é específica do cliente) para o Painel da Pizzaria (`apps/pizzaria`) e o Admin-Pizzarias (`apps/admin-pizzarias`) — os tokens de cor já chegaram lá de graça (tema compartilhado), mas os componentes ainda têm gradiente/sombra do visual antigo na própria JSX.
-4. ~~Sprint 0 completo~~ — ✅ feito em 2026-08-28 (ver `MVP_SPRINTS.md` e `PLANO_SEPARACAO_FRONTENDS.md`), incluindo os módulos de Estoque/Financeiro/Planos que foram prototipados depois deste documento ter sido escrito.
+4. ~~Sprint 0 completo~~ — ✅ feito em 2026-08-28 (ver `pizzaria_sprints.md` e `PLANO_SEPARACAO_FRONTENDS.md`), incluindo os módulos de Estoque/Financeiro/Planos que foram prototipados depois deste documento ter sido escrito.

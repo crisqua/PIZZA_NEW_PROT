@@ -4,7 +4,7 @@ export type OrderStatus = 'pending' | 'preparing' | 'delivery' | 'completed' | '
 
 export const ORDER_STATUSES: OrderStatus[] = ['pending', 'preparing', 'delivery', 'completed', 'cancelled'];
 
-// Maquina de estados do pedido (Sprint 7, docs/MVP_SPRINTS.md) -- 'cancelled' e' alcancavel
+// Maquina de estados do pedido (Sprint 7, docs/pizzaria_sprints.md) -- 'cancelled' e' alcancavel
 // de qualquer estado nao-terminal, os demais formam um pipeline linear. Nunca aceitar
 // status arbitrario vindo do cliente (DoD literal desta sprint): todo PATCH .../status
 // passa por assertValidTransition antes de escrever no banco.

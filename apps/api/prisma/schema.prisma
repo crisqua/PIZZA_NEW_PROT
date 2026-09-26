@@ -117,7 +117,7 @@ model User {
   @@map("users")
 }
 
-// Rotacao de refresh token (Sprint 2, ver docs/MVP_SPRINTS.md): tokenHash e sempre SHA-256
+// Rotacao de refresh token (Sprint 2, ver docs/pizzaria_sprints.md): tokenHash e sempre SHA-256
 // do token bruto — nunca Argon2 aqui, o token ja e alta entropia, hash rapido e o correto
 // (Argon2 e deliberadamente lento, faria todo /auth/refresh pagar o custo de hash de senha).
 // familyId agrupa a cadeia de rotacao inteira; reuso de um token ja revogado (revokedAt
@@ -434,7 +434,7 @@ model OrderItem {
 // lista fechada de 3 valores ('Insumos'|'Fixas'|'Outras', igual o prototipo
 // Financial.tsx), validada so' no DTO via @IsIn, mesmo padrao de Product.type/
 // Plan.modules -- sem CHECK no banco. "amount" e' Decimal(10,2) em reais (nao centavos --
-// correcao do texto original do MVP_SPRINTS.md, mesma categoria da correcao de Plan.price
+// correcao do texto original do pizzaria_sprints.md, mesma categoria da correcao de Plan.price
 // na Sprint 4), quinta aplicacao dessa convencao monetaria do schema. "date" e' so' a
 // data do lancamento (@db.Date, sem hora), diferente de createdAt/updatedAt. Sem
 // "@relation" pra Tenant, sem FK composta -- nao referencia nenhuma outra tabela

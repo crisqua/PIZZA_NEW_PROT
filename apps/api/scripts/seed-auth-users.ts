@@ -4,7 +4,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { TenantContextService } from '../src/prisma/tenant-context.service';
 
 // Seed manual pra QA dos 4 papeis da Sprint 2 (login funcional para os 4 papeis — DoD nao
-// pede endpoint de registro publico, ver docs/MVP_SPRINTS.md Sprint 2). Idempotente via
+// pede endpoint de registro publico, ver docs/pizzaria_sprints.md Sprint 2). Idempotente via
 // upsert por email/slug fixos; senha e' sempre regenerada e impressa uma vez no stdout —
 // NUNCA commitar senha em .env.example/git, mesmo de teste, ja que este script roda contra
 // o homolog real.
