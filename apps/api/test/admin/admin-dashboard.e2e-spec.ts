@@ -123,7 +123,7 @@ describe('GET /v1/admin/dashboard', () => {
   });
 
   it('openTenantCount/closedTenantCount refletem Tenant.isOpen (Sprint 27, dado ja carregado, sem consulta nova)', async () => {
-    // Dashboard e' cacheado por 90s (Sprint 23, sem invalidacao ativa) -- os testes
+    // Dashboard e' cacheado por 10min (Sprint 23, sem invalidacao ativa) -- os testes
     // anteriores desta suite ja' esquentaram o cache antes de eu mudar isOpen aqui, entao
     // preciso limpar a chave manualmente pra nao ler um resultado obsoleto (mesma chave
     // hard-coded de admin-dashboard.service.ts, nao exportada).

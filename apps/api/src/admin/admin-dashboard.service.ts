@@ -9,12 +9,20 @@ const TENANT_CONCURRENCY = 5;
 // Sprint 23: mesmo depois da Sprint 22 (que tirou a assinatura do loop por tenant), o
 // dashboard ainda soma pedidos dos ultimos 6 meses de CADA tenant -- isso genuinamente
 // precisa de RLS, nao da pra denormalizar sem reagregar a cada pedido novo. E' uma foto
-// agregada da plataforma pro superadmin, nao precisa ser exata ao segundo -- cachear por
-// um tempo curto absorve a maior parte das chamadas repetidas sem esconder dado por
-// muito tempo. Sem invalidacao ativa de proposito (nenhum evento dispara "recalcula
-// agora") -- o TTL curto sozinho ja e' a garantia de frescor aceita aqui.
+// agregada da plataforma pro superadmin, nao precisa ser exata ao segundo -- cachear
+// absorve a maior parte das chamadas repetidas sem esconder dado por muito tempo. Sem
+// invalidacao ativa de proposito (nenhum evento dispara "recalcula agora") -- o TTL
+// sozinho ja e' a garantia de frescor aceita aqui.
+//
+// TTL subiu de 90s pra 10min em 2026-09-26: medido ~47s de carga fria com 135 tenants
+// no homolog (era ~20-27s com 44 tenants na Sprint 23 -- cresce linear com o numero de
+// tenants, o loop por tenant nao mudou). 90s virou curto demais: qualquer superadmin
+// abrindo o painel algumas vezes por hora ja pagava o custo frio na maioria das vezes.
+// Correcao estrutural de verdade (denormalizar pedidos/usuarios em Tenant, igual ja foi
+// feito com assinatura na Sprint 22) fica registrada como pendencia separada -- essa
+// mudanca aqui e' so' um alivio tatico, nao resolve o tempo de carga fria em si.
 const DASHBOARD_CACHE_KEY = 'admin:dashboard';
-const DASHBOARD_CACHE_TTL_SECONDS = 90;
+const DASHBOARD_CACHE_TTL_SECONDS = 600;
 
 const MONTH_LABELS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
