@@ -192,6 +192,34 @@ export async function onboardTenant(input: OnboardTenantInput): Promise<OnboardR
   return { tenant: toTenant(res.tenant), owner: res.owner };
 }
 
+// ---------- Usuários (diretório cross-tenant, Sprint 26 -- so-leitura) ----------
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  tenantId: string | null;
+  tenantName: string | null;
+  createdAt: string;
+}
+
+interface PaginatedUsers {
+  items: AdminUser[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export async function getUsers(params: { role?: string; tenantId?: string; page?: number; pageSize?: number } = {}): Promise<PaginatedUsers> {
+  const { role, tenantId, page = 1, pageSize = 20 } = params;
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (role) query.set('role', role);
+  if (tenantId) query.set('tenantId', tenantId);
+
+  return apiFetch<PaginatedUsers>(`/admin/users?${query.toString()}`);
+}
+
 // ---------- Planos ----------
 
 interface PlanResponse {

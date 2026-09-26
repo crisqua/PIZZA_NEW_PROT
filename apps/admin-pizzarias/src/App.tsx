@@ -7,6 +7,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { TenantsManagement } from './components/TenantsManagement';
 import { TenantForm } from './components/TenantForm';
 import { PlansManagement } from './components/PlansManagement';
+import { UsersManagement } from './components/UsersManagement';
 
 import { getPlans, isAuthenticated, tryRestoreSession, logout, createPlan, updatePlan, PlanInput } from './data/repository';
 import { Tenant, Plan } from '@pizza/types';
@@ -111,6 +112,7 @@ export default function App() {
         {activePage === 'plans' && (
           <PlansManagement plans={plans} onSavePlan={handleSavePlan} onToggleActive={handleTogglePlanActive} />
         )}
+        {activePage === 'users' && <UsersManagement />}
       </div>
     </div>
   );
