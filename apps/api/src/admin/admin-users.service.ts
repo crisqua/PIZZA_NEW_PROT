@@ -71,17 +71,20 @@ export class AdminUsersService {
         // Caminho comum (unico chamado por TenantSales.tsx desde que "Usuarios" deixou
         // de ser tela cross-tenant, 2026-09-27): 1 tenant ja conhecido pelo chamador --
         // sem sentido descobrir "quais tenants existem" primeiro so' pra descobrir que e'
-        // esse 1 mesmo. O nome do tenant e' buscado EM PARALELO com a transacao de
-        // usuarios (Promise.all), nao em serie -- antes disso essa rota pagava 2
-        // round-trips sequenciais no Render Free (~2,5s observados em producao) so' pra
-        // devolver um "tenantName" que o proprio frontend, aqui, ja tinha carregado.
-        const [tenant, users] = await Promise.all([
-          this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } }),
-          this.tenantContext.runInTenantContext(tenantId, (tx) =>
-            tx.user.findMany({ where: { role: roleWhere }, select: USER_SELECT }),
-          ),
-        ]);
-        results.push(...users.map((u) => ({ ...u, tenantName: tenant?.name ?? null })));
+        // esse 1 mesmo.
+        //
+        // "tenantName" fica null neste caminho, de proposito -- medido em producao que
+        // rodar a busca do nome em paralelo com a transacao (Promise.all) NAO cortava o
+        // tempo pela metade como esperado (~1,5-1,9s, nao ~1,1-1,5s): o pool de conexoes
+        // do Prisma no Render Free e' pequeno demais pra rodar as duas de verdade ao
+        // mesmo tempo, entao "paralelo" no codigo ainda virava serializado na pratica.
+        // A correcao real e' nao fazer a segunda consulta -- o unico chamador
+        // (TenantSales.tsx) ja sabe o nome da pizzaria selecionada e nunca leu esse
+        // campo da resposta. Fica 1 unica transacao, no piso de ~1-1,5s.
+        const users = await this.tenantContext.runInTenantContext(tenantId, (tx) =>
+          tx.user.findMany({ where: { role: roleWhere }, select: USER_SELECT }),
+        );
+        results.push(...users.map((u) => ({ ...u, tenantName: null })));
       } else {
         const tenants = await this.prisma.tenant.findMany({ select: { id: true, name: true } });
         const tenantNameById = new Map(tenants.map((t) => [t.id, t.name]));

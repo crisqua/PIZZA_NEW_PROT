@@ -81,7 +81,12 @@ describe('GET /v1/admin/users', () => {
 
     expect(res.body.items).toHaveLength(1);
     expect(res.body.items[0].email).toBe(tenantA.email);
-    expect(res.body.items[0].tenantName).toBe(tenantA.tenantSlug);
+    // tenantName fica null neste caminho de proposito (2026-09-27) -- o unico chamador
+    // (TenantSales.tsx) ja sabe o nome da pizzaria selecionada, uma segunda consulta so'
+    // pra devolver esse campo nao valia o round-trip extra no Render Free (medido: nao
+    // cortava o tempo pela metade nem rodando em paralelo, pool de conexao pequeno
+    // demais pra isso).
+    expect(res.body.items[0].tenantName).toBeNull();
   });
 
   it('paginacao funciona sobre o resultado agregado', async () => {
