@@ -1,4 +1,4 @@
-import { LayoutDashboard, Store, Settings, Users, LogOut, Tag, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Store, Settings, LogOut, Tag, TrendingUp } from 'lucide-react';
 import { cn, Sidebar as SidebarShell } from '@pizza/ui';
 
 interface AdminSidebarProps {
@@ -13,7 +13,6 @@ export function AdminSidebar({ activePage, onNavigate, onLogout }: AdminSidebarP
     { id: 'tenants', name: 'Pizzarias', icon: Store },
     { id: 'sales', name: 'Vendas por Pizzaria', icon: TrendingUp },
     { id: 'plans', name: 'Planos & Preços', icon: Tag },
-    { id: 'users', name: 'Usuários', icon: Users },
     { id: 'settings', name: 'Configurações', icon: Settings },
   ];
 

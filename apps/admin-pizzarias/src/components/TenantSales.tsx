@@ -1,9 +1,27 @@
 import { useEffect, useState } from 'react';
-import { Download, ShoppingBag, DollarSign, Users, TrendingUp, TrendingDown } from 'lucide-react';
+import { Download, ShoppingBag, DollarSign, Users, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, formatCurrency } from '@pizza/ui';
-import { getTenants, AdminTenant } from '../data/repository';
+import { getTenants, AdminTenant, getUsers, AdminUser } from '../data/repository';
 import { getTenantSales, TenantSales as TenantSalesData } from '../data/repository';
+
+const USERS_PAGE_SIZE = 20;
+const ROLE_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Todos os papéis' },
+  { value: 'tenant_owner', label: 'Dono' },
+  { value: 'tenant_staff', label: 'Funcionário' },
+  { value: 'customer', label: 'Cliente' },
+];
+const ROLE_LABEL: Record<string, string> = {
+  tenant_owner: 'Dono',
+  tenant_staff: 'Funcionário',
+  customer: 'Cliente',
+};
+const ROLE_BADGE_VARIANT: Record<string, 'success' | 'info' | 'secondary'> = {
+  tenant_owner: 'success',
+  tenant_staff: 'info',
+  customer: 'secondary',
+};
 
 // Sprint "Mudanca de Dashboard" (2026-09-26): substitui o agregado cross-tenant que
 // saiu do AdminDashboard.tsx -- o usuario decidiu que "total de pedidos de todas as
@@ -27,6 +45,15 @@ export function TenantSales() {
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportedAt, setExportedAt] = useState<string | null>(null);
+
+  // Usuarios desta pizzaria (sub-secao que substitui a antiga tela "Usuarios",
+  // cross-tenant e lenta -- ver docs/pizzaria_sprints.md). So' busca ao clicar
+  // ("usersVisible"), nunca junto da consulta de vendas.
+  const [usersVisible, setUsersVisible] = useState(false);
+  const [usersRole, setUsersRole] = useState('');
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersData, setUsersData] = useState<{ items: AdminUser[]; total: number } | null>(null);
+  const [usersLoading, setUsersLoading] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedFilter(filter), SEARCH_DEBOUNCE_MS);
@@ -52,7 +79,25 @@ export function TenantSales() {
       .then(setSales)
       .catch(() => setSales(null))
       .finally(() => setLoading(false));
+
+    // Trocar de pizzaria fecha a secao de usuarios -- nao faz sentido continuar
+    // mostrando o dado da pizzaria anterior por um instante.
+    setUsersVisible(false);
+    setUsersRole('');
+    setUsersPage(1);
+    setUsersData(null);
   }, [selectedId]);
+
+  useEffect(() => {
+    if (!selectedId || !usersVisible) return;
+    setUsersLoading(true);
+    getUsers({ tenantId: selectedId, role: usersRole || undefined, page: usersPage, pageSize: USERS_PAGE_SIZE })
+      .then((res) => setUsersData({ items: res.items, total: res.total }))
+      .catch(() => setUsersData(null))
+      .finally(() => setUsersLoading(false));
+  }, [selectedId, usersVisible, usersRole, usersPage]);
+
+  const usersTotalPages = usersData ? Math.max(1, Math.ceil(usersData.total / USERS_PAGE_SIZE)) : 1;
 
   const ordersDelta =
     sales && sales.ordersLastMonth > 0
@@ -231,6 +276,100 @@ export function TenantSales() {
               </div>
             </CardContent>
           </Card>
+
+          <div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUsersVisible((v) => !v);
+                setUsersPage(1);
+              }}
+            >
+              <Users className="w-4 h-4" />
+              {usersVisible ? 'Ocultar Usuários' : 'Ver Usuários desta Pizzaria'}
+            </Button>
+          </div>
+
+          {usersVisible && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <CardTitle>Usuários — {sales.tenantName}</CardTitle>
+                  <select
+                    value={usersRole}
+                    onChange={(e) => {
+                      setUsersRole(e.target.value);
+                      setUsersPage(1);
+                    }}
+                    className="px-4 py-2.5 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+                  >
+                    {ROLE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {usersLoading && <p className="text-sm text-muted-foreground py-6 text-center">Consultando…</p>}
+
+                {!usersLoading && usersData && usersData.items.length === 0 && (
+                  <p className="text-sm text-muted-foreground py-6 text-center">
+                    Nenhum usuário com esse papel nesta pizzaria.
+                  </p>
+                )}
+
+                {!usersLoading && usersData && usersData.items.length > 0 && (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-muted-foreground">
+                            <th className="font-medium py-2 pr-4">Usuário</th>
+                            <th className="font-medium py-2 pr-4">Papel</th>
+                            <th className="font-medium py-2">Criado em</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {usersData.items.map((user) => (
+                            <tr key={user.id} className="border-t border-border">
+                              <td className="py-2 pr-4">
+                                <div className="font-medium">{user.name}</div>
+                                <div className="text-xs text-muted-foreground">{user.email}</div>
+                              </td>
+                              <td className="py-2 pr-4">
+                                <Badge variant={ROLE_BADGE_VARIANT[user.role] ?? 'secondary'}>
+                                  {ROLE_LABEL[user.role] ?? user.role}
+                                </Badge>
+                              </td>
+                              <td className="py-2 text-muted-foreground">
+                                {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 flex-wrap mt-4">
+                      <p className="text-sm text-muted-foreground">
+                        {usersData.total} {usersData.total === 1 ? 'usuário' : 'usuários'} — página {usersPage} de {usersTotalPages}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" disabled={usersPage <= 1} onClick={() => setUsersPage((p) => p - 1)}>
+                          <ChevronLeft className="w-4 h-4" />
+                          Anterior
+                        </Button>
+                        <Button size="sm" variant="outline" disabled={usersPage >= usersTotalPages} onClick={() => setUsersPage((p) => p + 1)}>
+                          Próxima
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>

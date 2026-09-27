@@ -752,6 +752,36 @@ fica como pendência registrada.
 
 ---
 
+## Correção pontual (2026-09-27): usuários saem da tela cross-tenant, entram em Vendas por Pizzaria ✅ implementada
+
+A tela "Usuários" (Sprint 26) sempre carregava **sem filtro nenhum** ao abrir — todos os
+papéis, de todas as pizzarias — disparando o mesmo loop de 1 transação por tenant que já
+tinha sido eliminado do Dashboard: usuário reportou **mais de 1 minuto** pra abrir. O
+endpoint (`AdminUsersService.list()`) já suportava filtro por `tenantId` desde a Sprint
+26 — quando filtrado por 1 tenant, já era O(1) (1 transação só). **Nenhuma mudança de
+backend nesta correção** — só reestruturação de frontend, mesma lição da "Mudança de
+Dashboard".
+
+- Tela "Usuários" removida do menu lateral por completo (`UsersManagement.tsx` apagado,
+  `AdminSidebar.tsx`/`App.tsx` atualizados).
+- Dentro de **`TenantSales.tsx`** ("Vendas por Pizzaria"), abaixo do gráfico de volume
+  mensal: botão **"Ver Usuários desta Pizzaria"** (só busca ao clicar, nunca junto da
+  consulta de vendas) + filtro de papel (Dono/Funcionário/Cliente) que **refaz a
+  consulta no servidor** a cada troca (não filtra em memória — evita resultado
+  incompleto quando a pizzaria tem mais clientes do que cabe numa página) + paginação.
+- Trocar de pizzaria fecha a seção de usuários e reseta o filtro — nunca mostra dado da
+  pizzaria anterior por engano.
+- **Decisão consciente**: usuários `platform_superadmin` (sem tenant) deixam de ter
+  qualquer tela de consulta — baixo uso esperado, registrado como possível item futuro
+  se um dia fizer falta.
+
+Protótipo clicável validado antes de implementar (2 rodadas, incluindo o filtro de
+papel a pedido do usuário) — https://claude.ai/artifact/7QH6sbJuY4EujJRzcL5mWd.
+`npx tsc --noEmit` e `vite build` limpos em `apps/admin-pizzarias`. Sem teste e2e novo
+(nenhuma mudança de backend).
+
+---
+
 ## Correção pontual (2026-09-27): pizzaria nasce fechada por padrão ✅ implementada
 
 Pedido do usuário: toda pizzaria recém-cadastrada deve nascer com a loja **fechada**
