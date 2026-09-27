@@ -133,6 +133,33 @@ describe('/v1/financial/expenses', () => {
     expect(res.body.some((e: { id: string }) => e.id === createdExpenseId)).toBe(true);
   });
 
+  it('GET com from/to filtra por periodo (Sprint "Desempenho Sistema", 2026-09-27); sem os dois mantem o historico completo', async () => {
+    const oldExpense = await request(app.getHttpServer())
+      .post('/v1/financial/expenses')
+      .set('Authorization', `Bearer ${tokenWithModule}`)
+      .send({ description: 'Despesa antiga', category: 'Fixas', amount: 99, date: '2020-01-15' })
+      .expect(201);
+
+    try {
+      const filtered = await request(app.getHttpServer())
+        .get('/v1/financial/expenses?from=2026-08-01&to=2026-08-31')
+        .set('Authorization', `Bearer ${tokenWithModule}`)
+        .expect(200);
+      expect(filtered.body.some((e: { id: string }) => e.id === createdExpenseId)).toBe(true);
+      expect(filtered.body.some((e: { id: string }) => e.id === oldExpense.body.id)).toBe(false);
+
+      const unfiltered = await request(app.getHttpServer())
+        .get('/v1/financial/expenses')
+        .set('Authorization', `Bearer ${tokenWithModule}`)
+        .expect(200);
+      expect(unfiltered.body.some((e: { id: string }) => e.id === oldExpense.body.id)).toBe(true);
+    } finally {
+      await request(app.getHttpServer())
+        .delete(`/v1/financial/expenses/${oldExpense.body.id}`)
+        .set('Authorization', `Bearer ${tokenWithModule}`);
+    }
+  });
+
   it('PATCH atualiza o valor', async () => {
     const res = await request(app.getHttpServer())
       .patch(`/v1/financial/expenses/${createdExpenseId}`)

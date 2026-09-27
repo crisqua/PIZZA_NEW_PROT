@@ -406,8 +406,16 @@ export async function deleteInventoryItem(id: string): Promise<void> {
 
 // ---------- Financeiro ----------
 
-export async function getExpenses(): Promise<Expense[]> {
-  return apiFetch<Expense[]>('/financial/expenses');
+// "from"/"to" opcionais (Sprint "Desempenho Sistema", 2026-09-27) -- Financial.tsx
+// passa a pedir o periodo atual e o anterior como 2 chamadas separadas, em vez de
+// baixar todas as despesas e filtrar em JS. Sem os dois, mantem o comportamento
+// legado (todas as despesas) -- ver ExpensesQueryDto no backend.
+export async function getExpenses(from?: string, to?: string): Promise<Expense[]> {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const query = params.toString();
+  return apiFetch<Expense[]>(`/financial/expenses${query ? `?${query}` : ''}`);
 }
 
 export interface ExpenseInput {

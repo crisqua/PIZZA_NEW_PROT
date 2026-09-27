@@ -15,8 +15,12 @@ export class ExpensesService {
     return toExpenseResponse(expense);
   }
 
-  async list(tx: TenantTx) {
-    const expenses = await tx.expense.findMany({ orderBy: { date: 'desc' } });
+  // "from"/"to" opcionais (Sprint "Desempenho Sistema", 2026-09-27) -- Financial.tsx
+  // passa a pedir o periodo atual e o anterior como 2 chamadas separadas, em vez de
+  // baixar todas as despesas e filtrar em JS (mesmo padrao ja usado por getRevenue).
+  async list(tx: TenantTx, query: { from?: string; to?: string } = {}) {
+    const where = query.from && query.to ? { date: { gte: new Date(query.from), lte: new Date(query.to) } } : undefined;
+    const expenses = await tx.expense.findMany({ where, orderBy: { date: 'desc' } });
     return expenses.map(toExpenseResponse);
   }
 

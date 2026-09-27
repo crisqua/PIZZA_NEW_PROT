@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -10,6 +10,7 @@ import { RequiresModule } from '../module-gate/decorators/requires-module.decora
 import { ModuleGuard } from '../module-gate/guards/module.guard';
 import { TenantTx } from '../prisma/tenant-context.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
+import { ExpensesQueryDto } from './dto/expenses-query.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { ExpensesService } from './expenses.service';
 
@@ -34,8 +35,8 @@ export class ExpensesController {
   }
 
   @Get()
-  list(@CurrentTenant() tx: TenantTx) {
-    return this.expensesService.list(tx);
+  list(@CurrentTenant() tx: TenantTx, @Query() query: ExpensesQueryDto) {
+    return this.expensesService.list(tx, query);
   }
 
   @Get(':id')

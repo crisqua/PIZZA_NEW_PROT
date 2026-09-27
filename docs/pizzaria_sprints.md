@@ -61,7 +61,7 @@ antes.
 | — | **Mudança de Dashboard** (remove agregado cross-tenant, consulta por pizzaria) | ✅ |
 | — | Usuários dentro de Vendas por Pizzaria (sai da tela cross-tenant lenta) | ✅ |
 | — | Pizzaria nasce com a loja fechada por padrão | ✅ |
-| — | **Desempenho Sistema** (`GET /orders` sem filtro, `/financial/expenses` sem filtro) | 🟡 item 1 feito |
+| — | **Desempenho Sistema** (`GET /orders` sem filtro, `/financial/expenses` sem filtro) | ✅ |
 
 Backlog sem sprint definida: pagamento online, notificações WhatsApp, MFA,
 WebSocket/realtime, exportação/exclusão LGPD formal, pentest externo, observabilidade
@@ -822,7 +822,7 @@ paginação — nenhuma relacionada).
 
 ---
 
-## Sprint — Desempenho Sistema 🟡 item 1 IMPLEMENTADO em 2026-09-27, item 2 pendente
+## Sprint — Desempenho Sistema ✅ IMPLEMENTADA (itens 1 e 2) em 2026-09-27
 
 Auditoria de desempenho de `apps/pizzaria` (`pizzariahk.vercel.app`), pedida pelo
 usuário em 2026-09-27, cobrindo todas as consultas (GET) que o painel da pizzaria faz.
@@ -873,20 +873,23 @@ registros nessas rotas específicas.
      ajustados pra usar um range `from`/`to` largo em vez de nenhum filtro. Suíte
      completa 196/202 (as 6 falhas de sempre — CNPJ + paginação — não relacionadas).
 
-2. <span style="color:orange">**`GET /financial/expenses` nunca teve filtro, sempre
-   traz o histórico inteiro de despesas**</span> — mesma classe de risco do item 1, mas
-   com um detalhe que trava a solução óbvia: `Financial.tsx` busca TODAS as despesas
-   de uma vez porque precisa comparar o período selecionado (7/30/90 dias) **contra o
-   período anterior** (variação %) — filtrar no backend exigiria 2 chamadas (período
-   atual + anterior), mesmo padrão que `getRevenue()` já faz com 2 chamadas separadas.
-   - **Funcionalidade afetada**: `apps/api/src/financial/expenses.controller.ts`/
-     `expenses.service.ts` (novo suporte a `from`/`to`), `apps/pizzaria/src/data/
-     repository.ts` (`getExpenses(from?, to?)`), `apps/pizzaria/src/components/
-     Financial.tsx` (2 chamadas — período atual e anterior — em vez de 1 sem filtro +
-     filtro em JS).
-   - **Prioridade baixa por ora**: volume de despesas de uma pizzaria real cresce devagar
-     (poucas por semana) — o risco é teórico ainda, não medido como problema real.
-     Registrado pra não esquecer, não bloqueia nada.
+2. <span style="color:blue">**`GET /financial/expenses` nunca teve filtro ✅
+   IMPLEMENTADO em 2026-09-27**</span> — ganhou suporte opcional a `from`/`to`
+   (`ExpensesQueryDto`, mesma convenção de `RevenueQueryDto`) — sem os dois, mantém o
+   comportamento legado (todas as despesas), já que o risco aqui é teórico, não medido
+   (volume de despesas de uma pizzaria real cresce devagar). `Financial.tsx` passou a
+   fazer **2 chamadas escopadas** (período atual + período anterior, pro cálculo da
+   variação %) em vez de 1 chamada sem filtro + filtro em JS — mesmo padrão que
+   `getRevenue()` já usava.
+   - **Arquivos alterados**: novo `dto/expenses-query.dto.ts`, `expenses.service.ts`
+     (`list()` aceita `{from, to}`), `expenses.controller.ts` (`@Query()`),
+     `apps/pizzaria/src/data/repository.ts` (`getExpenses(from?, to?)`),
+     `Financial.tsx` (novo estado `prevExpensesTotal`, substituindo o filtro local
+     `prevPeriodExpenses`).
+   - **Testes**: novo caso em `expenses-crud.e2e-spec.ts` confirmando que `from`/`to`
+     filtra corretamente e que sem os dois mantém o histórico completo (comportamento
+     legado preservado de propósito, diferente de `orders` que virou obrigatório).
+     Suíte completa 197/203 (as 6 falhas de sempre, sem relação).
 
 3. <span style="color:white">**Login em ~5s — não é bug, é decisão de design
    (Argon2id)**</span> — de longe o pior tempo de resposta do app, mas é o custo
@@ -920,9 +923,7 @@ sprint pendente dependa.
 
 # Pendências consolidadas (visão geral, atualizada em 2026-09-27)
 
-- **Desempenho Sistema** — `GET /orders` exigir sempre filtro de período (fecha custo
-  ilimitado); `GET /financial/expenses` sem filtro (prioridade baixa, exige repensar
-  `Financial.tsx`). Ver sprint própria acima.
+- ~~**Desempenho Sistema**~~ — ✅ implementada por completo em 2026-09-27 (itens 1 e 2).
 - **Sprint 11b** — fechar o piloto com um tenant real.
 - **Sprint 15** — rate limiting, audit log append-only, secrets no CI (gitleaks).
 - **Sprint 25** — mover o upsert do contador sequencial pro fim da transação, testar

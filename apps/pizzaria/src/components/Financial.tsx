@@ -37,6 +37,7 @@ export function Financial() {
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [dailyRevenue, setDailyRevenue] = useState<DailyRevenue[]>([]);
   const [prevRevenueTotal, setPrevRevenueTotal] = useState<number | null>(null);
+  const [prevExpensesTotal, setPrevExpensesTotal] = useState<number | null>(null);
   const [periodDays, setPeriodDays] = useState<PeriodDays>(7);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -66,7 +67,12 @@ export function Financial() {
     const toInstant = new Date(`${toStr}T00:00:00`);
     toInstant.setDate(toInstant.getDate() + 1);
 
-    getExpenses().then(setExpenses).catch(() => undefined);
+    // Despesas: 2 chamadas escopadas (periodo atual + anterior), nao mais 1 chamada
+    // sem filtro + filtro em JS -- mesmo padrao que "orders"/"revenue" ja usam.
+    getExpenses(fromStr, toStr).then(setExpenses).catch(() => undefined);
+    getExpenses(prevFromStr, prevToStr)
+      .then((prev) => setPrevExpensesTotal(prev.reduce((sum, e) => sum + e.amount, 0)))
+      .catch(() => setPrevExpensesTotal(null));
     getOrders({ from: fromInstant.toISOString(), to: toInstant.toISOString() }).then(setOrders).catch(() => undefined);
     getRevenue(fromStr, toStr).then(setDailyRevenue).catch(() => undefined);
     getRevenue(prevFromStr, prevToStr)
@@ -75,8 +81,8 @@ export function Financial() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodDays]);
 
-  const periodExpenses = expenses.filter((e) => e.date >= fromStr && e.date <= toStr);
-  const prevPeriodExpenses = expenses.filter((e) => e.date >= prevFromStr && e.date <= prevToStr);
+  // "expenses" ja vem escopada ao periodo atual pelo backend -- sem filtro client-side.
+  const periodExpenses = expenses;
   // "orders" ja vem filtrado pro periodo do backend -- sem filtro client-side de novo.
   const periodOrders = orders;
   const periodCompleted = periodOrders.filter((o) => o.status === 'completed');
@@ -84,7 +90,6 @@ export function Financial() {
   const periodRevenue = dailyRevenue.reduce((sum, d) => sum + d.revenue, 0);
   const totalExpenses = periodExpenses.reduce((sum, e) => sum + e.amount, 0);
   const balance = periodRevenue - totalExpenses;
-  const prevTotalExpenses = prevPeriodExpenses.reduce((sum, e) => sum + e.amount, 0);
   const averageTicket = periodCompleted.length > 0 ? periodCompleted.reduce((sum, o) => sum + o.total, 0) / periodCompleted.length : 0;
 
   function pctChange(current: number, previous: number | null): number | null {
@@ -92,8 +97,8 @@ export function Financial() {
     return ((current - previous) / Math.abs(previous)) * 100;
   }
   const revenueDelta = pctChange(periodRevenue, prevRevenueTotal);
-  const expensesDelta = pctChange(totalExpenses, prevTotalExpenses);
-  const prevBalance = prevRevenueTotal !== null ? prevRevenueTotal - prevTotalExpenses : null;
+  const expensesDelta = pctChange(totalExpenses, prevExpensesTotal);
+  const prevBalance = prevRevenueTotal !== null && prevExpensesTotal !== null ? prevRevenueTotal - prevExpensesTotal : null;
   const balanceDelta = pctChange(balance, prevBalance);
 
   const expensesByDate = new Map<string, number>();
