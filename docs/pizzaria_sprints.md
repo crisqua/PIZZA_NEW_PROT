@@ -61,7 +61,7 @@ antes.
 | — | **Mudança de Dashboard** (remove agregado cross-tenant, consulta por pizzaria) | ✅ |
 | — | Usuários dentro de Vendas por Pizzaria (sai da tela cross-tenant lenta) | ✅ |
 | — | Pizzaria nasce com a loja fechada por padrão | ✅ |
-| — | **Desempenho Sistema** (`GET /orders` sem filtro, `/financial/expenses` sem filtro) | ⏳ desenhada |
+| — | **Desempenho Sistema** (`GET /orders` sem filtro, `/financial/expenses` sem filtro) | 🟡 item 1 feito |
 
 Backlog sem sprint definida: pagamento online, notificações WhatsApp, MFA,
 WebSocket/realtime, exportação/exclusão LGPD formal, pentest externo, observabilidade
@@ -822,7 +822,7 @@ paginação — nenhuma relacionada).
 
 ---
 
-## Sprint — Desempenho Sistema ⏳ desenhada em 2026-09-27, aguardando aprovação
+## Sprint — Desempenho Sistema 🟡 item 1 IMPLEMENTADO em 2026-09-27, item 2 pendente
 
 Auditoria de desempenho de `apps/pizzaria` (`pizzariahk.vercel.app`), pedida pelo
 usuário em 2026-09-27, cobrindo todas as consultas (GET) que o painel da pizzaria faz.
@@ -858,21 +858,20 @@ registros nessas rotas específicas.
 
 ### O que precisa ser feito
 
-1. <span style="color:red">**`GET /orders` sem filtro baixa o histórico inteiro, sem
-   limite**</span> — `OrdersService.list()` (comentário no próprio código já confirma:
-   "sem filtro de período... comportamento legado"). Hoje **nenhum lugar do frontend
-   chama assim** (`OrdersPanel.tsx` usa `?date=`, `Dashboard.tsx`/`Financial.tsx` usam
-   `?from&to`), mas o endpoint continua aceitando a chamada sem filtro, e o custo
-   cresce sem limite com o tempo de operação do tenant (mais pedidos acumulados = mais
-   lento pra sempre, nunca estabiliza).
-   - **Funcionalidade afetada**: `apps/api/src/orders/orders.controller.ts` (rota
-     `GET /orders`), `orders.service.ts` (`list()`), `dto/list-orders-query.dto.ts`.
-   - **Proposta**: exigir sempre `date` OU (`from`+`to`) — 400 se nenhum dos dois vier,
-     removendo o 3º modo ("nenhum filtro") por completo. Seguro fazer isso: os únicos 3
-     chamadores atuais (`OrdersPanel.tsx`, `Dashboard.tsx`, `Financial.tsx`) já sempre
-     passam um dos dois — nenhuma tela do `apps/pizzaria` precisaria mudar.
-   - **Verificação**: teste e2e confirmando que `GET /orders` sem nenhum filtro agora
-     retorna 400; suíte existente de `orders-crud`/`idempotency` continua verde.
+1. <span style="color:blue">**`GET /orders` sem filtro baixava o histórico inteiro, sem
+   limite ✅ IMPLEMENTADO em 2026-09-27**</span> — `OrdersService.list()` agora rejeita
+   com 400 ("Informe 'date' ou 'from'+'to' pra listar pedidos") quando nenhum dos dois
+   filtros vem na query — o 3º modo ("sem filtro nenhum") foi removido por completo.
+   Confirmado antes de implementar que os únicos 3 chamadores reais
+   (`OrdersPanel.tsx` usa `?date=`, `Dashboard.tsx`/`Financial.tsx` usam `?from&to`)
+   já sempre passavam um dos dois — nenhuma tela do `apps/pizzaria` precisou mudar.
+   - **Arquivos alterados**: `orders.service.ts` (`list()`),
+     `dto/list-orders-query.dto.ts` (comentário atualizado).
+   - **Testes**: novo caso em `orders-crud.e2e-spec.ts` confirmando 400 sem filtro;
+     o teste de isolamento ("cliente vê só os próprios, staff vê todos") e o teste do
+     corte por dia (que antes verificava "sem date mantém o histórico completo")
+     ajustados pra usar um range `from`/`to` largo em vez de nenhum filtro. Suíte
+     completa 196/202 (as 6 falhas de sempre — CNPJ + paginação — não relacionadas).
 
 2. <span style="color:orange">**`GET /financial/expenses` nunca teve filtro, sempre
    traz o histórico inteiro de despesas**</span> — mesma classe de risco do item 1, mas

@@ -406,22 +406,35 @@ describe('/v1/orders', () => {
   });
 
   it('GET lista -- cliente ve so os proprios, staff ve todos do tenant', async () => {
+    // "date"/"from"+"to" e' obrigatorio desde a Sprint "Desempenho Sistema" (2026-09-27)
+    // -- range largo (ultimo ano) so' pra garantir que createdOrderId cai dentro.
+    const wideRange = `?from=${new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()}&to=${new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()}`;
     const customerList = await request(app.getHttpServer())
-      .get('/v1/orders')
+      .get(`/v1/orders${wideRange}`)
       .set('Authorization', `Bearer ${customerToken}`)
       .expect(200);
     expect(customerList.body.every((o: { customerId: string }) => o.customerId === customerA.id)).toBe(true);
     expect(customerList.body.some((o: { id: string }) => o.id === createdOrderId)).toBe(true);
 
-    const staffList = await request(app.getHttpServer()).get('/v1/orders').set('Authorization', `Bearer ${ownerToken}`).expect(200);
+    const staffList = await request(app.getHttpServer())
+      .get(`/v1/orders${wideRange}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200);
     expect(staffList.body.some((o: { id: string }) => o.id === createdOrderId)).toBe(true);
+  });
+
+  it('GET sem "date" nem "from"+"to" retorna 400 (Sprint "Desempenho Sistema" -- fecha o custo ilimitado)', async () => {
+    await request(app.getHttpServer())
+      .get('/v1/orders')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(400);
   });
 
   // Sprint "OrdersPanel sem historico inteiro" (2026-09-22): GET /orders?date= filtra
   // createdAt pro dia inteiro em Sao Paulo. Pedido proprio (nao createdOrderId) pra nao
   // interferir nos testes de maquina de estados abaixo, que dependem de createdOrderId
   // continuar com o status/timing original.
-  it('GET com ?date= filtra pro dia (fuso Sao Paulo), sem date mantem o historico completo', async () => {
+  it('GET com ?date= filtra pro dia (fuso Sao Paulo); ?from/?to largo mostra os dois dias juntos', async () => {
     const backdated = await request(app.getHttpServer())
       .post('/v1/orders')
       .set('Authorization', `Bearer ${customerToken}`)
@@ -458,11 +471,14 @@ describe('/v1/orders', () => {
         .expect(200);
       expect(yesterdayList.body.some((o: { id: string }) => o.id === backdatedId)).toBe(true);
 
-      const fullList = await request(app.getHttpServer())
-        .get('/v1/orders')
+      // "date"/"from"+"to" e' obrigatorio desde a Sprint "Desempenho Sistema"
+      // (2026-09-27) -- em vez de "sem filtro mantem o historico completo", confirma
+      // que um range largo (from/to) mostra os pedidos de AMBOS os dias juntos.
+      const wideList = await request(app.getHttpServer())
+        .get(`/v1/orders?from=${yesterday.toISOString()}&to=${new Date(todayNoonSp.getTime() + 24 * 60 * 60 * 1000).toISOString()}`)
         .set('Authorization', `Bearer ${ownerToken}`)
         .expect(200);
-      expect(fullList.body.some((o: { id: string }) => o.id === backdatedId)).toBe(true);
+      expect(wideList.body.some((o: { id: string }) => o.id === backdatedId)).toBe(true);
     } finally {
       await tenantContext.runInTenantContext(tenantA.tenantId, async (tx) => {
         await tx.orderItem.deleteMany({ where: { orderId: backdatedId } });

@@ -264,27 +264,32 @@ export class OrdersService {
     // staff ve todos (precisa pro painel da Sprint 9). Filtro de aplicacao, sem precedente
     // direto (o mais proximo e' o self-service de UsersController, mas la' e' sempre 1 linha).
     //
-    // Tres modos, nessa ordem de prioridade (ver ListOrdersQueryDto):
-    // 1) "from"/"to" (instante exato) -- usado por Dashboard.tsx pro "dia de operacao"
-    //    (corte as 5h, calculado la' mesmo em from/to explicito).
+    // Filtro de periodo agora e' OBRIGATORIO (Sprint "Desempenho Sistema", 2026-09-27) --
+    // dois modos, nessa ordem de prioridade (ver ListOrdersQueryDto):
+    // 1) "from"/"to" (instante exato) -- usado por Dashboard.tsx/Financial.tsx pro "dia
+    //    de operacao" (corte as 5h, calculado la' mesmo em from/to explicito).
     // 2) "date" (dia de OPERACAO em Sao Paulo, corte as 5h -- mesmo conceito e mesma
     //    funcao usada por businessDayKeySaoPaulo no orderCode, de proposito: um pedido
     //    com orderCode "22..." PRECISA aparecer filtrando por "22" aqui, os dois tem que
     //    concordar entre si) -- usado por OrdersPanel.tsx, que faz polling a cada 10s e
     //    ANTES desta correcao baixava o historico inteiro do tenant em toda chamada
     //    (custo so' cresce com o tempo de uso, nunca estabiliza).
-    // 3) nenhum dos dois -- sem filtro de periodo, comportamento legado ainda usado por
-    //    Financial.tsx ate ser migrado (registrado como pendente no plano de desempenho).
-    const createdAtRange = filter.from && filter.to
-      ? { gte: new Date(filter.from), lt: new Date(filter.to) }
-      : filter.date
-        ? (() => {
-            const { start, end } = businessDayRangeSaoPaulo(filter.date!);
-            return { gte: start, lt: end };
-          })()
-        : null;
+    // O 3o modo que existia antes (nenhum filtro = historico inteiro) foi removido --
+    // auditoria de desempenho (2026-09-27) confirmou que nenhum chamador real precisa
+    // dele (OrdersPanel/Dashboard/Financial ja sempre mandam um dos dois), so' sobrava
+    // como uma rota de custo ilimitado que crescia pra sempre com o tempo de operacao
+    // do tenant.
+    let createdAtRange: { gte: Date; lt: Date };
+    if (filter.from && filter.to) {
+      createdAtRange = { gte: new Date(filter.from), lt: new Date(filter.to) };
+    } else if (filter.date) {
+      const { start, end } = businessDayRangeSaoPaulo(filter.date);
+      createdAtRange = { gte: start, lt: end };
+    } else {
+      throw new BadRequestException('Informe "date" ou "from"+"to" pra listar pedidos.');
+    }
     const where: Prisma.OrderWhereInput = {
-      ...(createdAtRange ? { createdAt: createdAtRange } : {}),
+      createdAt: createdAtRange,
       ...(user.role === 'customer' ? { customerId: user.id } : {}),
     };
     const orders = await tx.order.findMany({ where, include: { items: true }, orderBy: { createdAt: 'desc' } });
