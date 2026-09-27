@@ -294,7 +294,7 @@ export function TenantSales() {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between flex-wrap gap-3">
-                  <CardTitle>Usuários — {sales.tenantName}</CardTitle>
+                  <CardTitle className="min-w-0 truncate">Usuários — {sales.tenantName}</CardTitle>
                   <select
                     value={usersRole}
                     onChange={(e) => {
@@ -320,35 +320,34 @@ export function TenantSales() {
 
                 {!usersLoading && usersData && usersData.items.length > 0 && (
                   <>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="text-left text-muted-foreground">
-                            <th className="font-medium py-2 pr-4">Usuário</th>
-                            <th className="font-medium py-2 pr-4">Papel</th>
-                            <th className="font-medium py-2">Criado em</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {usersData.items.map((user) => (
-                            <tr key={user.id} className="border-t border-border">
-                              <td className="py-2 pr-4">
-                                <div className="font-medium">{user.name}</div>
-                                <div className="text-xs text-muted-foreground">{user.email}</div>
-                              </td>
-                              <td className="py-2 pr-4">
-                                <Badge variant={ROLE_BADGE_VARIANT[user.role] ?? 'secondary'}>
-                                  {ROLE_LABEL[user.role] ?? user.role}
-                                </Badge>
-                              </td>
-                              <td className="py-2 text-muted-foreground">
-                                {new Date(user.createdAt).toLocaleDateString('pt-BR')}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    {/* Grid que empilha em 1 coluna no celular (mesmo padrao ja usado
+                        em TenantsManagement.tsx e na antiga UsersManagement.tsx) --
+                        nao uma <table> crua, que nao colapsa e obriga rolagem
+                        horizontal (achado real reportado pelo usuario em 413px). */}
+                    <div className="hidden md:grid grid-cols-[1fr_140px_140px] gap-4 px-2 py-2 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      <span>Usuário</span>
+                      <span>Papel</span>
+                      <span>Criado em</span>
                     </div>
+                    {usersData.items.map((user) => (
+                      <div
+                        key={user.id}
+                        className="grid grid-cols-1 md:grid-cols-[1fr_140px_140px] gap-2 md:gap-4 px-2 py-3 border-b border-border last:border-b-0"
+                      >
+                        <div className="min-w-0">
+                          <div className="font-medium truncate">{user.name}</div>
+                          <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                        </div>
+                        <div>
+                          <Badge variant={ROLE_BADGE_VARIANT[user.role] ?? 'secondary'}>
+                            {ROLE_LABEL[user.role] ?? user.role}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                        </div>
+                      </div>
+                    ))}
 
                     <div className="flex items-center justify-between gap-3 flex-wrap mt-4">
                       <p className="text-sm text-muted-foreground">
