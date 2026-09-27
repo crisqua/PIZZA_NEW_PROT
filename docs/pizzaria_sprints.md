@@ -59,6 +59,9 @@ antes.
 | 27 | Horário de funcionamento + loja aberta/fechada | ✅ |
 | 28 | Job batch pra denormalizar pedidos/usuários no Dashboard | ❌ (substituída) |
 | — | **Mudança de Dashboard** (remove agregado cross-tenant, consulta por pizzaria) | ✅ |
+| — | Usuários dentro de Vendas por Pizzaria (sai da tela cross-tenant lenta) | ✅ |
+| — | Pizzaria nasce com a loja fechada por padrão | ✅ |
+| — | **Desempenho Sistema** (`GET /orders` sem filtro, `/financial/expenses` sem filtro) | ⏳ desenhada |
 
 Backlog sem sprint definida: pagamento online, notificações WhatsApp, MFA,
 WebSocket/realtime, exportação/exclusão LGPD formal, pentest externo, observabilidade
@@ -819,8 +822,108 @@ paginação — nenhuma relacionada).
 
 ---
 
-# Pendências consolidadas (visão geral, atualizada em 2026-09-26)
+## Sprint — Desempenho Sistema ⏳ desenhada em 2026-09-27, aguardando aprovação
 
+Auditoria de desempenho de `apps/pizzaria` (`pizzariahk.vercel.app`), pedida pelo
+usuário em 2026-09-27, cobrindo todas as consultas (GET) que o painel da pizzaria faz.
+
+### Metodologia
+
+Os dados reais no homolog eram bem menores que 50-100 registros (o tenant mais cheio
+tinha 14 pedidos). Criado um **tenant descartável** com volume realista — 4 categorias,
+20 produtos, **80 pedidos** (com itens, status variados, espalhados nos últimos 60
+dias), **60 itens de estoque**, **60 despesas** — medido cada endpoint direto contra a
+API de produção (`pizza-api-homolog.onrender.com`, a mesma que `pizzariahk.vercel.app`
+usa), tenant apagado por completo depois (confirmado via `prisma.tenant.findUnique`).
+
+### Resultado por consulta
+
+| Endpoint | O que traz | Volume testado | Tempo medido |
+|---|---|---|---|
+| `POST /auth/login` | autenticação (hash Argon2id) | — | **~5,0s** |
+| `GET /tenants/me` | dados da própria pizzaria | 1 | ~1,1 – 1,5s |
+| `GET /tenants/me/subscription` | plano/módulos liberados | 1 | ~1,8 – 2,2s |
+| `GET /catalog/categories` | categorias do cardápio | 4 | ~1,5s |
+| `GET /catalog/products` | produtos do cardápio | 20 | ~1,7 – 1,9s |
+| `GET /orders` (sem filtro) | pedidos — histórico inteiro | 80 (+itens) | ~2,0 – 2,7s |
+| `GET /orders/top-products` | mais vendidos (30 dias, agregado no banco) | 4 no top | ~1,8 – 2,0s |
+| `GET /inventory` | itens de estoque | 60 | ~1,5 – 3,1s |
+| `GET /financial/expenses` | despesas — todas, sem filtro | 60 | ~1,5s |
+| `GET /financial/revenue?from&to` | receita diária agregada | período de 60 dias | ~1,5s |
+
+**Piso geral (~1,1-2s) é o Render Free** (mesmo diagnóstico das Sprints 22-23), não o
+volume de dados — cada consulta acima é 1 transação/1 query simples, sem loop por
+tenant nem N+1. Com 20-80 registros, tempo seria basicamente o mesmo com 5 ou 500
+registros nessas rotas específicas.
+
+### O que precisa ser feito
+
+1. <span style="color:red">**`GET /orders` sem filtro baixa o histórico inteiro, sem
+   limite**</span> — `OrdersService.list()` (comentário no próprio código já confirma:
+   "sem filtro de período... comportamento legado"). Hoje **nenhum lugar do frontend
+   chama assim** (`OrdersPanel.tsx` usa `?date=`, `Dashboard.tsx`/`Financial.tsx` usam
+   `?from&to`), mas o endpoint continua aceitando a chamada sem filtro, e o custo
+   cresce sem limite com o tempo de operação do tenant (mais pedidos acumulados = mais
+   lento pra sempre, nunca estabiliza).
+   - **Funcionalidade afetada**: `apps/api/src/orders/orders.controller.ts` (rota
+     `GET /orders`), `orders.service.ts` (`list()`), `dto/list-orders-query.dto.ts`.
+   - **Proposta**: exigir sempre `date` OU (`from`+`to`) — 400 se nenhum dos dois vier,
+     removendo o 3º modo ("nenhum filtro") por completo. Seguro fazer isso: os únicos 3
+     chamadores atuais (`OrdersPanel.tsx`, `Dashboard.tsx`, `Financial.tsx`) já sempre
+     passam um dos dois — nenhuma tela do `apps/pizzaria` precisaria mudar.
+   - **Verificação**: teste e2e confirmando que `GET /orders` sem nenhum filtro agora
+     retorna 400; suíte existente de `orders-crud`/`idempotency` continua verde.
+
+2. <span style="color:orange">**`GET /financial/expenses` nunca teve filtro, sempre
+   traz o histórico inteiro de despesas**</span> — mesma classe de risco do item 1, mas
+   com um detalhe que trava a solução óbvia: `Financial.tsx` busca TODAS as despesas
+   de uma vez porque precisa comparar o período selecionado (7/30/90 dias) **contra o
+   período anterior** (variação %) — filtrar no backend exigiria 2 chamadas (período
+   atual + anterior), mesmo padrão que `getRevenue()` já faz com 2 chamadas separadas.
+   - **Funcionalidade afetada**: `apps/api/src/financial/expenses.controller.ts`/
+     `expenses.service.ts` (novo suporte a `from`/`to`), `apps/pizzaria/src/data/
+     repository.ts` (`getExpenses(from?, to?)`), `apps/pizzaria/src/components/
+     Financial.tsx` (2 chamadas — período atual e anterior — em vez de 1 sem filtro +
+     filtro em JS).
+   - **Prioridade baixa por ora**: volume de despesas de uma pizzaria real cresce devagar
+     (poucas por semana) — o risco é teórico ainda, não medido como problema real.
+     Registrado pra não esquecer, não bloqueia nada.
+
+3. <span style="color:white">**Login em ~5s — não é bug, é decisão de design
+   (Argon2id)**</span> — de longe o pior tempo de resposta do app, mas é o custo
+   computacional *proposital* do hash de senha (Sprint 2, escolhido de propósito pra
+   tornar força-bruta inviável) rodando numa CPU fatiada do Render Free. **Nenhuma ação
+   recomendada** — só registrado pra não ser confundido com um problema de consulta a
+   banco nas próximas auditorias.
+
+### O que já está bem arquitetado (confirmado, sem ação necessária)
+
+`orders/top-products` e `financial/revenue` já agregam no banco (nunca trazem tudo pro
+cliente somar); `catalog/*`, `inventory`, `tenants/me` são leituras diretas de 1 tabela,
+sem N+1 — mesmo padrão já validado nas correções de performance anteriores.
+
+### Verificação (quando for implementado)
+
+1. Item 1: novo teste e2e em `test/orders/orders-crud.e2e-spec.ts` (400 sem filtro).
+2. Item 2 (se decidir implementar): suíte de `test/financial/expenses-crud.e2e-spec.ts`
+   estendida com casos de `from`/`to`.
+3. `npx tsc --noEmit` em `apps/api`, `apps/pizzaria`.
+4. Repetir a mesma metodologia de medição (tenant descartável, ~50-100 registros) pra
+   confirmar que nada regrediu.
+5. Commit + push + acompanhar o Actions run até `success`.
+
+### Dependência com outras sprints
+
+**Nenhuma.** Mexe só em `orders`/`financial`, não toca em nenhuma tabela/rota que outra
+sprint pendente dependa.
+
+---
+
+# Pendências consolidadas (visão geral, atualizada em 2026-09-27)
+
+- **Desempenho Sistema** — `GET /orders` exigir sempre filtro de período (fecha custo
+  ilimitado); `GET /financial/expenses` sem filtro (prioridade baixa, exige repensar
+  `Financial.tsx`). Ver sprint própria acima.
 - **Sprint 11b** — fechar o piloto com um tenant real.
 - **Sprint 15** — rate limiting, audit log append-only, secrets no CI (gitleaks).
 - **Sprint 25** — mover o upsert do contador sequencial pro fim da transação, testar
