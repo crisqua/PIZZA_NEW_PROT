@@ -63,25 +63,39 @@ export class AdminUsersService {
 
     // Usuarios tenant-scoped -- percorre os tenants (todos, ou so' o filtrado).
     if (!role || role !== 'platform_superadmin') {
-      const tenants = await this.prisma.tenant.findMany({
-        where: tenantId ? { id: tenantId } : undefined,
-        select: { id: true, name: true },
-      });
-      const tenantNameById = new Map(tenants.map((t) => [t.id, t.name]));
-
       const roleWhere: Prisma.UserWhereInput['role'] = role
         ? role
         : { in: ['tenant_owner', 'tenant_staff', 'customer'] };
 
-      const perTenant = await mapWithConcurrency(tenants, TENANT_CONCURRENCY, (tenant) =>
-        this.tenantContext.runInTenantContext(tenant.id, (tx) =>
-          tx.user.findMany({ where: { role: roleWhere }, select: USER_SELECT }),
-        ),
-      );
+      if (tenantId) {
+        // Caminho comum (unico chamado por TenantSales.tsx desde que "Usuarios" deixou
+        // de ser tela cross-tenant, 2026-09-27): 1 tenant ja conhecido pelo chamador --
+        // sem sentido descobrir "quais tenants existem" primeiro so' pra descobrir que e'
+        // esse 1 mesmo. O nome do tenant e' buscado EM PARALELO com a transacao de
+        // usuarios (Promise.all), nao em serie -- antes disso essa rota pagava 2
+        // round-trips sequenciais no Render Free (~2,5s observados em producao) so' pra
+        // devolver um "tenantName" que o proprio frontend, aqui, ja tinha carregado.
+        const [tenant, users] = await Promise.all([
+          this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } }),
+          this.tenantContext.runInTenantContext(tenantId, (tx) =>
+            tx.user.findMany({ where: { role: roleWhere }, select: USER_SELECT }),
+          ),
+        ]);
+        results.push(...users.map((u) => ({ ...u, tenantName: tenant?.name ?? null })));
+      } else {
+        const tenants = await this.prisma.tenant.findMany({ select: { id: true, name: true } });
+        const tenantNameById = new Map(tenants.map((t) => [t.id, t.name]));
 
-      for (const rows of perTenant) {
-        for (const u of rows) {
-          results.push({ ...u, tenantName: tenantNameById.get(u.tenantId ?? '') ?? null });
+        const perTenant = await mapWithConcurrency(tenants, TENANT_CONCURRENCY, (tenant) =>
+          this.tenantContext.runInTenantContext(tenant.id, (tx) =>
+            tx.user.findMany({ where: { role: roleWhere }, select: USER_SELECT }),
+          ),
+        );
+
+        for (const rows of perTenant) {
+          for (const u of rows) {
+            results.push({ ...u, tenantName: tenantNameById.get(u.tenantId ?? '') ?? null });
+          }
         }
       }
     }

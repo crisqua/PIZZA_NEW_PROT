@@ -780,6 +780,18 @@ papel a pedido do usuário) — https://claude.ai/artifact/7QH6sbJuY4EujJRzcL5mW
 `npx tsc --noEmit` e `vite build` limpos em `apps/admin-pizzarias`. Sem teste e2e novo
 (nenhuma mudança de backend).
 
+**Ajuste de desempenho no mesmo dia**: usuário reportou ~2,5s pra abrir a seção de
+usuários em produção (DevTools, aba Timing) — melhor que os +1min de antes, mas mais
+que o piso de ~1-1,5s esperado pra 1 transação no Render Free. Causa: `AdminUsersService.
+list()`, ao filtrar por `tenantId`, ainda fazia **2 round-trips SEQUENCIAIS** — um
+`tenant.findMany()` só pra descobrir o nome do tenant (que o próprio `TenantSales.tsx` já
+tinha carregado) antes de abrir a transação de usuários. Corrigido: quando `tenantId` é
+passado, o nome do tenant é buscado **em paralelo** com a transação (`Promise.all`), não
+mais antes dela — o "descobrir quais tenants existem" também deixa de rodar (o
+`tenantId` já diz qual é). Caminho sem `tenantId` (chamada cross-tenant direta via API,
+não mais usada pelo frontend) mantido como estava. 5/5 specs de
+`test/admin/admin-users.e2e-spec.ts` verdes.
+
 ---
 
 ## Correção pontual (2026-09-27): pizzaria nasce fechada por padrão ✅ implementada
