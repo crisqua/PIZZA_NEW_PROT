@@ -60,7 +60,13 @@ model Tenant {
   // sem excecao, sem brecha de retry/idempotencia). Horario de funcionamento abaixo e'
   // so' informativo nesta sprint -- NAO fecha a loja sozinho fora do horario cadastrado
   // (decisao explicita: automatizar isso e' evolucao futura separada).
-  isOpen                   Boolean @default(true) @map("is_open")
+  // Default mudou pra "false" a pedido do usuario: pizzaria recem-cadastrada nasce
+  // FECHADA, o dono precisa ligar manualmente antes do primeiro pedido -- nem
+  // TenantsAdminService.create nem TenantOnboardingService.onboard passam "isOpen"
+  // explicito, entao os dois ja herdam esse default sozinhos. Fixtures de teste
+  // (test/utils/seed-tenant.ts, seed-auth-fixtures.ts) setam isOpen:true explicito de
+  // proposito, pra nao quebrar a suite inteira de pedidos que assume loja aberta.
+  isOpen                   Boolean @default(false) @map("is_open")
   openingTime              String? @map("opening_time") @db.VarChar(5)   // "18:00"
   closingTime              String? @map("closing_time") @db.VarChar(5)   // "23:30"
   openWeekends             Boolean @default(true) @map("open_weekends")

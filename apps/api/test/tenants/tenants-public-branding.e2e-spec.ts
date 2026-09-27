@@ -16,7 +16,9 @@ describe('GET /v1/public/tenants/:slug', () => {
     const tenant = await prisma.tenant.create({
       // cnpj preenchido de proposito -- prova que o campo fica de fora mesmo quando
       // EXISTE, nao so' porque nunca foi setado (teste mais forte que so' ausencia).
-      data: { name: 'Public Branding Test', slug, primaryColor: '#ABCDEF', phone: '11988887777', cnpj: '11222333000181' },
+      // isOpen:true explicito -- default do schema virou "false" (pizzaria nasce
+      // fechada), este teste verifica o SHAPE da resposta publica, nao esse default.
+      data: { name: 'Public Branding Test', slug, primaryColor: '#ABCDEF', phone: '11988887777', cnpj: '11222333000181', isOpen: true },
     });
     tenantId = tenant.id;
   });

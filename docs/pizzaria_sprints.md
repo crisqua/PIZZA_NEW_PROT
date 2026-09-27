@@ -752,6 +752,31 @@ fica como pendência registrada.
 
 ---
 
+## Correção pontual (2026-09-27): pizzaria nasce fechada por padrão ✅ implementada
+
+Pedido do usuário: toda pizzaria recém-cadastrada deve nascer com a loja **fechada**
+(`Tenant.isOpen = false`), não aberta — o dono precisa ligar manualmente antes do
+primeiro pedido (mesmo interruptor da Sprint 27, só mudando o valor inicial).
+
+- `schema.prisma`: default de `isOpen` mudou de `true` pra `false` (migration
+  `20260927013234_tenant_isopen_default_false` — revisada à mão antes de aplicar: o
+  Prisma gerou de novo `DROP CONSTRAINT` nas FKs compostas hand-written de
+  `orders`/`order_items`/`products`/`refresh_tokens` + um `DROP INDEX` em
+  `inventory_items`, sem relação nenhuma com essa mudança — mesmo bug já conhecido
+  deste projeto, limpo do SQL antes de aplicar).
+- `TenantsAdminService.create()` e `TenantOnboardingService.onboard()` (os dois únicos
+  pontos que criam tenant) passam a setar `isOpen: false` explícito, não só confiar no
+  default do schema — mais claro pra quem ler o código depois.
+- Fixtures de teste (`test/utils/seed-tenant.ts`, `seed-auth-fixtures.ts`) passaram a
+  setar `isOpen: true` explícito, senão toda a suíte de pedidos/checkout (que assume
+  loja aberta por padrão) quebraria em cascata.
+
+Confirmado direto no banco que as 6 FKs compostas + o índice continuam intactos depois
+da migration. Suíte e2e completa 195/201 (as 6 falhas conhecidas de sempre — CNPJ +
+paginação — nenhuma relacionada).
+
+---
+
 # Pendências consolidadas (visão geral, atualizada em 2026-09-26)
 
 - **Sprint 11b** — fechar o piloto com um tenant real.

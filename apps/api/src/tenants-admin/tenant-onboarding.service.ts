@@ -50,6 +50,10 @@ export class TenantOnboardingService {
             deliveryFee: dto.deliveryFee,
             minOrder: dto.minOrder,
             cnpj,
+            // Pizzaria nasce fechada -- o dono liga manualmente (Dashboard/Pedidos,
+            // Sprint 27) antes do primeiro pedido. Explicito aqui (nao so' o default do
+            // schema) pra deixar a decisao visivel pra quem ler este service.
+            isOpen: false,
           },
         });
 

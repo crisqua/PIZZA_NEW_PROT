@@ -56,7 +56,9 @@ export class TenantsAdminService {
     try {
       // active nunca vem do body -- toda pizzaria nasce ativa, so' o toggle dedicado
       // desativa. Nada a invalidar no cache: slug novo, a chave nunca existiu.
-      const tenant = await this.prisma.tenant.create({ data: { ...dto, cnpj } });
+      // isOpen explicito em false (mesma decisao de TenantOnboardingService.onboard):
+      // pizzaria nasce fechada, o dono liga manualmente antes do primeiro pedido.
+      const tenant = await this.prisma.tenant.create({ data: { ...dto, cnpj, isOpen: false } });
       return toTenantResponse(tenant);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === PRISMA_UNIQUE_CONSTRAINT) {

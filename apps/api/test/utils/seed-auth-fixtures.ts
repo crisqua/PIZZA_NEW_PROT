@@ -23,7 +23,10 @@ export async function seedTenantWithUser(
   const password = options.password ?? randomUUID();
   const passwordHash = await hashPassword(password);
 
-  const tenant = await prisma.tenant.create({ data: { name: slug, slug } });
+  // isOpen:true explicito -- desde que o default do schema virou "false" (pizzaria
+  // nasce fechada), a maioria dos specs que usam este fixture (pedidos/checkout)
+  // precisa da loja aberta por padrao; quem quiser testar loja fechada muda depois.
+  const tenant = await prisma.tenant.create({ data: { name: slug, slug, isOpen: true } });
 
   const email = `${options.role}@${slug}.test`;
   const user = await tenantContext.runInTenantContext(tenant.id, (tx) =>

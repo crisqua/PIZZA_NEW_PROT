@@ -16,7 +16,8 @@ export async function seedTenant(
   const slug = `${slugPrefix}-${randomUUID().slice(0, 8)}`;
 
   // tenants nao tem RLS — insert direto pelo client global e o esperado aqui.
-  const tenant = await prisma.tenant.create({ data: { name: slug, slug } });
+  // isOpen:true explicito -- default do schema virou "false" (pizzaria nasce fechada).
+  const tenant = await prisma.tenant.create({ data: { name: slug, slug, isOpen: true } });
 
   // passwordHash e' obrigatorio desde a Sprint 2 — este helper testa isolamento/RLS, nao
   // login, entao um hash descartavel (nunca usado pra autenticar) e' suficiente aqui.
