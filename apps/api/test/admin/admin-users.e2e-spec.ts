@@ -89,6 +89,27 @@ describe('GET /v1/admin/users', () => {
     expect(res.body.items[0].tenantName).toBeNull();
   });
 
+  // Caminho tenantId+role juntos passou a usar SQL raw (2026-09-28, "Desempenho Sistema")
+  // pra cortar 1 round trip -- este teste pega qualquer erro de sintaxe/tipo no
+  // `ANY($1::text[])` que um smoke test manual sem esse filtro combinado nao pegaria.
+  it('filtro por tenantId + role juntos retorna so quem bate com os dois', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/v1/admin/users?tenantId=${tenantA.tenantId}&role=tenant_owner`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .expect(200);
+
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0].email).toBe(tenantA.email);
+    expect(res.body.items[0].role).toBe('tenant_owner');
+
+    const resMiss = await request(app.getHttpServer())
+      .get(`/v1/admin/users?tenantId=${tenantA.tenantId}&role=tenant_staff`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .expect(200);
+
+    expect(resMiss.body.items).toHaveLength(0);
+  });
+
   it('paginacao funciona sobre o resultado agregado', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/admin/users?page=1&pageSize=1')

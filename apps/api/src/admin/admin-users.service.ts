@@ -80,10 +80,28 @@ export class AdminUsersService {
         // mesmo tempo, entao "paralelo" no codigo ainda virava serializado na pratica.
         // A correcao real e' nao fazer a segunda consulta -- o unico chamador
         // (TenantSales.tsx) ja sabe o nome da pizzaria selecionada e nunca leu esse
-        // campo da resposta. Fica 1 unica transacao, no piso de ~1-1,5s.
-        const users = await this.tenantContext.runInTenantContext(tenantId, (tx) =>
-          tx.user.findMany({ where: { role: roleWhere }, select: USER_SELECT }),
-        );
+        // campo da resposta.
+        //
+        // Round trip a mais cortado (2026-09-28, frente "Desempenho Sistema"): em vez de
+        // `runInTenantContext` (SET LOCAL numa query + SELECT noutra, 2 idas ao banco
+        // dentro da mesma transacao), 1 unico SELECT raw que injeta o `set_config` via
+        // CROSS JOIN contra "users" -- ver o aviso em `queryInTenantContext` sobre por que
+        // NAO usar `WITH ctx AS (...)` nao-referenciado aqui (risco real de silenciosamente
+        // rodar fora de contexto de tenant nenhum).
+        const roles = role ? [role] : ['tenant_owner', 'tenant_staff', 'customer'];
+        const users = await this.tenantContext.queryInTenantContext<{
+          id: string;
+          name: string;
+          email: string;
+          role: string;
+          tenantId: string;
+          createdAt: Date;
+        }>(Prisma.sql`
+          SELECT u.id, u.name, u.email, u.role, u.tenant_id AS "tenantId", u.created_at AS "createdAt"
+          FROM (SELECT set_config('app.current_tenant_id', ${tenantId}, true)) AS _tenant_ctx
+          CROSS JOIN "users" u
+          WHERE u.role = ANY(${roles}::text[])
+        `);
         results.push(...users.map((u) => ({ ...u, tenantName: null })));
       } else {
         const tenants = await this.prisma.tenant.findMany({ select: { id: true, name: true } });
