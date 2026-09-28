@@ -9,7 +9,7 @@ status e a data; nunca apaga a linha (histórico fica registrado, mesma convenç
 
 | Funcionalidade | Onde | O que testar | Status | Data |
 |---|---|---|---|---|
-| Usuários da Pizzaria | Admin-Pizzarias → Vendas por Pizzaria → Ver Usuários | Rodar a suíte e2e completa (`apps/api/test/admin/admin-users.e2e-spec.ts`) contra o homolog real, em especial o teste novo de `tenantId` + `role` combinados (`ANY($1::text[])` via SQL raw, `GET /v1/admin/users?tenantId=`). Confirmar que a lista de usuários de uma pizzaria continua batendo com o comportamento anterior e medir se o tempo de resposta caiu de fato (~150-300ms esperado, sem garantia de <1s). Commit: `de712d1`. | ⏳ pendente | 2026-09-28 |
+| Usuários da Pizzaria | Admin-Pizzarias → Vendas por Pizzaria → Ver Usuários | **Requisito:** tempo de resposta abaixo de 1s ao consultar os usuários de uma pizzaria (`GET /v1/admin/users?tenantId=`). Medir contra o homolog real e confirmar que a lista continua correta (rodar `apps/api/test/admin/admin-users.e2e-spec.ts`, especialmente o caso novo de `tenantId` + `role` combinados). Commit: `de712d1` — otimização aplicada corta 1 round trip, mas não há garantia de que sozinha alcance <1s (ver ressalva registrada na conversa). | ⏳ pendente | 2026-09-28 |
 
 ---
 
