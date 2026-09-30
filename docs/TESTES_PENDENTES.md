@@ -10,6 +10,7 @@ status e a data; nunca apaga a linha (histórico fica registrado, mesma convenç
 | Funcionalidade | Onde | O que testar | Status | Data |
 |---|---|---|---|---|
 | Usuários da Pizzaria | Admin-Pizzarias → Vendas por Pizzaria → Ver Usuários | **Requisito:** tempo de resposta abaixo de 1s ao consultar os usuários de uma pizzaria (`GET /v1/admin/users?tenantId=`). Medir contra o homolog real e confirmar que a lista continua correta (rodar `apps/api/test/admin/admin-users.e2e-spec.ts`, especialmente o caso novo de `tenantId` + `role` combinados). Commit: `de712d1` — otimização aplicada corta 1 round trip, mas não há garantia de que sozinha alcance <1s (ver ressalva registrada na conversa). | ❌ falhou (ver observação) | 2026-09-29 |
+| Acompanhar Pedido | Cliente → Confirmação do Pedido (polling a cada 10s) | **Pergunta do usuário:** dá pra deixar `GET /v1/orders/:id` abaixo de 1s? Avaliar se é possível via código. | ✅ validado (ver observação — conclusão: não é possível só com código) | 2026-09-29 |
 
 ---
 
@@ -26,6 +27,21 @@ dentro dela — mesmo diagnóstico já registrado em `docs/pizzaria_sprints.md` 
 "Desempenho Sistema"). Pra cruzar a barreira de 1s de forma confiável, a alavanca que
 resta é o upgrade de infra do Render (decisão já tomada de adiar pra quando houver
 receita/escala), não mais otimização de código nesta rota específica.
+
+**Acompanhar Pedido (2026-09-29)**: usuário reportou 2,06s num `GET /v1/orders/:id`
+que retornou **304 Not Modified** (status não tinha mudado desde o poll anterior).
+`OrdersService.findOne()` já é 1 única query por chave primária (`findUnique`,
+sem loop) — não sobra nada pra otimizar na consulta em si. O 304 prova o ponto: ele só
+economiza bytes na resposta, o backend ainda roda o pipeline inteiro (guard, abrir
+transação, query, serializar, só então comparar) antes de decidir não mandar o corpo —
+por isso levou o mesmo ~2s de qualquer outra chamada. **Conclusão: não dá pra cruzar a
+barreira de 1s só com mudança de código nesta rota** — é o mesmo piso de conexão do
+Render Free já confirmado em toda outra medição desta sessão (health check, vendas por
+pizzaria, usuários por pizzaria, todas na faixa de 1,1-2,2s independente da
+complexidade da query). As únicas duas alavancas reais: upgrade de infra do Render
+(decisão já adiada pra quando houver receita/escala), ou reduzir a frequência do
+polling / trocar por push (WebSocket/realtime, já no backlog fora do MVP) — nenhuma
+das duas é uma correção de código nesta sprint.
 
 ## Como usar este documento
 
