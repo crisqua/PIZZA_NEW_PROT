@@ -162,13 +162,8 @@ export function OrdersPanel() {
           return (
             <Card key={status} className={config.color}>
               <div className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">{config.label}</p>
-                    <p className="text-3xl font-bold">{count}</p>
-                  </div>
-                  <Badge variant={config.variant}>{count}</Badge>
-                </div>
+                <p className="text-sm text-muted-foreground mb-1">{config.label}</p>
+                <p className="text-3xl font-bold">{count}</p>
               </div>
             </Card>
           );
