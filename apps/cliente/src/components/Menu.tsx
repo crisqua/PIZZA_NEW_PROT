@@ -71,7 +71,13 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
   // de booleans independentes.
   const [openCategoryId, setOpenCategoryId] = useState<string>(mockCategories[0]?.id ?? '');
 
+  // Loja fechada: nenhuma categoria pode ficar/ser aberta (pedido do usuario, com
+  // screenshot mostrando o card "Classica" expandido mesmo com "Fechado" no topo) --
+  // gate aqui em vez de resetar `openCategoryId` num efeito, pra cobrir tanto o card
+  // que ja vinha aberto por padrao (primeira categoria) quanto o caso da loja fechar
+  // em tempo real enquanto o cliente esta com uma categoria aberta.
   const toggleCategory = (id: string) => {
+    if (!mockTenant.isOpen) return;
     setOpenCategoryId((prev) => (prev === id ? '' : id));
   };
 
@@ -121,13 +127,15 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
         {mockCategories.map((category) => {
           const pizzas = mockPizzas.filter((p) => p.category === category.id);
           if (pizzas.length === 0) return null;
-          const isOpen = openCategoryId === category.id;
+          const isOpen = mockTenant.isOpen && openCategoryId === category.id;
 
           return (
             <Card key={category.id} className="overflow-hidden">
               <button
                 onClick={() => toggleCategory(category.id)}
-                className="w-full flex items-center justify-between px-4 py-4"
+                disabled={!mockTenant.isOpen}
+                title={!mockTenant.isOpen ? 'Pizzaria fechada no momento' : undefined}
+                className="w-full flex items-center justify-between px-4 py-4 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-2.5">
                   <span className="font-serif text-lg text-foreground">{category.name}</span>
