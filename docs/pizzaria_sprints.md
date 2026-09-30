@@ -44,7 +44,7 @@ antes.
 | 13 | Telefone + endereço no cadastro | ✅ |
 | 14 | Confirmação de e-mail | ✅ |
 | 11b | Fechar o piloto com tenant real | ⏳ |
-| 15 | Rate limiting + audit log + secrets no CI | ⏳ (desenhada) |
+| 15 | Rate limiting + audit log + secrets no CI | 🟡 (rate limiting ✅, resto ⏳) |
 | 16 | Upload de imagem real (Supabase Storage) | ✅ |
 | — | Plano à parte: responsividade mobile | ✅ |
 | — | Plano à parte: código de pedido sequencial por dia | ✅ |
@@ -395,12 +395,48 @@ revela pelo menos um ajuste de schema/regra de negócio imprevisto.
 
 ---
 
-## Sprint 15 — Rate limiting + audit log + secrets no CI ⏳ desenhada, não implementada
+## Sprint 15 — Rate limiting + audit log + secrets no CI 🟡 parcialmente implementada
 
 `MVP.md` seção 3 lista estes 3 itens como não-negociáveis mesmo no MVP; auditoria de
-código confirma que nenhum foi construído ainda.
+código confirmou que nenhum tinha sido construído. Implementação dividida em partes
+independentes, a pedido do usuário ("pode começar por uma parte sim").
 
-- **Rate limiting** em `POST /v1/orders` (por tenant e por IP) via `@nestjs/throttler`.
+### Parte 1 — Rate limiting ✅ IMPLEMENTADA em 2026-09-29 (commit `6fcf35b`, main, CI verde)
+
+`POST /v1/orders` ganhou `@nestjs/throttler` (v6.7.1), com 2 limites nomeados
+configurados em `OrdersModule` e aplicados via `@UseGuards(ThrottlerGuard)` só no
+método `create()` (não na classe inteira, não global em `AppModule`):
+
+- **`ip`** — limite por IP de origem (tracker default do `@nestjs/throttler`).
+- **`tenant`** — limite por pizzaria, via tracker customizado novo
+  (`apps/api/src/common/tenant-throttler-tracker.ts`): usa `req.user.tenantId` quando
+  autenticado, cai pro IP quando não há tenant (ex. `platform_superadmin`, sem
+  tenant próprio) ou não há usuário.
+
+Limites configuráveis via `RATE_LIMIT_IP_PER_MIN`/`RATE_LIMIT_TENANT_PER_MIN`
+(defaults de produção documentados em `.env.example`: 10/min por IP, 30/min por
+tenant). **Detalhe de implementação que evitou uma regressão real**: `limit` é
+lido como FUNÇÃO (`() => Number(process.env...)`), não um número fixo capturado
+uma vez no boot — o `@nestjs/throttler` v6 aceita um `Resolvable<T>` reavaliado a
+cada requisição. Sem isso, a suíte e2e inteira (que roda `--runInBand`, um
+processo Node só) travaria: vários arquivos de teste pré-existentes
+(`orders-crud`, `idempotency`) legitimamente criam mais de 10 pedidos numa mesma
+suite, e tomariam 429 por engano se o limite fosse fixo. Com o valor lido por
+requisição, CI/local sobem com `RATE_LIMIT_IP_PER_MIN=1000` (não atrapalha os
+outros testes) e só o `rate-limit.e2e-spec.ts` abaixa o próprio limite pra `5`
+dentro do seu `beforeAll` — restaurando o valor original no `afterAll` (Jest
+isola o cache de módulos por arquivo de teste, mas **não** isola `process.env`
+entre arquivos rodando no mesmo processo).
+
+Testes novos: `tenant-throttler-tracker.spec.ts` (4 casos unitários) +
+`test/orders/rate-limit.e2e-spec.ts` (confirma 429 após estourar o limite por
+IP). Suíte e2e completa 199/205 (as 6 falhas são as já conhecidas — CNPJ
+duplicado por dado sujo no homolog + flakiness de paginação de tenants em
+`admin-tenants-crud`/`admin-subscriptions`, confirmado que nenhuma toca
+`orders`/rate limiting).
+
+### Partes pendentes
+
 - **Scan de secrets no CI** (gitleaks), rodando antes dos outros steps.
 - **Audit log append-only** (desenho completo já fechado): cobre login (sucesso e
   falha), criação de tenant/usuário, mudança de status de pedido, e alternar loja
