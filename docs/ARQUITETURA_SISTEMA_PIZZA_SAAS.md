@@ -271,6 +271,62 @@ Além disso, específico deste domínio:
 - **Backups** automáticos do Postgres (gerenciados pelo Supabase) com teste periódico de restore (backup não testado não é backup).
 - **Resiliência do caminho crítico** (Orders/Payments): Render e Supabase oferecem redundância gerenciada nesse estágio; Multi-AZ dedicado só vira decisão própria de infra se/quando o volume justificar migrar para além do que esses provedores cobrem.
 
+### 11.1 Estudo de dimensionamento — Render + Supabase (registrado em 2026-09-29)
+
+Levantamento feito a pedido do usuário, motivado pela lentidão observada em produção
+no plano Free do Render (diagnóstico completo também em `docs/pizzaria_sprints.md`,
+seção do plano "desempenho do sistema"). **Diagnóstico confirmado por medição real**:
+um `GET /health` (`SELECT 1` puro, sem transação, sem RLS) já demora 1,1–1,5s no plano
+Free — não é distância geográfica (São Paulo↔EUA seria ~300-400ms no pior caso), é a
+CPU compartilhada e fortemente limitada do Render Free, que reduz o pool de conexões
+do Prisma a quase nada e força reconexão (handshake TLS) constante em vez de
+reaproveitar conexão aberta. O Supabase em si processa cada query em milissegundos —
+o gargalo está inteiramente do lado do Render.
+
+**Premissas de negócio confirmadas com o usuário** (via `AskUserQuestion`, sem teto de
+orçamento definido ainda): 500+ pizzarias na plataforma, 50+ pedidos simultâneos
+(pico), meta de resposta abaixo de 1s na maioria das telas.
+
+**Render — dois planos SEPARADOS, cobrados juntos**:
+
+| Workspace (conta) | Preço | O que libera |
+|---|---|---|
+| Hobby | $0/mês | Uso básico |
+| Pro | $25/mês | Autoscaling horizontal |
+| Scale | $499/mês | Recursos de escala maior |
+| Enterprise | sob consulta | — |
+
+| Compute (por serviço) | Preço | CPU/RAM |
+|---|---|---|
+| Free | $0/mês | <0,1 CPU / 512MB |
+| Starter | $7/mês | 0,5 CPU / 512MB |
+| Standard | $25/mês | 1 CPU / 2GB |
+| Pro | $85/mês | 2 CPU / 4GB |
+| (até) 12c-96g | $1.500/mês | 12 CPU / 96GB |
+
+**Supabase**:
+
+| Plano | Preço | Detalhe |
+|---|---|---|
+| Free | $0/mês | 500MB banco, CPU compartilhada, 60 conexões diretas / 200 no pooler, **pausa depois de 1 semana sem uso** |
+| Pro | $25/mês | 8GB incluído (depois $0,125/GB), nunca pausa, mesmo compute "Micro" compartilhado do Free a menos que compre um add-on |
+| Add-on Small | +$15/mês | 2GB RAM dedicado |
+| Add-on Medium | +$60/mês | 4GB RAM dedicado |
+| Add-on Large | +$110/mês | 2 vCPU / 8GB dedicado, 800 conexões no pooler |
+
+**Recomendação de ponto de partida** (dá pra crescer sem trocar de provedor):
+Render Workspace Pro ($25) + Render Compute Standard 1c-2g ($25, upgradável pra Pro
+2c-4g a $85 quando o volume pedir) + Supabase Pro ($25) = **~$75/mês** inicial.
+
+**Análise à parte, sem custo de implementação — o que é atribuível à arquitetura
+multi-tenant vs. ao Render em si**: o piso de latência do Render (CPU compartilhada)
+é **universal**, existiria com ou sem multi-tenancy. O único custo genuinamente
+atribuível ao desenho multi-tenant (RLS forçada, role do banco `NOBYPASSRLS`) é a
+agregação cross-tenant que precisa de 1 transação por tenant (o padrão já corrigido
+nas Sprints 22/28/"Mudança de Dashboard" — ver `docs/pizzaria_sprints.md`). Um upgrade
+de infra multiplica o ganho de uma arquitetura já eficiente; não substitui o trabalho
+de eliminar operações O(N) por tenant.
+
 ---
 
 ## 12. Escalabilidade e resiliência
