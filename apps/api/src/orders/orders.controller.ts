@@ -14,6 +14,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -39,8 +40,12 @@ export class OrdersController {
   // (ver comentario la') porque uma corrida de idempotencia precisa de uma segunda
   // transacao apos a primeira abortar -- usar o "tx" unico do interceptor nao permitiria
   // isso (Postgres aborta a transacao inteira apos qualquer erro).
+  // Rate limiting (Sprint 15) so' neste metodo, nao na classe -- os limites nomeados
+  // "ip"/"tenant" ja vem configurados em OrdersModule (ThrottlerModule.forRoot), este
+  // guard so' precisa ser aplicado aqui pra valer.
   @Post()
   @Roles('customer')
+  @UseGuards(ThrottlerGuard)
   @HttpCode(HttpStatus.CREATED)
   create(
     @CurrentUser() user: AuthenticatedUser,

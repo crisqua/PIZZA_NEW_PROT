@@ -47,6 +47,11 @@ jobs:
       JWT_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
       REDIS_URL: redis://localhost:6379
+      # Valores altos so' pra suite e2e nao tomar 429 sem querer (varios arquivos de teste
+      # criam mais de 10 pedidos na mesma suite) -- producao usa valores bem menores (ver
+      # apps/api/.env.example), configurados direto no Render.
+      RATE_LIMIT_IP_PER_MIN: '1000'
+      RATE_LIMIT_TENANT_PER_MIN: '1000'
 
     steps:
       - name: Checkout
