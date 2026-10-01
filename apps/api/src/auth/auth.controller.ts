@@ -1,5 +1,6 @@
 import { Body, Controller, ForbiddenException, HttpCode, HttpStatus, Post, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
 import type { CookieOptions, Response } from 'express';
+import { requestMeta } from '../common/request-meta.util';
 import { RequestWithTenant } from '../common/types/request-with-tenant';
 import { EmailVerificationService } from '../email/email-verification.service';
 import { AuthService, TokenPair } from './auth.service';
@@ -39,8 +40,8 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const user = await this.authService.validateCredentials(dto);
+  async login(@Body() dto: LoginDto, @Req() req: RequestWithTenant, @Res({ passthrough: true }) res: Response) {
+    const user = await this.authService.validateCredentials(dto, requestMeta(req));
     const tokens = await this.authService.issueTokens(user);
     this.setRefreshCookie(res, tokens);
     return { accessToken: tokens.accessToken, user };

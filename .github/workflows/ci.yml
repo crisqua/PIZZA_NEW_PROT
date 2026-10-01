@@ -52,6 +52,7 @@ jobs:
       # apps/api/.env.example), configurados direto no Render.
       RATE_LIMIT_IP_PER_MIN: '1000'
       RATE_LIMIT_TENANT_PER_MIN: '1000'
+      AUDIT_LOG_RETENTION_SECRET: ci_only_retention_secret
 
     steps:
       # fetch-depth: 0 (nao o shallow-clone default) -- o gitleaks-action logo abaixo

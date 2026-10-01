@@ -1,5 +1,6 @@
 import { Body, ConflictException, Controller, ForbiddenException, Get, NotFoundException, Patch, UseGuards, UseInterceptors } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -7,12 +8,13 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { CacheService } from '../cache/cache.service';
 import { resolveCnpj } from '../common/cnpj.util';
+import { resolveActorEmail } from '../common/resolve-actor-email.util';
 import { tenantBrandingCacheKey } from '../common/tenant-branding-cache-key';
 import { toTenantResponse } from '../common/tenant-response.util';
 import { CurrentTenant } from '../common/decorators/tenant.decorator';
 import { TenantContextInterceptor } from '../common/interceptors/tenant-context.interceptor';
 import { PrismaService } from '../prisma/prisma.service';
-import { TenantTx } from '../prisma/tenant-context.service';
+import { TenantContextService, TenantTx } from '../prisma/tenant-context.service';
 import { UpdateTenantBrandingDto } from './dto/update-tenant-branding.dto';
 
 const PRISMA_UNIQUE_CONSTRAINT = 'P2002';
@@ -26,6 +28,8 @@ export class TenantsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
+    private readonly tenantContext: TenantContextService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   @Get('me')
@@ -73,6 +77,26 @@ export class TenantsController {
       const updated = await this.prisma.tenant.update({ where: { id: tenant.id }, data: { ...dto, cnpj } });
       // slug e' imutavel nesta rota -- so' uma chave pra invalidar.
       await this.cache.del(tenantBrandingCacheKey(updated.slug));
+      // Sprint 15 -- so' loga quando "isOpen" veio no body E mudou de verdade (nao
+      // registra um PATCH que so' mexeu em outro campo, ex. deliveryFee, sem tocar
+      // isOpen -- evitaria log "fantasma" pra mudancas que nao tem nada a ver com o
+      // estado da loja). "tenants" nao tem RLS, mas "audit_logs" tem -- precisa do
+      // proprio runInTenantContext so' pra essa escrita, nao e' uma transacao de
+      // negocio formal com o update acima (que ja aconteceu e ja teve sucesso).
+      if (dto.isOpen !== undefined && dto.isOpen !== tenant.isOpen) {
+        await this.tenantContext.runInTenantContext(tenant.id, async (tx) => {
+          await this.auditLog.record(tx, {
+            tenantId: tenant.id,
+            actorId: user.id,
+            actorEmail: await resolveActorEmail(tx, user.id),
+            actorRole: user.role,
+            action: 'tenant.store_status_change',
+            targetType: 'tenant',
+            targetId: tenant.id,
+            metadata: { from: tenant.isOpen, to: updated.isOpen },
+          });
+        });
+      }
       return toTenantResponse(updated);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === PRISMA_UNIQUE_CONSTRAINT) {

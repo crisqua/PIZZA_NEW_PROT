@@ -1,0 +1,24 @@
+name: Audit log retention
+
+# Dispara o expurgo diario do audit log via HTTP, nao @Cron interno -- o Render Free
+# hiberna o servico depois de ~15min sem trafego, e um timer dentro do processo Node nao
+# acorda sozinho um processo dormindo na hora agendada (o job simplesmente nao rodaria
+# naquele dia, silenciosamente). O GitHub Actions dispara com confiabilidade real (infra
+# propria do GitHub), e a propria requisicao HTTP ja acorda o Render Free antes do
+# expurgo rodar (mesmo principio do UpdateBanner).
+#
+# Cron do GitHub e' sempre em UTC -- '0 7 * * *' = 04:00 em Sao Paulo (UTC-3), mesma
+# janela de baixo trafego ja usada pelo corte de "dia comercial" nas Sprints 22-24.
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  run-retention:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger retention job
+        run: |
+          curl -sf -X POST "${{ secrets.API_BASE_URL }}/v1/internal/audit-log-retention/run" \
+            -H "X-Retention-Job-Secret: ${{ secrets.AUDIT_LOG_RETENTION_SECRET }}"

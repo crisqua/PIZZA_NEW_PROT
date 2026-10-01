@@ -2,8 +2,10 @@ import { ConflictException, ForbiddenException, Injectable, NotFoundException, U
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { hashPassword, verifyPassword } from '../common/password.util';
 import { hashRefreshToken } from '../common/refresh-token.util';
+import { RequestMeta } from '../common/request-meta.util';
 import { EmailVerificationService } from '../email/email-verification.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService, TenantTx } from '../prisma/tenant-context.service';
@@ -44,14 +46,18 @@ export class AuthService {
     private readonly tenantContext: TenantContextService,
     private readonly jwtService: JwtService,
     private readonly emailVerification: EmailVerificationService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   // Slug desconhecido e senha errada retornam o MESMO erro — nunca dar sinal de que um
-  // tenant existe ou nao (evita enumeracao de tenant).
-  async validateCredentials(dto: LoginDto): Promise<AuthenticatedUser> {
+  // tenant existe ou nao (evita enumeracao de tenant). "meta" (Sprint 15) e' opcional de
+  // proposito -- callers internos (nenhum hoje) podem nao ter uma requisicao HTTP por
+  // tras; AuthController.login sempre passa.
+  async validateCredentials(dto: LoginDto, meta: RequestMeta = { ipAddress: null, userAgent: null }): Promise<AuthenticatedUser> {
     if (dto.tenantSlug) {
       const tenant = await this.prisma.tenant.findUnique({ where: { slug: dto.tenantSlug } });
       if (!tenant) {
+        await this.logLoginFailed(null, dto.email, dto.tenantSlug, meta);
         throw new UnauthorizedException('Credenciais invalidas.');
       }
 
@@ -62,6 +68,7 @@ export class AuthService {
       // do slug ja confirmado existente, e nao revela nada sobre email/senha (Sprint 3,
       // ver docs/pizzaria_sprints.md).
       if (!tenant.active) {
+        await this.logLoginFailed(tenant.id, dto.email, dto.tenantSlug, meta);
         throw new ForbiddenException('Tenant desativado.');
       }
 
@@ -72,9 +79,11 @@ export class AuthService {
       );
 
       if (!user || !(await verifyPassword(user.passwordHash, dto.password))) {
+        await this.logLoginFailed(tenant.id, dto.email, dto.tenantSlug, meta);
         throw new UnauthorizedException('Credenciais invalidas.');
       }
 
+      await this.logLoginSuccess(tenant.id, user, meta);
       return { id: user.id, tenantId: user.tenantId, role: user.role as UserRole };
     }
 
@@ -84,10 +93,51 @@ export class AuthService {
     });
 
     if (!user || !(await verifyPassword(user.passwordHash, dto.password))) {
+      await this.logLoginFailed(null, dto.email, null, meta);
       throw new UnauthorizedException('Credenciais invalidas.');
     }
 
+    await this.logLoginSuccess(null, user, meta);
     return { id: user.id, tenantId: null, role: 'platform_superadmin' };
+  }
+
+  // "actorRole: 'unknown'" de proposito -- uma tentativa de login que falhou nao tem
+  // papel conhecido (o usuario pode nem existir). Senha NUNCA entra aqui, nem em
+  // metadata -- so' o email/slug tentados, que ja sao uteis pra investigar abuso sem
+  // expor credencial nenhuma.
+  private async logLoginFailed(tenantId: string | null, attemptedEmail: string, attemptedSlug: string | null, meta: RequestMeta): Promise<void> {
+    const entry = {
+      tenantId,
+      actorId: null,
+      actorEmail: attemptedEmail,
+      actorRole: 'unknown',
+      action: 'auth.login_failed',
+      metadata: { tenantSlug: attemptedSlug },
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+    };
+    if (tenantId) {
+      await this.tenantContext.runInTenantContext(tenantId, (tx) => this.auditLog.record(tx, entry));
+    } else {
+      await this.auditLog.record(this.prisma, entry);
+    }
+  }
+
+  private async logLoginSuccess(tenantId: string | null, user: { id: string; email: string; role: string }, meta: RequestMeta): Promise<void> {
+    const entry = {
+      tenantId,
+      actorId: user.id,
+      actorEmail: user.email,
+      actorRole: user.role,
+      action: 'auth.login',
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+    };
+    if (tenantId) {
+      await this.tenantContext.runInTenantContext(tenantId, (tx) => this.auditLog.record(tx, entry));
+    } else {
+      await this.auditLog.record(this.prisma, entry);
+    }
   }
 
   // Cadastro publico do cliente final (Sprint 7) -- sempre role:'customer', sempre
@@ -108,6 +158,18 @@ export class AuthService {
       const user = await this.tenantContext.runInTenantContext(tenant.id, async (tx) => {
         const created = await tx.user.create({
           data: { tenantId: tenant.id, email: dto.email, name: dto.name, phone: dto.phone, role: 'customer', passwordHash },
+        });
+        // Mesma transacao (Sprint 15) -- se o cadastro inteiro der rollback (ex. o
+        // proprio insert falhando mais abaixo por algum motivo), a entrada de auditoria
+        // some junto, nunca sobra um log de um cadastro que nao aconteceu de verdade.
+        await this.auditLog.record(tx, {
+          tenantId: tenant.id,
+          actorId: created.id,
+          actorEmail: created.email,
+          actorRole: created.role,
+          action: 'user.create',
+          targetType: 'user',
+          targetId: created.id,
         });
         // Mesma transacao (Sprint 14) -- so' grava o token no banco aqui dentro; o envio
         // de verdade e' fire-and-forget (ver EmailVerificationService), nunca segura a

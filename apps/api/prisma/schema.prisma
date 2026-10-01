@@ -458,3 +458,64 @@ model Expense {
   @@index([tenantId, date], map: "idx_expenses_tenant_date")
   @@map("expenses")
 }
+
+// Audit log append-only (Sprint 15, parte 3) — tenant-owned mas com tenant_id ANULAVEL
+// (mesmo caso de "users": eventos de plataforma, ex. login de superadmin, nao pertencem
+// a nenhum tenant), entao usa o MESMO carve-out de policy RLS de "users" (ver
+// 20260829000054_init_tenants_users/migration.sql), nao a forma estrita que o resto do
+// schema usa. actorEmail/actorRole sao SNAPSHOT (mesmo raciocinio de
+// Order.customerName) -- congelados no momento do evento, sobrevivem a um usuario
+// renomeado/com papel trocado depois. actorId nulo = acao do proprio sistema (nenhum
+// caso usa isso ainda, reservado). Action e' um vocabulario fechado validado so' no
+// codigo que escreve (nao no banco): "auth.login", "auth.login_failed", "tenant.create",
+// "user.create", "order.status_change", "tenant.store_status_change". Senha de login
+// falho NUNCA entra em nenhum campo, nem em metadata (checado em teste).
+// Propositalmente SEM updatedAt -- nenhum metodo update()/delete() existe no service que
+// escreve aqui (AuditLogService so' tem record()); "append-only" e' garantia de codigo,
+// nao so' de nome. Index duplo: (tenantId, createdAt) pra uma futura tela de consulta
+// filtrar por pizzaria+periodo, e (createdAt) sozinho pro job de expurgo (AuditLogRetentionService),
+// que dentro de runInTenantContext ja filtra por tenant via RLS e so' precisa localizar
+// rapido as linhas por data.
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String?  @map("tenant_id") @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  actorEmail String   @map("actor_email") @db.VarChar(160)
+  actorRole  String   @map("actor_role") @db.VarChar(20)
+  action     String   @db.VarChar(60)
+  targetType String?  @map("target_type") @db.VarChar(40)
+  targetId   String?  @map("target_id") @db.Uuid
+  metadata   Json     @default("{}")
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt], map: "idx_audit_logs_tenant_created")
+  @@index([createdAt], map: "idx_audit_logs_created_only")
+  @@index([targetType, targetId], map: "idx_audit_logs_target")
+  @@map("audit_logs")
+}
+
+// Mesma estrutura EXATA de AuditLog, coluna a coluna, na mesma ordem -- o job de
+// expurgo (AuditLogRetentionService) move linha via "INSERT INTO audit_logs_archive
+// SELECT * FROM movidos" (um CTE sobre o DELETE em audit_logs), que so' funciona se as
+// duas tabelas tiverem o mesmo shape posicional. Nunca editar um schema sem editar o
+// outro junto.
+model AuditLogArchive {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String?  @map("tenant_id") @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  actorEmail String   @map("actor_email") @db.VarChar(160)
+  actorRole  String   @map("actor_role") @db.VarChar(20)
+  action     String   @db.VarChar(60)
+  targetType String?  @map("target_type") @db.VarChar(40)
+  targetId   String?  @map("target_id") @db.Uuid
+  metadata   Json     @default("{}")
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt], map: "idx_audit_logs_archive_tenant_created")
+  @@index([createdAt], map: "idx_audit_logs_archive_created_only")
+  @@map("audit_logs_archive")
+}

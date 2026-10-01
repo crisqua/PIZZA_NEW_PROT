@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { ListTenantsQueryDto } from './dto/list-tenants-query.dto';
 import { OnboardTenantDto } from './dto/onboard-tenant.dto';
@@ -29,8 +31,8 @@ export class TenantsAdminController {
   // Rota fixa "onboard" nao colide com "GET/PATCH :id" (metodos HTTP diferentes, e Nest
   // casa por segmento literal antes de parametro de qualquer forma).
   @Post('onboard')
-  onboard(@Body() dto: OnboardTenantDto) {
-    return this.tenantOnboardingService.onboard(dto);
+  onboard(@CurrentUser() actor: AuthenticatedUser, @Body() dto: OnboardTenantDto) {
+    return this.tenantOnboardingService.onboard(dto, actor);
   }
 
   @Get()

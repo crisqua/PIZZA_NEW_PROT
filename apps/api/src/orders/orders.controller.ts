@@ -87,7 +87,7 @@ export class OrdersController {
   @Patch(':id/status')
   @Roles('tenant_owner', 'tenant_staff')
   @UseInterceptors(TenantContextInterceptor)
-  updateStatus(@CurrentTenant() tx: TenantTx, @Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
-    return this.ordersService.updateStatus(tx, id, dto.status);
+  updateStatus(@CurrentUser() user: AuthenticatedUser, @CurrentTenant() tx: TenantTx, @Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
+    return this.ordersService.updateStatus(tx, user, id, dto.status);
   }
 }

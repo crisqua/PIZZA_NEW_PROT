@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 import { ConsoleEmailSender } from '../email/console-email-sender.service';
 import { EMAIL_SENDER } from '../email/email-sender.interface';
 import { EmailVerificationService } from '../email/email-verification.service';
@@ -11,7 +12,7 @@ import { RolesGuard } from './guards/roles.guard';
 @Module({
   // Sem secret/expiresIn global de proposito: access e refresh usam segredos diferentes,
   // passados por chamada em jwtService.signAsync/verifyAsync (ver AuthService).
-  imports: [JwtModule.register({})],
+  imports: [JwtModule.register({}), AuditLogModule],
   controllers: [AuthController],
   providers: [
     AuthService,

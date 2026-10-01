@@ -1,5 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { resolveCnpj } from '../common/cnpj.util';
 import { hashPassword } from '../common/password.util';
 import { toSubscriptionResponse } from '../common/subscription-response.util';
@@ -26,9 +28,12 @@ const PRISMA_UNIQUE_CONSTRAINT = 'P2002';
 // desfaz tudo -- nunca fica tenant orfao.
 @Injectable()
 export class TenantOnboardingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+  ) {}
 
-  async onboard(dto: OnboardTenantDto) {
+  async onboard(dto: OnboardTenantDto, actor: AuthenticatedUser) {
     const plan = await this.prisma.plan.findUnique({ where: { id: dto.planId } });
     if (!plan) {
       throw new NotFoundException('Plano nao encontrado.');
@@ -36,6 +41,11 @@ export class TenantOnboardingService {
 
     const passwordHash = await hashPassword(dto.ownerPassword);
     const cnpj = resolveCnpj(dto.cnpj);
+    // Buscado FORA da transacao de proposito (Sprint 15): o superadmin tem tenant_id
+    // NULL, so' visivel pelo carve-out de RLS quando NENHUM contexto de tenant esta
+    // setado na sessao -- dentro da transacao abaixo, o set_config logo adiante torna
+    // esse carve-out invisivel pro resto da propria transacao.
+    const actorEmail = (await this.prisma.user.findUnique({ where: { id: actor.id }, select: { email: true } }))?.email ?? 'desconhecido';
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -59,6 +69,19 @@ export class TenantOnboardingService {
 
         await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenant.id}, true)`;
 
+        // Mesma transacao (Sprint 15) -- se o onboarding inteiro der rollback, as
+        // entradas de auditoria somem junto. actorId/actorEmail/actorRole sao do
+        // SUPERADMIN que fez o onboarding (quem agiu), nao do dono recem-criado.
+        await this.auditLog.record(tx, {
+          tenantId: tenant.id,
+          actorId: actor.id,
+          actorEmail,
+          actorRole: actor.role,
+          action: 'tenant.create',
+          targetType: 'tenant',
+          targetId: tenant.id,
+        });
+
         const owner = await tx.user.create({
           data: {
             tenantId: tenant.id,
@@ -67,6 +90,17 @@ export class TenantOnboardingService {
             role: 'tenant_owner',
             passwordHash,
           },
+        });
+
+        await this.auditLog.record(tx, {
+          tenantId: tenant.id,
+          actorId: actor.id,
+          actorEmail,
+          actorRole: actor.role,
+          action: 'user.create',
+          targetType: 'user',
+          targetId: owner.id,
+          metadata: { role: owner.role },
         });
 
         const subscription = await tx.subscription.create({

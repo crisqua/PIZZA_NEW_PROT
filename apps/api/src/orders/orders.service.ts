@@ -1,8 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { CepLookupResult, CepLookupService } from '../common/cep-lookup.service';
 import { toOrderResponse } from '../common/order-response.util';
 import { getPizzaSizePrice } from '../common/product-price.util';
+import { resolveActorEmail } from '../common/resolve-actor-email.util';
 import { businessDayKeySaoPaulo, businessDayRangeSaoPaulo } from '../common/sao-paulo-date.util';
 import { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { TenantContextService, TenantTx } from '../prisma/tenant-context.service';
@@ -28,6 +30,7 @@ export class OrdersService {
   constructor(
     private readonly tenantContext: TenantContextService,
     private readonly cepLookup: CepLookupService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   // Abre a PROPRIA transacao (nao usa o "tx" do TenantContextInterceptor, diferente de
@@ -341,7 +344,7 @@ export class OrdersService {
     return toOrderResponse(order);
   }
 
-  async updateStatus(tx: TenantTx, id: string, nextStatus: string) {
+  async updateStatus(tx: TenantTx, user: AuthenticatedUser, id: string, nextStatus: string) {
     const order = await tx.order.findUnique({ where: { id } });
     if (!order) {
       throw new NotFoundException();
@@ -351,6 +354,17 @@ export class OrdersService {
       where: { id },
       data: { status: nextStatus },
       include: { items: true },
+    });
+    // Mesma transacao (Sprint 15) -- rollback da mudanca de status leva o log junto.
+    await this.auditLog.record(tx, {
+      tenantId: order.tenantId,
+      actorId: user.id,
+      actorEmail: await resolveActorEmail(tx, user.id),
+      actorRole: user.role,
+      action: 'order.status_change',
+      targetType: 'order',
+      targetId: order.id,
+      metadata: { from: order.status, to: nextStatus },
     });
     return toOrderResponse(updated);
   }

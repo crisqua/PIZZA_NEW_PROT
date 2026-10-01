@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
 import { CepLookupService } from '../common/cep-lookup.service';
 import { tenantThrottlerTracker } from '../common/tenant-throttler-tracker';
@@ -26,6 +27,7 @@ const TENANT_LIMIT_PER_MIN = () => Number(process.env.RATE_LIMIT_TENANT_PER_MIN 
 @Module({
   imports: [
     AuthModule,
+    AuditLogModule,
     ThrottlerModule.forRoot([
       { name: 'ip', ttl: 60_000, limit: IP_LIMIT_PER_MIN },
       { name: 'tenant', ttl: 60_000, limit: TENANT_LIMIT_PER_MIN, getTracker: tenantThrottlerTracker },
