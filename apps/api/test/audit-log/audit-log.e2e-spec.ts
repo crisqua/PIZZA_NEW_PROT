@@ -84,7 +84,7 @@ describe('Audit log append-only', () => {
   });
 
   it("login com senha errada grava 'auth.login_failed' e NUNCA a senha, em nenhum campo", async () => {
-    const wrongPassword = 'senha-errada-123456';
+    const wrongPassword = 'senha-errada-123456'; // gitleaks:allow -- senha FALSA de teste, nunca usada de verdade, so' pra confirmar que ela nunca e' gravada no audit log
     await request(app.getHttpServer())
       .post('/v1/auth/login')
       .send({ email: customer.email, password: wrongPassword, tenantSlug: tenant.tenantSlug })
