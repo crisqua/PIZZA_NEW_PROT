@@ -50,8 +50,8 @@ Supabase, RLS forçada por tenant. Infra: Supabase (banco) + Render (API,
 
 Sprints 0–10 e boa parte de 11a–27 concluídas. Pendências abertas conhecidas:
 - **Sprint 11b** — fechar o piloto com tenant real (ainda não escolhido).
-- **Sprint 15** — 🟡 parcial: rate limiting em `POST /orders` ✅ implementado
-  (2026-09-29); faltam audit log append-only e scan de secrets no CI (gitleaks).
+- **Sprint 15** — 🟡 parcial: rate limiting em `POST /orders` ✅ (2026-09-29) e scan
+  de secrets no CI via gitleaks ✅ (2026-10-01); falta só o audit log append-only.
 - **Sprint 25** — 🟡 parcial: concorrência no checkout (pedido fantasma) parcialmente
   mitigada; falta mover o upsert do contador sequencial pro fim da transação e
   testar `pool_timeout` do Prisma.

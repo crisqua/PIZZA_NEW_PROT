@@ -44,7 +44,7 @@ antes.
 | 13 | Telefone + endereço no cadastro | ✅ |
 | 14 | Confirmação de e-mail | ✅ |
 | 11b | Fechar o piloto com tenant real | ⏳ |
-| 15 | Rate limiting + audit log + secrets no CI | 🟡 (rate limiting ✅, resto ⏳) |
+| 15 | Rate limiting + audit log + secrets no CI | 🟡 (rate limiting ✅, gitleaks ✅, audit log ⏳) |
 | 16 | Upload de imagem real (Supabase Storage) | ✅ |
 | — | Plano à parte: responsividade mobile | ✅ |
 | — | Plano à parte: código de pedido sequencial por dia | ✅ |
@@ -435,9 +435,19 @@ duplicado por dado sujo no homolog + flakiness de paginação de tenants em
 `admin-tenants-crud`/`admin-subscriptions`, confirmado que nenhuma toca
 `orders`/rate limiting).
 
+### Parte 2 — Scan de secrets no CI (gitleaks) ✅ IMPLEMENTADA em 2026-10-01 (commit `a2ba2eb`, main, CI verde)
+
+Novo step `Gitleaks secrets scan` (`gitleaks/gitleaks-action@v2`) no `.github/workflows/ci.yml`,
+rodando logo após o checkout e antes de qualquer outro step do job `api` — falha rápido
+se algum segredo foi commitado, sem gastar tempo com o resto do pipeline. `GITHUB_TOKEN`
+é injetado automaticamente pelo Actions, sem precisar cadastrar nenhum secret novo. O
+step `Checkout` precisou ganhar `fetch-depth: 0` (histórico completo) — o gitleaks-action
+precisa disso pra conseguir escanear os commits do push/PR, não só o HEAD. Único arquivo
+alterado: `.github/workflows/ci.yml`. CI run confirmado verde, incluindo esse step
+especificamente, antes de qualquer outro (`Checkout` → `Gitleaks secrets scan` → resto).
+
 ### Partes pendentes
 
-- **Scan de secrets no CI** (gitleaks), rodando antes dos outros steps.
 - **Audit log append-only** (desenho completo já fechado): cobre login (sucesso e
   falha), criação de tenant/usuário, mudança de status de pedido, e alternar loja
   aberta/fechada. Model `AuditLog` com RLS obrigatória, `actorEmail`/`actorRole`
