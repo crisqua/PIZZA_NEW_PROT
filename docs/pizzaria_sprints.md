@@ -44,7 +44,7 @@ antes.
 | 13 | Telefone + endereço no cadastro | ✅ |
 | 14 | Confirmação de e-mail | ✅ |
 | 11b | Fechar o piloto com tenant real | ⏳ |
-| 15 | Rate limiting + audit log + secrets no CI | ✅ (3 partes implementadas; tela de consulta opcional fica pra depois) |
+| 15 | Rate limiting + audit log + secrets no CI | 🟡 (3 partes de código ✅; falta o usuário cadastrar secrets no GitHub) |
 | 16 | Upload de imagem real (Supabase Storage) | ✅ |
 | — | Plano à parte: responsividade mobile | ✅ |
 | — | Plano à parte: código de pedido sequencial por dia | ✅ |
@@ -395,7 +395,7 @@ revela pelo menos um ajuste de schema/regra de negócio imprevisto.
 
 ---
 
-## Sprint 15 — Rate limiting + audit log + secrets no CI ✅ IMPLEMENTADA (3 partes) em 2026-10-01
+## Sprint 15 — Rate limiting + audit log + secrets no CI 🟡 IMPLEMENTADA (3 partes), 1 pendência do usuário em 2026-10-01
 
 `MVP.md` seção 3 lista estes 3 itens como não-negociáveis mesmo no MVP; auditoria de
 código confirmou que nenhum tinha sido construído. Implementação dividida em partes
@@ -513,8 +513,34 @@ no `admin-pizzarias`. Layout, colunas, paginação, e se também precisa enxerga
 `audit_logs_archive`, continuam em aberto.
 
 **Com isso, a Sprint 15 tem os 3 itens de código fechados** (rate limiting, gitleaks,
-audit log) — só restam a pendência do usuário acima (secrets do GitHub) e a tela de
+audit log) — só restam a pendência do usuário abaixo (secrets do GitHub) e a tela de
 consulta opcional.
+
+### ⚠️ Pendência do usuário — cadastrar os secrets do GitHub Actions
+
+Sem isso o `.github/workflows/audit-log-retention.yml` agendado roda todo dia às 4h
+(São Paulo), mas o `curl` dentro dele falha silenciosamente (secret vazio) — o expurgo
+diário simplesmente não acontece, sem erro visível em lugar nenhum além do próprio log
+do Actions. Não é algo que eu (Claude) consigo fazer — exige acesso ao repositório no
+GitHub:
+
+1. No GitHub: `Settings` → `Secrets and variables` → `Actions` → `New repository
+   secret`.
+2. Cadastrar **dois** secrets:
+   - `API_BASE_URL` — a URL base da API em produção/homolog, sem barra no final (ex.
+     `https://pizza-api-homolog.onrender.com`).
+   - `AUDIT_LOG_RETENTION_SECRET` — um valor aleatório forte (ex. gerar com `openssl
+     rand -hex 32`), e cadastrar o **mesmo valor exato** como variável de ambiente
+     `AUDIT_LOG_RETENTION_SECRET` no serviço do Render (dashboard → Environment) — os
+     dois lados (GitHub Actions e Render) precisam bater, é o segredo compartilhado que
+     autentica a chamada máquina-pra-máquina.
+3. Depois de cadastrar, confirmar que funciona: aba **Actions** do GitHub → workflow
+   "Audit log retention" → "Run workflow" (disparo manual, não precisa esperar o cron
+   das 4h) → conferir que o step "Trigger retention job" termina verde.
+4. Ver também o item correspondente em `docs/TESTES_PENDENTES.md` (seção "Expurgo do
+   Audit Log") — mesmo depois dos secrets cadastrados, ainda falta validar o
+   comportamento do job contra o volume real de tenants passando pela API no Render
+   (só testado localmente, direto no Supabase, até agora).
 
 ---
 
@@ -1025,12 +1051,16 @@ sprint pendente dependa.
 
 ---
 
-# Pendências consolidadas (visão geral, atualizada em 2026-09-27)
+# Pendências consolidadas (visão geral, atualizada em 2026-10-01)
 
 - ~~**Desempenho Sistema**~~ — ✅ implementada por completo em 2026-09-27 (itens 1 e 2).
-- ~~**Sprint 15**~~ — ✅ implementada por completo em 2026-10-01 (rate limiting, gitleaks,
-  audit log). Resta só cadastrar os secrets do GitHub Actions (`API_BASE_URL`,
-  `AUDIT_LOG_RETENTION_SECRET`) e, opcionalmente, a tela de consulta no admin-pizzarias.
+- **Sprint 15** — 🟡 código 100% implementado em 2026-10-01 (rate limiting, gitleaks,
+  audit log), mas **pendência real do usuário, não automatizável**: cadastrar os
+  secrets `API_BASE_URL`/`AUDIT_LOG_RETENTION_SECRET` no GitHub (Settings → Secrets →
+  Actions) — sem isso o workflow agendado de expurgo do audit log roda mas falha
+  silenciosamente (ver seção "⚠️ Pendência do usuário" dentro da Sprint 15 acima, com o
+  passo a passo). Opcional, sem pressa: a tela de consulta do audit log no
+  admin-pizzarias.
 - **Sprint 11b** — fechar o piloto com um tenant real.
 - **Sprint 25** — mover o upsert do contador sequencial pro fim da transação, testar
   `pool_timeout`, retestar com pedidos de 2-3 itens. Resolução definitiva da taxa de
