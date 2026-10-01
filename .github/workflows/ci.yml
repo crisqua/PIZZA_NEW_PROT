@@ -54,8 +54,21 @@ jobs:
       RATE_LIMIT_TENANT_PER_MIN: '1000'
 
     steps:
+      # fetch-depth: 0 (nao o shallow-clone default) -- o gitleaks-action logo abaixo
+      # precisa do historico completo pra conseguir escanear os commits do push/PR, nao
+      # so' o HEAD.
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Sprint 15 -- scan de secrets ANTES de qualquer outro step (falha rapido se algum
+      # segredo foi commitado, sem gastar tempo rodando o resto do pipeline primeiro).
+      # GITHUB_TOKEN e' injetado automaticamente pelo Actions, nao precisa de secret novo.
+      - name: Gitleaks secrets scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Sem "version:" aqui de proposito — a action le a versao do campo "packageManager"
       # do package.json raiz. Especificar as duas ao mesmo tempo faz a action recusar
