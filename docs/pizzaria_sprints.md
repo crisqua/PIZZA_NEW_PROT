@@ -44,7 +44,7 @@ antes.
 | 13 | Telefone + endereço no cadastro | ✅ |
 | 14 | Confirmação de e-mail | ✅ |
 | 11b | Fechar o piloto com tenant real | ⏳ |
-| 15 | Rate limiting + audit log + secrets no CI | 🟡 (rate limiting ✅, gitleaks ✅, audit log ⏳) |
+| 15 | Rate limiting + audit log + secrets no CI | ✅ (3 partes implementadas; tela de consulta opcional fica pra depois) |
 | 16 | Upload de imagem real (Supabase Storage) | ✅ |
 | — | Plano à parte: responsividade mobile | ✅ |
 | — | Plano à parte: código de pedido sequencial por dia | ✅ |
@@ -395,7 +395,7 @@ revela pelo menos um ajuste de schema/regra de negócio imprevisto.
 
 ---
 
-## Sprint 15 — Rate limiting + audit log + secrets no CI 🟡 parcialmente implementada
+## Sprint 15 — Rate limiting + audit log + secrets no CI ✅ IMPLEMENTADA (3 partes) em 2026-10-01
 
 `MVP.md` seção 3 lista estes 3 itens como não-negociáveis mesmo no MVP; auditoria de
 código confirmou que nenhum tinha sido construído. Implementação dividida em partes
@@ -448,15 +448,73 @@ especificamente, antes de qualquer outro (`Checkout` → `Gitleaks secrets scan`
 
 ### Partes pendentes
 
-- **Audit log append-only** (desenho completo já fechado): cobre login (sucesso e
-  falha), criação de tenant/usuário, mudança de status de pedido, e alternar loja
-  aberta/fechada. Model `AuditLog` com RLS obrigatória, `actorEmail`/`actorRole`
-  congelados no momento do evento, senha de login falho NUNCA gravada em nenhum campo.
-  Retenção: 30 dias na tabela quente `audit_logs`, expurgo diário movendo pra
-  `audit_logs_archive` (2 anos de vida total). **Gatilho via GitHub Actions** (não
-  `@Cron` interno — o Render Free hiberna sem tráfego, um timer interno não dispara
-  contra um processo dormindo), endpoint interno protegido por segredo compartilhado.
-  Tela de consulta no `admin-pizzarias` fica pra depois de todo o resto pronto.
+### Parte 3 — Audit log append-only ✅ IMPLEMENTADA em 2026-10-01 (commit `b859c89`, main, CI verde)
+
+Cobre exatamente o vocabulário fechado desenhado: `auth.login`/`auth.login_failed`
+(sucesso e falha — falha captura `tenantSlug`/email tentados, `actorRole: 'unknown'`,
+IP/user-agent, e **nunca** a senha, em nenhum campo, confirmado em teste), `user.create`
+(cadastro público de cliente — ator é o próprio cadastrado — e criação do dono no
+onboarding — ator é o superadmin que fez o onboarding), `tenant.create` (onboarding),
+`order.status_change` (`metadata: {from, to}`), `tenant.store_status_change` (só quando
+`isOpen` veio no PATCH **e** mudou de verdade — testado que um PATCH só de
+`deliveryFee` não gera log fantasma).
+
+**Schema**: `AuditLog` + `AuditLogArchive` (mesmo shape, coluna a coluna), ambas com RLS
+obrigatória e o **mesmo carve-out de policy que `users` já usa** (`tenant_id` anulável —
+eventos de plataforma como login de superadmin não pertencem a nenhum tenant). Toda
+escrita acontece **na mesma transação** da ação sendo registrada (login é a exceção
+natural — não há uma transação de negócio única pra "login", já que o check de
+credencial é só leitura).
+
+**Retenção**: `AuditLogRetentionService.runDailyRetention()` — por tenant (via
+`mapWithConcurrency`, concorrência 5, mesmo padrão da Sprint 22), um único
+`DELETE ... RETURNING * ` + `INSERT INTO audit_logs_archive SELECT * FROM movidos`
+movendo o que passou de 30 dias, depois um `DELETE` em `audit_logs_archive` pro que
+passou de 2 anos — e o mesmo par de queries fora de `runInTenantContext` pros eventos de
+plataforma (`tenant_id IS NULL`). Erro isolado por tenant (try/catch, não derruba o
+job inteiro). Disparado por `POST /v1/internal/audit-log-retention/run`, protegido por
+header `X-Retention-Job-Secret` comparado contra `AUDIT_LOG_RETENTION_SECRET` (nunca
+JWT — é máquina-pra-máquina) e por um novo workflow agendado
+(`.github/workflows/audit-log-retention.yml`, cron `'0 7 * * *'` UTC = 4h em São Paulo).
+**Pendência do usuário, não automatizável por aqui**: cadastrar os secrets
+`API_BASE_URL` e `AUDIT_LOG_RETENTION_SECRET` no GitHub (Settings → Secrets → Actions)
+pra esse workflow funcionar de verdade — sem isso o cron roda mas o `curl` falha.
+
+**Migration revisada manualmente** (`--create-only`) — o Prisma tentou derrubar 6 FKs
+compostas hand-written (`orders`/`order_items`/`products`/`refresh_tokens`) + 1 índice
+de `inventory_items`, zero relação com esta mudança (mesmo bug de sempre deste
+projeto) — removido antes de aplicar, confirmado via query direta que as 6 FKs + o
+índice sobreviveram.
+
+**Achado operacional real, testado contra o homolog de verdade (160 tenants)**: o job
+de retenção processa **todos** os tenants reais (por desenho, não só um de teste) —
+nesse volume, boa parte das tentativas individuais falhou com `"Engine is not yet
+connected"` (erro do motor do Prisma sob carga de muitas transações curtas seguidas
+contra o pooler do Supabase). **Não é perda de dado** — o try/catch por tenant isola
+cada falha (nenhuma trava as outras, o job sempre termina e reporta `{tenantCount,
+failed}`), e um tenant que falhar hoje tenta de novo amanhã, sem acumular nada errado.
+Mas é um sinal real de fragilidade sob esse volume que vale observar depois do
+primeiro deploy — se o campo `failed` do log de resumo vier consistentemente alto,
+investigar (`connection_limit` na `DATABASE_URL`, ou reduzir a concorrência de 5 pra
+menos). Testes e2e usam `timeout: 30_000` nesses casos específicos por rodarem contra
+o volume real do homolog — no CI (Postgres efêmero, começa vazio) isso é rápido e
+limpo, não reproduz o sintoma.
+
+**Testes novos**: `test/audit-log/audit-log.e2e-spec.ts` (11 casos — um por ação do
+vocabulário + o caso negativo do PATCH sem `isOpen` + a prova de que senha nunca é
+gravada) e `test/audit-log/audit-log-retention.e2e-spec.ts` (401 sem/com segredo
+errado, move/expurga corretamente, idempotente rodando 2x seguidas). Suíte e2e
+completa 221/227 (as 6 falhas são as já conhecidas — CNPJ duplicado por dado sujo no
+homolog + flakiness de paginação de tenants, confirmado que nenhuma toca audit log).
+
+**Ainda não construído, por decisão explícita de sequenciamento** (não é a mesma coisa
+que "fora de escopo" — só entra quando chegar a vez): a tela de consulta do audit log
+no `admin-pizzarias`. Layout, colunas, paginação, e se também precisa enxergar
+`audit_logs_archive`, continuam em aberto.
+
+**Com isso, a Sprint 15 tem os 3 itens de código fechados** (rate limiting, gitleaks,
+audit log) — só restam a pendência do usuário acima (secrets do GitHub) e a tela de
+consulta opcional.
 
 ---
 
@@ -970,8 +1028,10 @@ sprint pendente dependa.
 # Pendências consolidadas (visão geral, atualizada em 2026-09-27)
 
 - ~~**Desempenho Sistema**~~ — ✅ implementada por completo em 2026-09-27 (itens 1 e 2).
+- ~~**Sprint 15**~~ — ✅ implementada por completo em 2026-10-01 (rate limiting, gitleaks,
+  audit log). Resta só cadastrar os secrets do GitHub Actions (`API_BASE_URL`,
+  `AUDIT_LOG_RETENTION_SECRET`) e, opcionalmente, a tela de consulta no admin-pizzarias.
 - **Sprint 11b** — fechar o piloto com um tenant real.
-- **Sprint 15** — rate limiting, audit log append-only, secrets no CI (gitleaks).
 - **Sprint 25** — mover o upsert do contador sequencial pro fim da transação, testar
   `pool_timeout`, retestar com pedidos de 2-3 itens. Resolução definitiva da taxa de
   sucesso sob carga pesada depende do upgrade de infra do Render (decisão adiada pra

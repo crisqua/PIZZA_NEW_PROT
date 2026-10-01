@@ -45,13 +45,21 @@ Supabase, RLS forçada por tenant. Infra: Supabase (banco) + Render (API,
   pacote, nunca da raiz via `-p <path>` (pode resolver o `node_modules` errado).
 - **Ambiente do Supabase do Sprint 1 é homolog, não produção** — qualquer infra nova
   deve nomear como `-homolog` por padrão até uma decisão explícita de produção.
+- **Gitleaks (CI, desde a Sprint 15) pode dar falso positivo em senha/token FAKE usado
+  em teste** (regra `generic-api-key`) — resolver com `// gitleaks:allow` na linha
+  exata (nunca desabilitar o step nem reescrever a senha fake pra esconder o padrão).
+  Pra testar localmente antes de commitar: baixar o binário em
+  `github.com/gitleaks/gitleaks/releases`, rodar
+  `gitleaks detect --log-opts="<commit>~1..<commit>"` direto no repo.
 
 ## Estado atual (resumo — ver `docs/pizzaria_sprints.md` para detalhe completo)
 
 Sprints 0–10 e boa parte de 11a–27 concluídas. Pendências abertas conhecidas:
 - **Sprint 11b** — fechar o piloto com tenant real (ainda não escolhido).
-- **Sprint 15** — 🟡 parcial: rate limiting em `POST /orders` ✅ (2026-09-29) e scan
-  de secrets no CI via gitleaks ✅ (2026-10-01); falta só o audit log append-only.
+- **Sprint 15** — ✅ completa em 2026-10-01 (rate limiting, gitleaks, audit log
+  append-only). Resta cadastrar os secrets `API_BASE_URL`/`AUDIT_LOG_RETENTION_SECRET`
+  no GitHub (Settings → Secrets → Actions) e, opcionalmente, a tela de consulta do
+  audit log no `admin-pizzarias`.
 - **Sprint 25** — 🟡 parcial: concorrência no checkout (pedido fantasma) parcialmente
   mitigada; falta mover o upsert do contador sequencial pro fim da transação e
   testar `pool_timeout` do Prisma.
