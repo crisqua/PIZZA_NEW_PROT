@@ -11,6 +11,7 @@ status e a data; nunca apaga a linha (histórico fica registrado, mesma convenç
 |---|---|---|---|---|
 | Usuários da Pizzaria | Admin-Pizzarias → Vendas por Pizzaria → Ver Usuários | **Requisito:** tempo de resposta abaixo de 1s ao consultar os usuários de uma pizzaria (`GET /v1/admin/users?tenantId=`). Medir contra o homolog real e confirmar que a lista continua correta (rodar `apps/api/test/admin/admin-users.e2e-spec.ts`, especialmente o caso novo de `tenantId` + `role` combinados). Commit: `de712d1` — otimização aplicada corta 1 round trip, mas não há garantia de que sozinha alcance <1s (ver ressalva registrada na conversa). | ❌ falhou (ver observação) | 2026-09-29 |
 | Acompanhar Pedido | Cliente → Confirmação do Pedido (polling a cada 10s) | **Pergunta do usuário:** dá pra deixar `GET /v1/orders/:id` abaixo de 1s? Avaliar se é possível via código. | ✅ validado (ver observação — conclusão: não é possível só com código) | 2026-09-29 |
+| Expurgo do Audit Log | Sem tela — job interno (`POST /v1/internal/audit-log-retention/run`, disparado pelo `.github/workflows/audit-log-retention.yml` agendado) | **O que testar:** rodar o job contra o volume real de tenants em produção/homolog (hoje ~160) e conferir a resposta `{tenantCount, failed}` — em teste local contra o homolog real, boa parte das tentativas individuais falhou com `"Engine is not yet connected"` (ver observação). **Como testar:** (1) confirmar que os secrets `API_BASE_URL`/`AUDIT_LOG_RETENTION_SECRET` foram cadastrados no GitHub (Settings → Secrets → Actions) — sem isso o workflow agendado nem chega a chamar o endpoint; (2) disparar manualmente via `workflow_dispatch` (aba Actions → "Audit log retention" → "Run workflow") ou `curl -X POST <API_BASE_URL>/v1/internal/audit-log-retention/run -H "X-Retention-Job-Secret: <segredo>"` direto; (3) ler o `failed` no corpo da resposta e o log do Render (`Expurgo diario concluido -- X tenant(s), Y falha(s)`) — se `failed` vier alto (próximo do total de tenants), investigar `connection_limit` na `DATABASE_URL` ou reduzir a concorrência de 5 (`TENANT_CONCURRENCY` em `audit-log-retention.service.ts`) pra 2-3; (4) repetir no dia seguinte e confirmar que `failed` cai (prova que é transitório, não uma falha permanente por tenant). | ⏳ pendente | 2026-10-01 |
 
 ---
 
@@ -42,6 +43,29 @@ complexidade da query). As únicas duas alavancas reais: upgrade de infra do Ren
 (decisão já adiada pra quando houver receita/escala), ou reduzir a frequência do
 polling / trocar por push (WebSocket/realtime, já no backlog fora do MVP) — nenhuma
 das duas é uma correção de código nesta sprint.
+
+**Expurgo do Audit Log (2026-10-01)**: implementado e testado via e2e (suíte isolada
+com tenant descartável, passou limpo), mas rodado também, nesta sessão, contra o
+homolog real — que já acumula **~160 tenants** de sprints anteriores. Sob esse volume,
+`AuditLogRetentionService.runDailyRetention()` (que percorre `mapWithConcurrency`,
+concorrência 5, um `runInTenantContext` por tenant) viu boa parte das tentativas
+individuais falhar com `PrismaClientUnknownRequestError: Engine is not yet connected`
+— erro do motor do Prisma, não do SQL em si (a mesma query `DELETE ... RETURNING *` +
+`INSERT INTO audit_logs_archive` funciona corretamente quando testada isolada contra
+1 tenant). O try/catch por tenant já existente isolou cada falha (nenhuma travou as
+outras, o job sempre terminou e devolveu `{tenantCount, failed}`), e **não há perda de
+dado** — um tenant que falha hoje é só reprocessado no próximo ciclo (o próximo dia
+simplesmente teria >30 dias de dado acumulado pra mover, não um buraco permanente).
+Mas o padrão (muitas falhas de uma vez, concentradas) sugere que o pooler do Supabase
+e/ou o Prisma Client não aguentam bem ~32 transações concorrentes-em-rajada (160
+tenants / lotes de 5) nesse ambiente — **nunca testado ainda contra a API real rodando
+no Render** (só localmente, direto no Supabase, sem passar pelo Render no meio).
+Hipóteses a investigar quando testar de verdade: (1) o Render, por ficar mais perto do
+Supabase (mesma região `sa-east-1`?) ou ter um pool já aquecido de requisições HTTP
+normais, pode não reproduzir o problema; (2) se reproduzir, `connection_limit`
+explícito na `DATABASE_URL` (hoje ausente, Prisma calcula sozinho a partir da CPU) ou
+reduzir `TENANT_CONCURRENCY` de 5 pra 2-3 são os primeiros ajustes a tentar, nessa
+ordem.
 
 ## Como usar este documento
 
