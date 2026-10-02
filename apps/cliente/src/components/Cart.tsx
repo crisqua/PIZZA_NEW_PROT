@@ -1,7 +1,7 @@
 import { ArrowLeft, Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
 import { mockTenant, pizzaSizes } from '../data/repository';
 import { CartItem } from '@pizza/types';
-import { Card, CardContent, Button, formatCurrency } from '@pizza/ui';
+import { Button, formatCurrency } from '@pizza/ui';
 
 interface CartProps {
   items: CartItem[];
@@ -9,6 +9,27 @@ interface CartProps {
   onRemoveItem: (id: string) => void;
   onBack: () => void;
   onCheckout: () => void;
+}
+
+// Nome/subtitulo variam por tipo de item, o resto da linha (remover, stepper, total)
+// e' identico -- antes triplicado em 3 blocos JSX quase iguais, agora resolvido aqui
+// uma vez so' (PROTCLINEW, Sprint 5). Pizza mostra o tamanho em dourado (destaque ja'
+// existente), bebida/sobremesa em cinza -- mesma distincao que ja' havia antes.
+function resolveItemDisplay(item: CartItem): { name: string; subtitle: string; subtitleTone: 'primary' | 'muted' } {
+  if (item.type === 'pizza' && item.pizza) {
+    return {
+      name: item.pizza.flavors.map((f) => f.name).join(' + '),
+      subtitle: `Pizza ${pizzaSizes.find((s) => s.id === item.pizza!.size)?.name ?? item.pizza.size}`,
+      subtitleTone: 'primary',
+    };
+  }
+  if (item.type === 'drink' && item.drink) {
+    return { name: item.drink.name, subtitle: item.drink.size, subtitleTone: 'muted' };
+  }
+  if (item.type === 'sobremesa' && item.sobremesa) {
+    return { name: item.sobremesa.name, subtitle: item.sobremesa.size, subtitleTone: 'muted' };
+  }
+  return { name: '', subtitle: '', subtitleTone: 'muted' };
 }
 
 export function Cart({ items, onUpdateQuantity, onRemoveItem, onBack, onCheckout }: CartProps) {
@@ -54,151 +75,73 @@ export function Cart({ items, onUpdateQuantity, onRemoveItem, onBack, onCheckout
         </div>
       </div>
 
-      <div className="p-5 space-y-3 max-w-md mx-auto">
-        {items.map((item) => (
-          <Card key={item.id} className="rounded-xl">
-            <CardContent className="p-4">
-              {item.type === 'pizza' && item.pizza && (
-                <div>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1 pr-3">
-                      <h3 className="font-serif font-semibold text-base text-foreground leading-tight mb-1">
-                        {item.pizza.flavors.map(f => f.name).join(' + ')}
-                      </h3>
-                      <p className="text-sm text-primary">
-                        Pizza {pizzaSizes.find(s => s.id === item.pizza!.size)?.name ?? item.pizza.size}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => onRemoveItem(item.id)}
-                      className="p-2 text-destructive hover:opacity-80 rounded-full transition-opacity"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-border pt-4">
-                    <div className="flex items-center gap-1 bg-background p-1 rounded-lg">
-                      <button
-                        onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                        disabled={item.quantity <= 1}
-                        className="w-8 h-8 flex items-center justify-center bg-card border border-border rounded hover:border-primary/50 text-foreground disabled:opacity-40 disabled:pointer-events-none transition-colors"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <span className="font-semibold w-8 text-center text-foreground">{item.quantity}</span>
-                      <button
-                        onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                        className="w-8 h-8 flex items-center justify-center bg-card border border-border rounded hover:border-primary/50 text-foreground transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <span className="font-serif text-lg text-primary font-semibold">{formatCurrency(item.price * item.quantity)}</span>
-                  </div>
+      <div className="p-5 max-w-md mx-auto">
+        {items.map((item) => {
+          const { name, subtitle, subtitleTone } = resolveItemDisplay(item);
+          return (
+            <div key={item.id} className="py-6 border-b border-border last:border-b-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-serif font-semibold text-base text-foreground leading-tight">{name}</h3>
+                  <p className={`text-sm mt-1 ${subtitleTone === 'primary' ? 'text-primary' : 'text-muted-foreground'}`}>{subtitle}</p>
                 </div>
-              )}
-
-              {item.type === 'drink' && item.drink && (
-                <div>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1 pr-3">
-                      <h3 className="font-semibold text-foreground leading-tight mb-1">{item.drink.name}</h3>
-                      <p className="text-sm text-muted-foreground">{item.drink.size}</p>
-                    </div>
-                    <button
-                      onClick={() => onRemoveItem(item.id)}
-                      className="p-2 text-destructive hover:opacity-80 rounded-full transition-opacity"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-border pt-4">
-                    <div className="flex items-center gap-1 bg-background p-1 rounded-lg">
-                      <button
-                        onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                        disabled={item.quantity <= 1}
-                        className="w-8 h-8 flex items-center justify-center bg-card border border-border rounded hover:border-primary/50 text-foreground disabled:opacity-40 disabled:pointer-events-none transition-colors"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <span className="font-semibold w-8 text-center text-foreground">{item.quantity}</span>
-                      <button
-                        onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                        className="w-8 h-8 flex items-center justify-center bg-card border border-border rounded hover:border-primary/50 text-foreground transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <span className="font-serif text-lg text-primary font-semibold">{formatCurrency(item.price * item.quantity)}</span>
-                  </div>
+                <button
+                  onClick={() => onRemoveItem(item.id)}
+                  aria-label={`Remover ${name}`}
+                  className="p-1.5 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                >
+                  <Trash2 className="w-4.5 h-4.5" />
+                </button>
+              </div>
+              <div className="flex items-center justify-between mt-4">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                    disabled={item.quantity <= 1}
+                    aria-label="Diminuir quantidade"
+                    className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:border-primary/50 hover:text-foreground disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="font-semibold text-foreground w-5 text-center">{item.quantity}</span>
+                  <button
+                    onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                    aria-label="Aumentar quantidade"
+                    className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-              )}
-
-              {item.type === 'sobremesa' && item.sobremesa && (
-                <div>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1 pr-3">
-                      <h3 className="font-semibold text-foreground leading-tight mb-1">{item.sobremesa.name}</h3>
-                      <p className="text-sm text-muted-foreground">{item.sobremesa.size}</p>
-                    </div>
-                    <button
-                      onClick={() => onRemoveItem(item.id)}
-                      className="p-2 text-destructive hover:opacity-80 rounded-full transition-opacity"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-border pt-4">
-                    <div className="flex items-center gap-1 bg-background p-1 rounded-lg">
-                      <button
-                        onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                        disabled={item.quantity <= 1}
-                        className="w-8 h-8 flex items-center justify-center bg-card border border-border rounded hover:border-primary/50 text-foreground disabled:opacity-40 disabled:pointer-events-none transition-colors"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <span className="font-semibold w-8 text-center text-foreground">{item.quantity}</span>
-                      <button
-                        onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                        className="w-8 h-8 flex items-center justify-center bg-card border border-border rounded hover:border-primary/50 text-foreground transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <span className="font-serif text-lg text-primary font-semibold">{formatCurrency(item.price * item.quantity)}</span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                <span className="font-serif text-lg font-semibold text-primary">{formatCurrency(item.price * item.quantity)}</span>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border p-5 z-50">
         <div className="max-w-md mx-auto">
-          <Card className="mb-4 rounded-xl">
-            <CardContent className="p-5 space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-foreground/90">Subtotal</span>
-                <span className="text-foreground">{formatCurrency(subtotal)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-foreground/90">Taxa de entrega</span>
-                <span className="text-foreground">{formatCurrency(deliveryFee)}</span>
-              </div>
-              <div className="h-px bg-border my-1" />
-              <div className="flex items-end justify-between">
-                <span className="font-semibold text-foreground">Total</span>
-                <span className="font-serif text-2xl text-primary font-semibold">{formatCurrency(total)}</span>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="border border-border rounded-2xl p-5 mb-4 space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-foreground/90">Subtotal</span>
+              <span className="text-foreground">{formatCurrency(subtotal)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-foreground/90">Taxa de entrega</span>
+              <span className="text-foreground">{formatCurrency(deliveryFee)}</span>
+            </div>
+            <div className="h-px bg-border my-1" />
+            <div className="flex items-end justify-between">
+              <span className="font-semibold text-foreground">Total</span>
+              <span className="font-serif text-2xl text-primary font-semibold">{formatCurrency(total)}</span>
+            </div>
+          </div>
           <Button
             fullWidth
             size="lg"
             onClick={onCheckout}
             disabled={!mockTenant.isOpen}
-            className="h-14 rounded-lg text-base font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+            className="h-14 rounded-lg text-base font-semibold uppercase tracking-wide disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {mockTenant.isOpen ? 'Avançar para o Checkout' : 'Pizzaria fechada no momento'}
           </Button>
