@@ -115,11 +115,22 @@ um `if (variant === 'minimal')` novo.
 ferramenta de browser neste ambiente** — verificação visual/interativa (busca, abas,
 loja fechada) fica pendente de smoke test manual do usuário via `pnpm dev:cliente`.
 
-### Sprint 3 — FlavorSelector (dentro de PizzaBuilder.tsx) ⏳
+### Sprint 3 — FlavorSelector (dentro de PizzaBuilder.tsx) ✅ IMPLEMENTADA em 2026-10-03 (commit `c45d658`, main, CI verde)
 
-Mesma troca de acordeão → `CategoryTabs` + `DottedRow` da Sprint 2, reaproveitando os
-primitivos da Sprint 1 — tela gêmea do Menu, deve saber praticamente de graça depois
-da Sprint 2 estar pronta.
+Mesma troca de acordeão → `CategoryTabs` + `DottedRow` + `SectionDivider` da Sprint 2,
+aplicada só ao `FlavorSelector` ("Escolha o 2º sabor") — a função principal
+`PizzaBuilder` (tela "Monte sua Pizza") fica intocada até a Sprint 4.
+
+Sem gate de loja fechada (essa tela nunca checou `mockTenant.isOpen`, continua sem
+checar). "Selecionado"/"Tamanho indisponível" trocam de `Badge` em caixa pra texto
+small-caps colorido. **Pequeno efeito colateral de reusar o `DottedRow`**: o preço no
+tamanho já escolhido passa a aparecer aqui — antes essa tela não mostrava preço
+nenhum. `ChevronDown`/`ChevronUp` removidos do import (sem uso em qualquer lugar do
+arquivo); `Card`/`Badge` continuam importados, ainda usados pela função principal.
+
+**Verificação**: `tsc --noEmit` e `vite build` limpos. Mesma ressalva das sprints
+anteriores — sem browser neste ambiente, validação visual/interativa pendente de
+smoke test manual do usuário.
 
 ### Sprint 4 — PizzaBuilder.tsx ("Monte sua Pizza") ⏳
 
