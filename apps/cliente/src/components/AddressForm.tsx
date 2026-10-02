@@ -76,9 +76,10 @@ export function AddressForm({ value, onChange, errors }: AddressFormProps) {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div>
         <Input
+          variant="minimal"
           label="CEP"
           placeholder="00000-000"
           inputMode="numeric"
@@ -98,6 +99,7 @@ export function AddressForm({ value, onChange, errors }: AddressFormProps) {
       </div>
 
       <Input
+        variant="minimal"
         label="Rua / Avenida"
         placeholder="Digite o endereço"
         value={value.address}
@@ -106,8 +108,9 @@ export function AddressForm({ value, onChange, errors }: AddressFormProps) {
         disabled={locked}
       />
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-4">
         <Input
+          variant="minimal"
           label="Número"
           placeholder="000"
           value={value.addressNumber}
@@ -116,6 +119,7 @@ export function AddressForm({ value, onChange, errors }: AddressFormProps) {
         />
         <div className="col-span-2">
           <Input
+            variant="minimal"
             label="Complemento"
             placeholder="Apto, Bloco..."
             value={value.complement}
@@ -125,6 +129,7 @@ export function AddressForm({ value, onChange, errors }: AddressFormProps) {
       </div>
 
       <Input
+        variant="minimal"
         label="Bairro"
         placeholder="Digite o bairro"
         value={value.neighborhood}
@@ -133,14 +138,16 @@ export function AddressForm({ value, onChange, errors }: AddressFormProps) {
         disabled={locked}
       />
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         <Input
+          variant="minimal"
           label="Cidade"
           value={value.city}
           onChange={(e) => update('city', e.target.value)}
           disabled={locked}
         />
         <Input
+          variant="minimal"
           label="Estado"
           value={value.state}
           onChange={(e) => update('state', e.target.value.toUpperCase())}

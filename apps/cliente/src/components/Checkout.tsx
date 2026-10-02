@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { ArrowLeft, CreditCard, Banknote, CheckCircle2 } from 'lucide-react';
 import { buildOrderItems, createOrder, updateProfile, mockTenant, mockCustomer, ApiOrder } from '../data/repository';
 import { CartItem } from '@pizza/types';
-import { Card, CardContent, Button, Input, formatCurrency, formatPhone, centsToDisplay } from '@pizza/ui';
+import { Button, Input, formatCurrency, formatPhone, centsToDisplay } from '@pizza/ui';
 import { AddressForm, AddressFormValue } from './AddressForm';
 
 interface CheckoutProps {
@@ -164,11 +164,12 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
         </div>
       </div>
 
-      <div className="p-4 space-y-6 max-w-md mx-auto">
+      <div className="p-4 space-y-7 max-w-md mx-auto">
         <div>
-          <h2 className="font-semibold text-foreground mb-3">Dados Pessoais</h2>
-          <div className="space-y-3">
+          <h2 className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-primary mb-4">Dados Pessoais</h2>
+          <div className="space-y-4">
             <Input
+              variant="minimal"
               label="Nome completo"
               placeholder="Digite seu nome"
               value={formData.name}
@@ -176,6 +177,7 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
               error={errors.name}
             />
             <Input
+              variant="minimal"
               label="Telefone"
               placeholder="(00) 00000-0000"
               type="tel"
@@ -189,7 +191,7 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
         </div>
 
         <div>
-          <h2 className="font-semibold text-foreground mb-3">Endereço de Entrega</h2>
+          <h2 className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-primary mb-4">Endereço de Entrega</h2>
           <AddressForm
             value={{
               cep: formData.cep,
@@ -218,7 +220,7 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
         </div>
 
         <div>
-          <h2 className="font-semibold text-foreground mb-3">Forma de Pagamento</h2>
+          <h2 className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-primary mb-4">Forma de Pagamento</h2>
           {errors.paymentMethod && (
             <p className="text-sm text-destructive mb-3">{errors.paymentMethod}</p>
           )}
@@ -246,8 +248,9 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
           </div>
 
           {formData.paymentMethod === 'dinheiro' && (
-            <div className="mt-3">
+            <div className="mt-4">
               <Input
+                variant="minimal"
                 label="Troco para quanto?"
                 type="text"
                 inputMode="numeric"
@@ -259,27 +262,25 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
           )}
         </div>
 
-        <Card className="rounded-xl">
-          <CardContent className="p-5">
-            <div className="space-y-2 mb-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {items.length} {items.length === 1 ? 'item' : 'itens'}
-                </span>
-                <span className="text-foreground">{formatCurrency(total - mockTenant.deliveryFee)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Taxa de entrega</span>
-                <span className="text-foreground">{formatCurrency(mockTenant.deliveryFee)}</span>
-              </div>
+        <div className="border border-border rounded-2xl p-5">
+          <div className="space-y-2 mb-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {items.length} {items.length === 1 ? 'item' : 'itens'}
+              </span>
+              <span className="text-foreground">{formatCurrency(total - mockTenant.deliveryFee)}</span>
             </div>
-            <div className="h-px bg-border my-3" />
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground">Total a pagar</span>
-              <span className="font-serif text-2xl text-primary font-semibold">{formatCurrency(total)}</span>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Taxa de entrega</span>
+              <span className="text-foreground">{formatCurrency(mockTenant.deliveryFee)}</span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="h-px bg-border my-3" />
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-foreground">Total a pagar</span>
+            <span className="font-serif text-2xl text-primary font-semibold">{formatCurrency(total)}</span>
+          </div>
+        </div>
 
         {submitError && <p className="text-sm text-destructive text-center">{submitError}</p>}
         {!mockTenant.isOpen && (
@@ -295,7 +296,7 @@ export function Checkout({ items, total, onBack, onSuccess }: CheckoutProps) {
           size="lg"
           onClick={handleSubmit}
           disabled={submitting || !mockTenant.isOpen}
-          className="h-14 rounded-lg text-base font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+          className="h-14 rounded-lg text-base font-semibold uppercase tracking-wide disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <CheckCircle2 className="w-5 h-5" />
           {submitting ? 'Enviando...' : mockTenant.isOpen ? 'Confirmar Pedido' : 'Pizzaria Fechada'}
