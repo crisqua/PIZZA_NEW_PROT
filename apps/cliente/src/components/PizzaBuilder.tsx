@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus, ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Plus, ShoppingBag } from 'lucide-react';
 import { pizzaSizes, mockPizzas, mockCategories } from '../data/repository';
 import { Pizza, PizzaSizeId, priceForSize } from '@pizza/types';
 import { Card, CardContent, Button, Badge, formatCurrency } from '@pizza/ui';
+import { SectionDivider } from './SectionDivider';
+import { DottedRow } from './DottedRow';
+import { CategoryTabs } from './CategoryTabs';
 
 interface PizzaBuilderProps {
   initialPizza: Pizza;
@@ -220,13 +223,16 @@ function FlavorSelector({ selectedFlavors, selectedSizeId, onSelect, onBack }: {
   onSelect: (pizza: Pizza) => void;
   onBack: () => void;
 }) {
-  // Acordeao exclusivo, mesma solucao do Menu.tsx: abrir uma categoria fecha qualquer
-  // outra que estivesse aberta.
-  const [openCategoryId, setOpenCategoryId] = useState<string>(mockCategories[0]?.id ?? '');
+  // So' categorias que realmente tem pizza (mesmo filtro de Menu.tsx) -- aqui nunca
+  // existe Bebidas/Sobremesas, so' se escolhe sabor de pizza.
+  const categories = mockCategories.filter((category) => mockPizzas.some((p) => p.category === category.id));
 
-  const toggleCategory = (id: string) => {
-    setOpenCategoryId((prev) => (prev === id ? '' : id));
-  };
+  // Abas de categoria (PROTCLINEW, Sprint 3) -- substitui o acordeao antigo
+  // (`openCategoryId`/`toggleCategory`), mesmo padrao do Menu.tsx (Sprint 2). Sem gate
+  // de loja fechada aqui -- esta tela nunca checou `mockTenant.isOpen`, continua sem
+  // checar.
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(categories[0]?.id ?? '');
+  const activeCategory = categories.find((c) => c.id === selectedCategoryId);
 
   return (
     <div className="min-h-screen bg-background pb-10">
@@ -239,73 +245,45 @@ function FlavorSelector({ selectedFlavors, selectedSizeId, onSelect, onBack }: {
         </div>
       </div>
 
-      <div className="p-5 max-w-md mx-auto space-y-3">
-        {mockCategories.map((category) => {
-          const pizzas = mockPizzas.filter((p) => p.category === category.id);
-          if (pizzas.length === 0) return null;
-          const isOpen = openCategoryId === category.id;
+      <div className="p-5 max-w-md mx-auto">
+        <CategoryTabs categories={categories} activeId={selectedCategoryId} onSelect={setSelectedCategoryId} />
 
-          return (
-            <Card key={category.id} className="overflow-hidden">
-              <button
-                onClick={() => toggleCategory(category.id)}
-                className="w-full flex items-center justify-between px-4 py-4"
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="font-serif text-lg text-foreground">{category.name}</span>
-                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                    {pizzas.length}
-                  </span>
-                </div>
-                {isOpen ? (
-                  <ChevronUp className="w-5 h-5 text-primary shrink-0" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-muted-foreground shrink-0" />
-                )}
-              </button>
-
-              {isOpen && (
-                <div className="border-t border-border">
-                  {pizzas.map((pizza) => {
-                    const isSelected = selectedFlavors.find((f) => f.id === pizza.id);
-                    // Sabor sem preco pro tamanho ja' escolhido nao pode virar 2a
-                    // metade -- senao a combinacao criada e' invalida por desenho
-                    // (o preco medio dos dois sabores ficaria impossivel de calcular).
-                    const isPriceAvailable = priceForSize(pizza, selectedSizeId) != null;
-                    const isDisabled = Boolean(isSelected) || !isPriceAvailable;
-                    return (
-                      <div
-                        key={pizza.id}
-                        onClick={() => { if (isPriceAvailable && !isSelected) onSelect(pizza); }}
-                        title={!isPriceAvailable ? 'Sem preço cadastrado para o tamanho selecionado' : undefined}
-                        className={`flex items-center gap-3 px-4 py-3.5 border-b border-border last:border-b-0 transition-opacity ${
-                          isDisabled ? 'opacity-40 pointer-events-none' : 'cursor-pointer hover:bg-background/40'
-                        }`}
-                      >
-                        <img
-                          src={pizza.image}
-                          alt={pizza.name}
-                          className="w-11 h-11 rounded-lg object-cover shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-serif text-[15px] text-foreground truncate">{pizza.name}</span>
-                            {pizza.featured && <Badge className="shrink-0">Especial</Badge>}
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{pizza.description}</p>
-                          {isSelected && <Badge variant="success" className="mt-1.5">Selecionado</Badge>}
-                          {!isSelected && !isPriceAvailable && (
-                            <Badge variant="destructive" className="mt-1.5">Tamanho indisponível</Badge>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Card>
-          );
-        })}
+        {activeCategory && (
+          <div className="pt-7">
+            <SectionDivider label={activeCategory.name.toUpperCase()} />
+            <div className="mt-5">
+              {mockPizzas
+                .filter((p) => p.category === selectedCategoryId)
+                .map((pizza) => {
+                  const isSelected = Boolean(selectedFlavors.find((f) => f.id === pizza.id));
+                  // Sabor sem preco pro tamanho ja' escolhido nao pode virar 2a
+                  // metade -- senao a combinacao criada e' invalida por desenho
+                  // (o preco medio dos dois sabores ficaria impossivel de calcular).
+                  const isPriceAvailable = priceForSize(pizza, selectedSizeId) != null;
+                  const isDisabled = isSelected || !isPriceAvailable;
+                  return (
+                    <div
+                      key={pizza.id}
+                      onClick={() => { if (isPriceAvailable && !isSelected) onSelect(pizza); }}
+                      title={!isPriceAvailable ? 'Sem preço cadastrado para o tamanho selecionado' : undefined}
+                      className={`py-5 border-b border-border last:border-b-0 transition-opacity ${
+                        isDisabled ? 'opacity-40 pointer-events-none' : 'cursor-pointer'
+                      }`}
+                    >
+                      <DottedRow name={pizza.name} price={formatCurrency(priceForSize(pizza, selectedSizeId) ?? 0)} featured={pizza.featured} />
+                      <p className="font-serif italic text-sm text-muted-foreground mt-1.5 leading-relaxed">{pizza.description}</p>
+                      {isSelected && (
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-success mt-2">Selecionado</p>
+                      )}
+                      {!isSelected && !isPriceAvailable && (
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-destructive mt-2">Tamanho indisponível</p>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
