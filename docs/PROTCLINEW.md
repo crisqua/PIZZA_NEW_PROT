@@ -88,23 +88,32 @@ também ainda não (entra na Sprint 6).
 branch default é literalmente o JSX de antes, sem nenhuma mudança, só precedido por
 um `if (variant === 'minimal')` novo.
 
-### Sprint 2 — Menu.tsx ⏳
+### Sprint 2 — Menu.tsx ✅ IMPLEMENTADA em 2026-10-03 (commit `32cf84f`, main, CI verde)
 
 - Header: caixa atual → cabeçalho centralizado (avatar, nome, divisor dourado, status
-  em small-caps: aberto/fechado, horário, tempo de entrega).
+  em pílula "ABERTO"/"FECHADO", horário/tempo de entrega centralizados).
 - **Novo** (único item desta sprint que não é so' CSS): campo de busca — filtro
   client-side por nome, substring simples sobre `mockPizzas`/`mockDrinks`/
-  `mockSobremesas` já carregados, sem chamada nova à API.
+  `mockSobremesas` já carregados, sem chamada nova à API. Com texto digitado, ignora a
+  aba ativa e mostra um resultado só cruzando as 3 listas.
 - Troca o acordeão de categorias empilhadas por `CategoryTabs` — só a categoria ativa
   renderiza a lista de produtos.
 - Cada item vira `DottedRow` (nome · · preço) + descrição em itálico + seletor de
   tamanho como texto (sem caixinha) — mantém toda a lógica atual intacta: loja fechada
-  desabilita tudo, tamanho sem preço fica riscado/bloqueado, ✶ no featured.
+  desabilita tudo (troca de aba incluída), tamanho sem preço fica riscado/bloqueado, ✶
+  no featured.
 - Fotos saem da lista (decisão da seção 2).
+- **Código morto removido** (ficou sem uso com o redesenho): componente
+  `HalfHalfIcon`, constante `SIZE_SHORT_LABEL`, imports de `Card`/`ChevronDown`/
+  `ChevronUp`.
+- **Achado preservado deliberadamente, não corrigido** (fora do escopo desta sprint):
+  bebidas/sobremesas nunca tiveram o botão de adicionar desabilitado quando a loja
+  está fechada (só as pizzas tinham essa trava) — comportamento já existente antes
+  desta sprint, mantido sem mudança.
 
-**Verificação**: smoke manual (`pnpm dev:cliente`) — busca filtra corretamente, troca
-de categoria funciona, loja fechada ainda bloqueia tudo, tamanho sem preço ainda
-aparece riscado/bloqueado.
+**Verificação**: `tsc --noEmit` e `vite build` limpos em `apps/cliente`. **Sem
+ferramenta de browser neste ambiente** — verificação visual/interativa (busca, abas,
+loja fechada) fica pendente de smoke test manual do usuário via `pnpm dev:cliente`.
 
 ### Sprint 3 — FlavorSelector (dentro de PizzaBuilder.tsx) ⏳
 
