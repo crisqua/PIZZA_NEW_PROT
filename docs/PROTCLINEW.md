@@ -152,30 +152,57 @@ smoke test manual do usuário.
 **Verificação**: `tsc --noEmit` e `vite build` limpos. Mesma ressalva de sempre — sem
 browser neste ambiente, validação visual/interativa pendente de smoke test manual.
 
-### Sprint 5 — Cart.tsx ⏳
+### Sprint 5 — Cart.tsx ✅ IMPLEMENTADA em 2026-10-03 (commit `bc7a955`, main, CI verde)
 
-- Linhas de item → `DottedRow` + stepper de quantidade, mantendo toda a lógica de
-  `onUpdateQuantity`/`onRemoveItem` intacta.
-- Card de resumo (subtotal/taxa/total) com a mesma borda fina das outras telas.
-- Estado de carrinho vazio: mantém o ícone central, só ajusta tipografia.
+- Itens perdem a caixa `Card`, viram linha solta separada por hairline (nome
+  serifado, subtítulo — tamanho da pizza em dourado, bebida/sobremesa em cinza, mesma
+  distinção de antes — stepper de quantidade + total da linha).
+- **Ajuste em relação ao plano original**: não usa `DottedRow` nos itens — teria
+  colado o preço no nome, conflitando com o total dependente de quantidade que fica
+  junto do stepper. Segue o protótipo real (`Cart.dc.html`), que já desenhava assim
+  (preço ao lado do stepper, não um leader pontilhado no nome).
+- **Simplificação**: os 3 blocos JSX quase idênticos (pizza/bebida/sobremesa, só
+  nome/subtítulo mudavam) viram 1 helper `resolveItemDisplay` + 1 estrutura de linha
+  compartilhada — redução de duplicação, não mudança de comportamento.
+- Resumo (subtotal/taxa/total) com a mesma borda fina das outras telas.
+- Estado de carrinho vazio: mantém o ícone central, sem mudança (já estava simples).
+- `Card`/`CardContent` saem do import.
 
-### Sprint 6 — Checkout.tsx + AddressForm.tsx ⏳ (a mais sensível)
+**Verificação**: `tsc --noEmit` e `vite build` limpos.
 
-- Troca os `<Input>` de "Dados Pessoais" e de `AddressForm` pro variant `minimal` da
-  Sprint 1 — preserva 100% da validação/mensagens de erro já existentes, só muda a
-  casca visual.
-- Cards de forma de pagamento: outline dourado quando selecionado, igual ao protótipo.
-- Resumo + botão "Confirmar Pedido" no mesmo padrão visual das sprints anteriores.
-- **Atenção**: `AddressForm.tsx` também é usado em `Auth.tsx` (cadastro) — testar os
-  dois pontos de uso, não só o Checkout, já que o `Input` muda.
+### Sprint 6 — Checkout.tsx + AddressForm.tsx ✅ IMPLEMENTADA em 2026-10-03 (commit `0285f0f`, main, CI verde)
 
-**Verificação extra**: rodar o fluxo de cadastro (`Auth.tsx`) manualmente além do
-checkout.
+- Todos os `<Input>` de "Dados Pessoais", `AddressForm` e "Troco para quanto?" ganham
+  `variant="minimal"` (Sprint 1) — 100% da validação/mensagens de erro preservada
+  (CEP, nome, telefone, endereço etc. continuam exatamente como estavam).
+- Títulos de seção ("Dados Pessoais"/"Endereço de Entrega"/"Forma de Pagamento") viram
+  small-caps dourado.
+- Cards de forma de pagamento: **sem mudança** — já usava outline dourado quando
+  selecionado, já batia com o protótipo.
+- Resumo final perde a caixa `Card`, vira borda fina só (mesmo padrão do
+  Carrinho/PizzaBuilder). Botão final ganha `uppercase tracking-wide`.
+- `Card`/`CardContent` saem do import de `Checkout.tsx`.
+- **Efeito colateral esperado e aceito**: `Auth.tsx` também usa `<AddressForm/>`
+  (seção opcional de endereço no cadastro) — os campos de endereço lá passam a usar o
+  novo visual "minimal" (sublinhado) enquanto os campos próprios do `Auth.tsx` (nome/
+  telefone/email/senha) continuam no `Input` default (caixa) — **mistura visual
+  dentro da mesma tela**, esperada e aceita porque `Auth.tsx` não faz parte deste
+  plano de redesenho (ver seção 4).
 
-### Sprint 7 — OrderConfirmation.tsx ⏳
+**Verificação**: `tsc --noEmit` e `vite build` limpos.
 
-Restyle direto (ícone de sucesso, card de resumo, "Próximos passos", CTA) — sem
-mudança de lógica, o polling de status a cada 10s continua igual.
+### Sprint 7 — OrderConfirmation.tsx ✅ IMPLEMENTADA em 2026-10-03 (commit `3b7f2ac`, main, CI verde)
+
+Os 2 cards (resumo do pedido, "Próximos passos") perdem a caixa `Card` com fundo/
+sombra, viram borda fina só. Botão final ganha `uppercase tracking-wide`.
+`Card`/`CardContent` saem do import. Zero mudança de lógica — o polling de status a
+cada 10s continua idêntico.
+
+**Verificação**: `tsc --noEmit` e `vite build` limpos.
+
+**Com isso, o redesenho da jornada do cliente está completo**: Cardápio → Monte sua
+Pizza → Carrinho → Checkout → Confirmação, Sprints 1-7 implementadas. Resta só a
+Sprint 8 (QA de ponta a ponta).
 
 ### Sprint 8 — QA de ponta a ponta ⏳
 
