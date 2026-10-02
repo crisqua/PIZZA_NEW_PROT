@@ -17,6 +17,11 @@ export default function App() {
 
   const [ready, setReady] = useState(false);
   const [view, setView] = useState<ClientView>('menu');
+  // Sinal visivel de "foi adicionado" (achado real de usuario testando: clicar "+" ou
+  // "Adicionar ao Carrinho" no meio a meio nao dava nenhuma confirmacao visivel alem do
+  // numero da barra mudar, o que passava a sensacao de "nao fez nada"). Some sozinho
+  // apos 2.2s -- nao precisa de biblioteca de toast so' pra isso.
+  const [addedToast, setAddedToast] = useState<string | null>(null);
   const [selectedPizza, setSelectedPizza] = useState<Pizza | null>(null);
   const [selectedSize, setSelectedSize] = useState<PizzaSizeId>('oito-pedacos');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -98,6 +103,12 @@ export default function App() {
     };
   }, [ready]);
 
+  useEffect(() => {
+    if (!addedToast) return;
+    const timer = setTimeout(() => setAddedToast(null), 2200);
+    return () => clearTimeout(timer);
+  }, [addedToast]);
+
   const handleStartHalfHalf = (pizza: Pizza, size: PizzaSizeId) => {
     setSelectedPizza(pizza);
     setSelectedSize(size);
@@ -142,6 +153,7 @@ export default function App() {
       };
       setCart([...cart, newItem]);
     }
+    setAddedToast(`${pizza.name} adicionada ao carrinho`);
   };
 
   const handleAddPizzaToCart = (pizza: { size: PizzaSizeId; flavors: Pizza[]; price: number }) => {
@@ -165,6 +177,7 @@ export default function App() {
       };
       setCart([...cart, newItem]);
     }
+    setAddedToast(`${pizza.flavors.map(f => f.name).join(' + ')} adicionada ao carrinho`);
     setView('menu');
   };
 
@@ -189,6 +202,7 @@ export default function App() {
       };
       setCart([...cart, newItem]);
     }
+    setAddedToast(`${drink.name} adicionado ao carrinho`);
   };
 
   const handleAddSobremesa = (sobremesa: Drink) => {
@@ -212,6 +226,7 @@ export default function App() {
       };
       setCart([...cart, newItem]);
     }
+    setAddedToast(`${sobremesa.name} adicionada ao carrinho`);
   };
 
   const handleUpdateQuantity = (id: string, quantity: number) => {
@@ -296,6 +311,12 @@ export default function App() {
       style={{ '--primary': mockTenant.primaryColor, '--accent': mockTenant.primaryColor } as CSSProperties}
     >
       <UpdateBanner />
+      {addedToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 bg-foreground text-background px-4 py-2.5 rounded-full shadow-lg text-sm font-medium max-w-[90vw]">
+          <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+          <span className="truncate">{addedToast}</span>
+        </div>
+      )}
       {view === 'menu' && (
         <Menu
           key={`${authVersion}-${catalogVersion}`}
