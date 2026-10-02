@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { ShoppingCart, Plus, ChevronDown, ChevronUp, Lock, User } from 'lucide-react';
+import { Plus, Lock, User, Search, ShoppingCart } from 'lucide-react';
 import { mockPizzas, mockDrinks, mockSobremesas, mockTenant, mockCategories, pizzaSizes } from '../data/repository';
 import { Pizza, Drink, PizzaSizeId, priceForSize } from '@pizza/types';
-import { Card, Button, Badge, formatCurrency } from '@pizza/ui';
+import { Button, Badge, formatCurrency } from '@pizza/ui';
+import { SectionDivider } from './SectionDivider';
+import { DottedRow } from './DottedRow';
+import { CategoryTabs } from './CategoryTabs';
 
 interface MenuProps {
   onAddSingleFlavor: (pizza: Pizza, size: PizzaSizeId) => void;
@@ -18,41 +21,32 @@ interface MenuProps {
 const BEBIDAS_ID = 'bebidas';
 const SOBREMESAS_ID = 'sobremesas';
 
-function HalfHalfIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 2A10 10 0 0 1 12 22Z" fill="currentColor" />
-      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
-  );
-}
-
 // Tamanho padrao de cada card antes do cliente escolher (8 pedacos, o mais comum) --
 // cada pizza tem seu proprio seletor de tamanho no card (pedido do usuario), guardado por
 // id em `selectedSizes`. Adicionar rapido e meio a meio sempre usam o tamanho selecionado
 // naquele card especifico, nunca um diferente do anunciado (sem susto no carrinho).
 const DEFAULT_SIZE_ID: PizzaSizeId = 'oito-pedacos';
 
-// Rotulo curto pro seletor inline do card (linha compacta, sem espaco pro nome completo
-// "8 pedacos"/"12 pedacos" ao lado dos botoes de acao) -- PizzaBuilder.tsx continua usando
-// o nome completo, ali tem uma tela inteira pra isso.
-const SIZE_SHORT_LABEL: Record<PizzaSizeId, string> = {
-  brotinho: 'Brotinho',
-  'oito-pedacos': '8 ped.',
-  'doze-pedacos': '12 ped.',
-};
+// Bug real reportado pelo usuario: o dono pode deixar um tamanho sem preco de proposito
+// (ex.: essa pizza nao sai em brotinho) -- antes disso o cliente conseguia selecionar e
+// ate adicionar ao carrinho um tamanho sem preco, so' descobrindo que nao dava certo la'
+// no checkout, com um erro confuso vindo do backend. Primeiro tamanho com preco
+// cadastrado, na ordem de pizzaSizes -- null so' no caso extremo de nenhum tamanho ter
+// preco (produto mal cadastrado). Modulo-scope (nao depende de estado do componente,
+// reusada pelo PizzaRow abaixo tambem).
+function firstAvailableSize(pizza: Pizza): PizzaSizeId | null {
+  return pizzaSizes.find((s) => priceForSize(pizza, s.id) != null)?.id ?? null;
+}
 
 export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobremesa, cartItemsCount, onViewCart, isLoggedIn, onAccountClick }: MenuProps) {
-  const [selectedSizes, setSelectedSizes] = useState<Record<string, PizzaSizeId>>({});
+  // So' entram categorias de pizza que realmente tem pizza (mesmo filtro de sempre),
+  // mais Bebidas/Sobremesas sinteticas no fim -- igual a` lista que o acordeao antigo
+  // ja respeitava, so' que agora vira uma lista so' pro CategoryTabs (PROTCLINEW,
+  // Sprint 2) em vez de 3 blocos separados.
+  const pizzaCategories = mockCategories.filter((category) => mockPizzas.some((p) => p.category === category.id));
+  const allCategories = [...pizzaCategories, { id: BEBIDAS_ID, name: 'Bebidas' }, { id: SOBREMESAS_ID, name: 'Sobremesas' }];
 
-  // Bug real reportado pelo usuario: o dono pode deixar um tamanho sem preco de proposito
-  // (ex.: essa pizza nao sai em brotinho) -- antes disso o cliente conseguia selecionar e
-  // ate adicionar ao carrinho um tamanho sem preco, so' descobrindo que nao dava certo la'
-  // no checkout, com um erro confuso vindo do backend. Primeiro tamanho com preco
-  // cadastrado, na ordem de pizzaSizes -- null so' no caso extremo de nenhum tamanho ter
-  // preco (produto mal cadastrado).
-  const firstAvailableSize = (pizza: Pizza): PizzaSizeId | null =>
-    pizzaSizes.find((s) => priceForSize(pizza, s.id) != null)?.id ?? null;
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, PizzaSizeId>>({});
 
   // So' usa o tamanho selecionado se ele realmente tiver preco pra essa pizza -- senao
   // cai pro padrao (8 pedacos, DEFAULT_SIZE_ID -- pedido do usuario, todo card deve abrir
@@ -66,43 +60,49 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
     return firstAvailableSize(pizza) ?? DEFAULT_SIZE_ID;
   };
 
-  // Acordeao exclusivo (pedido do usuario): abrir uma categoria fecha qualquer outra que
-  // estivesse aberta, Bebidas incluso -- guarda so' o id da categoria aberta, nao um mapa
-  // de booleans independentes.
-  const [openCategoryId, setOpenCategoryId] = useState<string>(mockCategories[0]?.id ?? '');
+  // Abas de categoria (PROTCLINEW, Sprint 2) -- substitui o acordeao antigo
+  // (`openCategoryId`/`toggleCategory`): so' existe UMA categoria ativa por vez.
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(allCategories[0]?.id ?? BEBIDAS_ID);
 
-  // Loja fechada: nenhuma categoria pode ficar/ser aberta (pedido do usuario, com
-  // screenshot mostrando o card "Classica" expandido mesmo com "Fechado" no topo) --
-  // gate aqui em vez de resetar `openCategoryId` num efeito, pra cobrir tanto o card
-  // que ja vinha aberto por padrao (primeira categoria) quanto o caso da loja fechar
-  // em tempo real enquanto o cliente esta com uma categoria aberta.
-  const toggleCategory = (id: string) => {
+  // Loja fechada: continua impossivel trocar de categoria (mesma regra de hoje, so'
+  // migrada do antigo `toggleCategory` pra cá).
+  const selectCategory = (id: string) => {
     if (!mockTenant.isOpen) return;
-    setOpenCategoryId((prev) => (prev === id ? '' : id));
+    setSelectedCategoryId(id);
   };
+
+  // Busca (PROTCLINEW, Sprint 2) -- unico item desta sprint que nao e' so' CSS. Filtro
+  // client-side simples sobre o catalogo ja carregado, sem chamada nova a` API. Com
+  // busca ativa, ignora a aba selecionada e mostra um resultado so', cruzando as 3
+  // listas.
+  const [searchQuery, setSearchQuery] = useState('');
+  const query = searchQuery.trim().toLowerCase();
+  const isSearching = query.length > 0;
+  const searchResults = isSearching
+    ? {
+        pizzas: mockPizzas.filter((p) => p.name.toLowerCase().includes(query)),
+        drinks: mockDrinks.filter((d) => d.name.toLowerCase().includes(query)),
+        sobremesas: mockSobremesas.filter((d) => d.name.toLowerCase().includes(query)),
+      }
+    : null;
+  const hasSearchResults = searchResults && (searchResults.pizzas.length + searchResults.drinks.length + searchResults.sobremesas.length) > 0;
+
+  const activeCategory = allCategories.find((c) => c.id === selectedCategoryId);
 
   return (
     <div className="min-h-dvh bg-background pb-28">
-      <div className="bg-surface px-6 pt-12 pb-8 border-b border-border">
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="w-14 h-14 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-serif font-semibold text-lg shrink-0">
-              {mockTenant.logo}
-            </div>
-            <div className="min-w-0">
-              <h1 className="font-serif text-2xl font-semibold text-foreground truncate">{mockTenant.name}</h1>
-              <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5 flex-wrap">
-                <span className={`inline-block w-1.5 h-1.5 rounded-full ${mockTenant.isOpen ? 'bg-success' : 'bg-destructive'}`} />
-                <span>{mockTenant.isOpen ? 'Aberto' : 'Fechado'}</span>
-                {mockTenant.openingTime && mockTenant.closingTime && (
-                  <span>• Funciona das {mockTenant.openingTime} às {mockTenant.closingTime}</span>
-                )}
-                {mockTenant.isOpen && (
-                  <span>• Entrega em até {mockTenant.estimatedDeliveryMinutes ?? 60} min</span>
-                )}
-              </p>
-            </div>
-          </div>
+      <div className="bg-surface border-b border-border">
+        <div className="px-6 pt-6 flex items-center justify-between">
+          <span
+            className={`inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border ${
+              mockTenant.isOpen
+                ? 'bg-success/10 border-success/30 text-success'
+                : 'bg-destructive/10 border-destructive/30 text-destructive'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${mockTenant.isOpen ? 'bg-success' : 'bg-destructive'}`} />
+            {mockTenant.isOpen ? 'Aberto' : 'Fechado'}
+          </span>
           <button
             onClick={onAccountClick}
             title={isLoggedIn ? 'Sair' : 'Entrar'}
@@ -112,210 +112,110 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
             {isLoggedIn ? <User className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
           </button>
         </div>
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Badge>Pedido mínimo {formatCurrency(mockTenant.minOrder)}</Badge>
-          <Badge>Taxa {formatCurrency(mockTenant.deliveryFee)}</Badge>
+
+        <div className="px-6 pt-5 pb-7 flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-serif font-semibold text-xl shrink-0">
+            {mockTenant.logo}
+          </div>
+          <h1 className="font-serif text-2xl font-semibold text-foreground mt-3.5">{mockTenant.name}</h1>
+          <div className="w-9 h-px bg-primary my-3" />
+          <p className="text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center justify-center flex-wrap gap-x-1.5">
+            {mockTenant.openingTime && mockTenant.closingTime && (
+              <span>Funciona das {mockTenant.openingTime} às {mockTenant.closingTime}</span>
+            )}
+            {mockTenant.openingTime && mockTenant.closingTime && mockTenant.isOpen && <span>·</span>}
+            {mockTenant.isOpen && <span>Entrega em até {mockTenant.estimatedDeliveryMinutes ?? 60} min</span>}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2 mt-4">
+            <Badge>Pedido mínimo {formatCurrency(mockTenant.minOrder)}</Badge>
+            <Badge>Taxa {formatCurrency(mockTenant.deliveryFee)}</Badge>
+          </div>
         </div>
+
         {!mockTenant.isOpen && (
-          <div className="mt-4 px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm font-medium">
+          <div className="mx-6 mb-6 px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm font-medium text-center">
             Esta pizzaria está fechada no momento. Volte mais tarde para fazer seu pedido.
           </div>
         )}
       </div>
 
-      <div className="p-6 max-w-md mx-auto space-y-3">
-        {mockCategories.map((category) => {
-          const pizzas = mockPizzas.filter((p) => p.category === category.id);
-          if (pizzas.length === 0) return null;
-          const isOpen = mockTenant.isOpen && openCategoryId === category.id;
+      <div className="px-6 pt-6 max-w-md mx-auto">
+        <div className="flex items-center gap-2.5 border-b border-border pb-2.5">
+          <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar no cardápio"
+            className="flex-1 bg-transparent font-serif italic text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+          />
+        </div>
+      </div>
 
-          return (
-            <Card key={category.id} className="overflow-hidden">
-              <button
-                onClick={() => toggleCategory(category.id)}
-                disabled={!mockTenant.isOpen}
-                title={!mockTenant.isOpen ? 'Pizzaria fechada no momento' : undefined}
-                className="w-full flex items-center justify-between px-4 py-4 disabled:cursor-not-allowed"
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="font-serif text-lg text-foreground">{category.name}</span>
-                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                    {pizzas.length}
-                  </span>
-                </div>
-                {isOpen ? (
-                  <ChevronUp className="w-5 h-5 text-primary shrink-0" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-muted-foreground shrink-0" />
-                )}
-              </button>
-
-              {isOpen && (
-                <div className="border-t border-border">
-                  {pizzas.map((pizza) => (
-                    <div
-                      key={pizza.id}
-                      className="flex items-start gap-3 px-4 py-3.5 border-b border-border last:border-b-0"
-                    >
-                      <img
-                        src={pizza.image}
-                        alt={pizza.name}
-                        className="w-11 h-11 rounded-lg object-cover shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="font-serif font-semibold text-base text-foreground truncate">{pizza.name}</span>
-                            {pizza.featured && <Badge className="shrink-0">Especial</Badge>}
-                          </div>
-                          <span className="font-serif text-sm text-primary shrink-0">
-                            {formatCurrency(priceForSize(pizza, sizeFor(pizza)) ?? 0)}
-                          </span>
-                        </div>
-                        <p className="text-xs text-primary mt-0.5">{pizza.description}</p>
-                        <div className="flex items-center justify-between mt-2 gap-1">
-                          <div className="flex gap-1">
-                            {pizzaSizes.map((size) => {
-                              const isSelected = sizeFor(pizza) === size.id;
-                              const isAvailable = priceForSize(pizza, size.id) != null;
-                              return (
-                                <button
-                                  key={size.id}
-                                  disabled={!isAvailable}
-                                  title={isAvailable ? undefined : 'Tamanho não disponível para esta pizza'}
-                                  onClick={() => isAvailable && setSelectedSizes((prev) => ({ ...prev, [pizza.id]: size.id }))}
-                                  className={`px-1.5 py-1 rounded border text-[9px] font-semibold uppercase tracking-wide transition-colors ${
-                                    !isAvailable
-                                      ? 'border-border text-muted-foreground/40 cursor-not-allowed line-through'
-                                      : isSelected
-                                        ? 'border-primary bg-primary/[.13] text-primary'
-                                        : 'border-border text-muted-foreground hover:text-foreground'
-                                  }`}
-                                >
-                                  {SIZE_SHORT_LABEL[size.id]}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              onClick={() => onStartHalfHalf(pizza, sizeFor(pizza))}
-                              disabled={firstAvailableSize(pizza) == null || !mockTenant.isOpen}
-                              title={!mockTenant.isOpen ? 'Pizzaria fechada no momento' : 'Meio a meio'}
-                              aria-label={`Meio a meio com ${pizza.name}`}
-                              className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              <HalfHalfIcon />
-                            </button>
-                            <button
-                              onClick={() => onAddSingleFlavor(pizza, sizeFor(pizza))}
-                              disabled={firstAvailableSize(pizza) == null || !mockTenant.isOpen}
-                              title={!mockTenant.isOpen ? 'Pizzaria fechada no momento' : 'Adicionar'}
-                              aria-label={`Adicionar ${pizza.name}`}
-                              className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+      <div className="px-6 max-w-md mx-auto">
+        {isSearching ? (
+          <div className="pt-7">
+            <SectionDivider label="Resultados da busca" />
+            <div className="mt-5">
+              {searchResults!.pizzas.map((pizza) => (
+                <PizzaRow
+                  key={pizza.id}
+                  pizza={pizza}
+                  selectedSize={sizeFor(pizza)}
+                  onSelectSize={(sizeId) => setSelectedSizes((prev) => ({ ...prev, [pizza.id]: sizeId }))}
+                  onHalfHalf={() => onStartHalfHalf(pizza, sizeFor(pizza))}
+                  onAdd={() => onAddSingleFlavor(pizza, sizeFor(pizza))}
+                  storeOpen={mockTenant.isOpen ?? false}
+                />
+              ))}
+              {searchResults!.drinks.map((drink) => (
+                <SimpleItemRow key={drink.id} name={drink.name} meta={drink.size} price={drink.price} onAdd={() => onAddDrink(drink)} />
+              ))}
+              {searchResults!.sobremesas.map((item) => (
+                <SimpleItemRow key={item.id} name={item.name} meta={item.size} price={item.price} onAdd={() => onAddSobremesa(item)} />
+              ))}
+              {!hasSearchResults && (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  Nenhum item encontrado para "{searchQuery.trim()}".
+                </p>
               )}
-            </Card>
-          );
-        })}
-
-        <Card className="overflow-hidden">
-          <button
-            onClick={() => toggleCategory(BEBIDAS_ID)}
-            className="w-full flex items-center justify-between px-4 py-4"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="font-serif text-lg text-foreground">Bebidas</span>
-              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                {mockDrinks.length}
-              </span>
             </div>
-            {openCategoryId === BEBIDAS_ID ? (
-              <ChevronUp className="w-5 h-5 text-primary shrink-0" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-muted-foreground shrink-0" />
-            )}
-          </button>
-
-          {openCategoryId === BEBIDAS_ID && (
-            <div className="border-t border-border">
-              {mockDrinks.map((drink) => (
-                <div
-                  key={drink.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-border last:border-b-0"
-                >
-                  <div className="min-w-0">
-                    <span className="font-serif text-[15px] text-foreground">{drink.name}</span>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {drink.size} · {formatCurrency(drink.price)}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => onAddDrink(drink)}
-                    title="Adicionar"
-                    aria-label={`Adicionar ${drink.name}`}
-                    className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
+          </div>
+        ) : (
+          <div className="pt-6">
+            <CategoryTabs categories={allCategories} activeId={selectedCategoryId} onSelect={selectCategory} />
+            {activeCategory && (
+              <div className="pt-7">
+                <SectionDivider label={activeCategory.name.toUpperCase()} />
+                <div className="mt-5">
+                  {selectedCategoryId === BEBIDAS_ID &&
+                    mockDrinks.map((drink) => (
+                      <SimpleItemRow key={drink.id} name={drink.name} meta={drink.size} price={drink.price} onAdd={() => onAddDrink(drink)} />
+                    ))}
+                  {selectedCategoryId === SOBREMESAS_ID &&
+                    mockSobremesas.map((item) => (
+                      <SimpleItemRow key={item.id} name={item.name} meta={item.size} price={item.price} onAdd={() => onAddSobremesa(item)} />
+                    ))}
+                  {selectedCategoryId !== BEBIDAS_ID &&
+                    selectedCategoryId !== SOBREMESAS_ID &&
+                    mockPizzas
+                      .filter((p) => p.category === selectedCategoryId)
+                      .map((pizza) => (
+                        <PizzaRow
+                          key={pizza.id}
+                          pizza={pizza}
+                          selectedSize={sizeFor(pizza)}
+                          onSelectSize={(sizeId) => setSelectedSizes((prev) => ({ ...prev, [pizza.id]: sizeId }))}
+                          onHalfHalf={() => onStartHalfHalf(pizza, sizeFor(pizza))}
+                          onAdd={() => onAddSingleFlavor(pizza, sizeFor(pizza))}
+                          storeOpen={mockTenant.isOpen ?? false}
+                        />
+                      ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        <Card className="overflow-hidden">
-          <button
-            onClick={() => toggleCategory(SOBREMESAS_ID)}
-            className="w-full flex items-center justify-between px-4 py-4"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="font-serif text-lg text-foreground">Sobremesas</span>
-              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                {mockSobremesas.length}
-              </span>
-            </div>
-            {openCategoryId === SOBREMESAS_ID ? (
-              <ChevronUp className="w-5 h-5 text-primary shrink-0" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-muted-foreground shrink-0" />
+              </div>
             )}
-          </button>
-
-          {openCategoryId === SOBREMESAS_ID && (
-            <div className="border-t border-border">
-              {mockSobremesas.map((sobremesa) => (
-                <div
-                  key={sobremesa.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-border last:border-b-0"
-                >
-                  <div className="min-w-0">
-                    <span className="font-serif text-[15px] text-foreground">{sobremesa.name}</span>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {sobremesa.size} · {formatCurrency(sobremesa.price)}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => onAddSobremesa(sobremesa)}
-                    title="Adicionar"
-                    aria-label={`Adicionar ${sobremesa.name}`}
-                    className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+          </div>
+        )}
       </div>
 
       {cartItemsCount > 0 && (
@@ -324,9 +224,9 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
             fullWidth
             size="lg"
             onClick={onViewCart}
-            className="relative h-14 rounded-lg text-base font-semibold flex items-center justify-center gap-3"
+            className="relative h-14 rounded-lg text-base font-semibold uppercase tracking-wide flex items-center justify-center gap-3"
           >
-            <div className="absolute left-6 w-7 h-7 bg-primary-foreground/20 rounded-full flex items-center justify-center text-sm">
+            <div className="absolute left-6 w-7 h-7 bg-primary-foreground/20 rounded-full flex items-center justify-center text-sm normal-case">
               {cartItemsCount}
             </div>
             Ver Carrinho
@@ -334,6 +234,110 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+interface PizzaRowProps {
+  pizza: Pizza;
+  selectedSize: PizzaSizeId;
+  onSelectSize: (sizeId: PizzaSizeId) => void;
+  onHalfHalf: () => void;
+  onAdd: () => void;
+  storeOpen: boolean;
+}
+
+// Item de pizza no formato "cardapio impresso" (PROTCLINEW, Sprint 2) -- nome+preco via
+// DottedRow, descricao em italico, tamanhos como texto clicavel (mesmos handlers de
+// sempre, so' sem a caixa/pill), meio a meio como link de texto, adicionar como botao
+// circular contornado. Sem foto (decisao registrada em docs/PROTCLINEW.md).
+function PizzaRow({ pizza, selectedSize, onSelectSize, onHalfHalf, onAdd, storeOpen }: PizzaRowProps) {
+  const actionsDisabled = firstAvailableSize(pizza) == null || !storeOpen;
+
+  return (
+    <div className="py-5 border-b border-border last:border-b-0">
+      <DottedRow name={pizza.name} price={formatCurrency(priceForSize(pizza, selectedSize) ?? 0)} featured={pizza.featured} />
+      <p className="font-serif italic text-sm text-muted-foreground mt-1.5 leading-relaxed">{pizza.description}</p>
+      <div className="flex items-center justify-between mt-3 gap-2 flex-wrap">
+        <p className="text-[11.5px] tracking-wide">
+          {pizzaSizes.map((size, index) => {
+            const isSelected = selectedSize === size.id;
+            const isAvailable = priceForSize(pizza, size.id) != null;
+            return (
+              <span key={size.id}>
+                {index > 0 && <span className="mx-1.5 text-muted-foreground/60">·</span>}
+                <button
+                  type="button"
+                  disabled={!isAvailable}
+                  title={isAvailable ? undefined : 'Tamanho não disponível para esta pizza'}
+                  onClick={() => isAvailable && onSelectSize(size.id)}
+                  className={
+                    !isAvailable
+                      ? 'text-muted-foreground/40 line-through cursor-not-allowed'
+                      : isSelected
+                        ? 'text-primary font-semibold'
+                        : 'text-muted-foreground hover:text-foreground'
+                  }
+                >
+                  {size.name}
+                </button>
+              </span>
+            );
+          })}
+        </p>
+        <div className="flex items-center gap-3.5 shrink-0">
+          <button
+            type="button"
+            onClick={onHalfHalf}
+            disabled={actionsDisabled}
+            title={!storeOpen ? 'Pizzaria fechada no momento' : 'Meio a meio'}
+            aria-label={`Meio a meio com ${pizza.name}`}
+            className="text-[11px] font-semibold tracking-wide text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-muted-foreground"
+          >
+            meio a meio
+          </button>
+          <button
+            type="button"
+            onClick={onAdd}
+            disabled={actionsDisabled}
+            title={!storeOpen ? 'Pizzaria fechada no momento' : 'Adicionar'}
+            aria-label={`Adicionar ${pizza.name}`}
+            className="w-7 h-7 rounded-full border border-primary text-primary flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface SimpleItemRowProps {
+  name: string;
+  meta: string;
+  price: number;
+  onAdd: () => void;
+}
+
+// Item de bebida/sobremesa -- versao mais simples do PizzaRow (sem tamanho, sem meio a
+// meio). Botao de adicionar nunca foi desabilitado por loja fechada pra esses dois
+// tipos (comportamento ja existente antes desta sprint, preservado sem mudanca).
+function SimpleItemRow({ name, meta, price, onAdd }: SimpleItemRowProps) {
+  return (
+    <div className="flex items-center gap-3 py-3.5 border-b border-border last:border-b-0">
+      <div className="flex-1 min-w-0">
+        <DottedRow name={name} price={formatCurrency(price)} />
+        <p className="text-xs text-muted-foreground mt-1">{meta}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onAdd}
+        title="Adicionar"
+        aria-label={`Adicionar ${name}`}
+        className="w-6 h-6 rounded-full border border-primary text-primary flex items-center justify-center shrink-0"
+      >
+        <Plus className="w-3 h-3" />
+      </button>
     </div>
   );
 }
