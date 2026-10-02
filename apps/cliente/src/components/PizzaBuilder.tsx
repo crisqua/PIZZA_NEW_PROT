@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, Plus, ShoppingBag } from 'lucide-react';
 import { pizzaSizes, mockPizzas, mockCategories } from '../data/repository';
 import { Pizza, PizzaSizeId, priceForSize } from '@pizza/types';
-import { Card, CardContent, Button, Badge, formatCurrency } from '@pizza/ui';
+import { Button, Badge, formatCurrency } from '@pizza/ui';
 import { SectionDivider } from './SectionDivider';
 import { DottedRow } from './DottedRow';
 import { CategoryTabs } from './CategoryTabs';
@@ -86,56 +86,61 @@ export function PizzaBuilder({ initialPizza, initialSize, onBack, onAddToCart }:
         </div>
       </div>
 
-      <div className="p-5 max-w-md mx-auto space-y-6 mt-2">
+      <div className="p-5 max-w-md mx-auto space-y-7 mt-2">
         <div>
-          <button
-            onClick={() => setShowSizePicker((prev) => !prev)}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-card border border-border text-left"
-          >
+          <div className="flex items-center justify-between pb-3 border-b border-border">
             <span className="text-sm text-foreground">
-              Tamanho: <span className="font-semibold">{selectedSize.name}</span>
+              Tamanho: <span className="font-serif font-semibold">{selectedSize.name}</span>
             </span>
-            <span className="text-sm text-primary font-semibold">Alterar</span>
-          </button>
+            <button
+              onClick={() => setShowSizePicker((prev) => !prev)}
+              className="text-[11px] font-bold uppercase tracking-wide text-primary"
+            >
+              Alterar
+            </button>
+          </div>
           {showSizePicker && (
-            <div className="flex gap-2 mt-2">
-              {pizzaSizes.map((size) => {
+            <p className="text-[12px] tracking-wide mt-3">
+              {pizzaSizes.map((size, index) => {
                 // Tamanho so' fica disponivel aqui se TODOS os sabores selecionados
                 // tiverem preco pra ele -- diferente do Menu.tsx (1 sabor so'), aqui
                 // o tamanho e' compartilhado, entao um sabor sem preco pro tamanho
                 // ja' inviabiliza a combinacao inteira.
                 const isAvailable = selectedFlavors.every((f) => priceForSize(f, size.id) != null);
+                const isSelected = selectedSize.id === size.id;
                 return (
-                  <button
-                    key={size.id}
-                    disabled={!isAvailable}
-                    onClick={() => {
-                      if (!isAvailable) return;
-                      setSelectedSizeId(size.id);
-                      setShowSizePicker(false);
-                    }}
-                    title={!isAvailable ? 'Tamanho não disponível para os sabores selecionados' : undefined}
-                    className={`flex-1 py-2 px-1 rounded border text-center transition-colors ${
-                      !isAvailable
-                        ? 'border-border text-muted-foreground/40 cursor-not-allowed line-through'
-                        : selectedSize.id === size.id
-                        ? 'border-primary bg-primary/[.13] text-primary'
-                        : 'border-border text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <span className="block text-xs font-semibold uppercase tracking-wide">{size.name}</span>
-                    <span className="block text-[11px] mt-0.5">{size.slices} pedaços</span>
-                  </button>
+                  <span key={size.id}>
+                    {index > 0 && <span className="mx-2 text-muted-foreground/60">·</span>}
+                    <button
+                      type="button"
+                      disabled={!isAvailable}
+                      title={!isAvailable ? 'Tamanho não disponível para os sabores selecionados' : undefined}
+                      onClick={() => {
+                        if (!isAvailable) return;
+                        setSelectedSizeId(size.id);
+                        setShowSizePicker(false);
+                      }}
+                      className={
+                        !isAvailable
+                          ? 'text-muted-foreground/40 line-through cursor-not-allowed'
+                          : isSelected
+                            ? 'text-primary font-semibold'
+                            : 'text-muted-foreground hover:text-foreground'
+                      }
+                    >
+                      {size.name} ({size.slices} pedaços)
+                    </button>
+                  </span>
                 );
               })}
-            </div>
+            </p>
           )}
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-foreground">
-              Sabores <span className="text-muted-foreground font-normal">({selectedFlavors.length}/2)</span>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-serif text-base font-semibold text-foreground">
+              Sabores <span className="font-sans text-muted-foreground font-normal">({selectedFlavors.length}/2)</span>
             </h2>
             {canAddFlavor && (
               <Button
@@ -149,56 +154,50 @@ export function PizzaBuilder({ initialPizza, initialSize, onBack, onAddToCart }:
               </Button>
             )}
           </div>
-          <div className="space-y-3">
+          <div className="space-y-5">
             {selectedFlavors.map((flavor, index) => (
-              <Card key={flavor.id} className="rounded-xl overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="flex items-stretch">
-                    <img
-                      src={flavor.image}
-                      alt={flavor.name}
-                      className="w-[76px] h-[76px] object-cover shrink-0 my-auto ml-3 rounded-lg"
-                    />
-                    <div className="flex-1 p-3 flex flex-col justify-center min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <h3 className="font-semibold text-foreground leading-tight">{flavor.name}</h3>
-                        {selectedFlavors.length > 1 && (
-                          <Badge className="shrink-0">{index === 0 ? '1ª Metade' : '2ª Metade'}</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{flavor.description}</p>
-                      {selectedFlavors.length > 1 && (
-                        <button
-                          onClick={() => handleRemoveFlavor(flavor.id)}
-                          className="text-sm font-semibold text-destructive hover:opacity-80 transition-opacity mt-2 w-fit"
-                        >
-                          Remover sabor
-                        </button>
-                      )}
-                    </div>
+              <div key={flavor.id} className="flex items-stretch gap-3">
+                <img
+                  src={flavor.image}
+                  alt={flavor.name}
+                  className="w-[68px] h-[68px] object-cover shrink-0 rounded-lg"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-serif font-semibold text-foreground leading-tight">{flavor.name}</h3>
+                    {selectedFlavors.length > 1 && (
+                      <Badge className="shrink-0">{index === 0 ? '1ª Metade' : '2ª Metade'}</Badge>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-0.5">{flavor.description}</p>
+                  {selectedFlavors.length > 1 && (
+                    <button
+                      onClick={() => handleRemoveFlavor(flavor.id)}
+                      className="text-sm font-semibold text-destructive hover:opacity-80 transition-opacity mt-2 w-fit"
+                    >
+                      Remover sabor
+                    </button>
+                  )}
+                </div>
+              </div>
             ))}
           </div>
         </div>
 
-        <Card className="rounded-xl">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3 border-b border-border pb-3">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Resumo do Pedido</span>
-              <span className="text-xs font-semibold text-primary">
-                {selectedFlavors.length} sabor{selectedFlavors.length > 1 ? 'es' : ''} • {selectedSize.name}
-              </span>
-            </div>
-            <div className="flex items-end justify-between">
-              <span className="font-semibold text-foreground">Total</span>
-              <span className="font-serif text-2xl text-primary font-semibold">
-                {currentPrice != null ? formatCurrency(currentPrice) : 'Indisponível'}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="border border-border rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-3 border-b border-border pb-3">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Resumo do Pedido</span>
+            <span className="text-xs font-semibold text-primary">
+              {selectedFlavors.length} sabor{selectedFlavors.length > 1 ? 'es' : ''} • {selectedSize.name}
+            </span>
+          </div>
+          <div className="flex items-end justify-between">
+            <span className="font-semibold text-foreground">Total</span>
+            <span className="font-serif text-2xl text-primary font-semibold">
+              {currentPrice != null ? formatCurrency(currentPrice) : 'Indisponível'}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-surface border-t border-border z-50">
@@ -207,7 +206,7 @@ export function PizzaBuilder({ initialPizza, initialSize, onBack, onAddToCart }:
           size="lg"
           disabled={currentPrice == null}
           onClick={handleAddToCart}
-          className="h-14 rounded-lg text-base font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="h-14 rounded-lg text-base font-semibold uppercase tracking-wide flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ShoppingBag className="w-5 h-5" />
           Adicionar ao Carrinho
