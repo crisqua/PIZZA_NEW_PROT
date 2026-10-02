@@ -62,22 +62,31 @@ comparar os 2 sabores lado a lado).
 Nenhuma sprint abaixo toca o backend (`apps/api`) — tudo é `apps/cliente` +
 1 variant novo em `packages/ui` (aditivo, não quebra `apps/pizzaria`/`apps/admin-pizzarias`).
 
-### Sprint 1 — Primitivos de design compartilhados ⏳
+### Sprint 1 — Primitivos de design compartilhados ✅ IMPLEMENTADA em 2026-10-02 (commit `4f48cb8`, main, CI verde)
 
 Fundação — Menu, FlavorSelector e Checkout precisam dos mesmos elementos visuais
 novos; sem isso cada tela reimplementaria a mesma coisa.
 
-- `SectionDivider` — linha "──── CLÁSSICAS ────" com texto centralizado.
+- `SectionDivider` — linha "──── CLÁSSICAS ────" com texto centralizado. Novo
+  `apps/cliente/src/components/SectionDivider.tsx`.
 - `DottedRow` — layout nome · · · · · · preço (leader pontilhado), base de todo item
-  de lista nas telas seguintes.
+  de lista nas telas seguintes. Novo `apps/cliente/src/components/DottedRow.tsx`.
 - `CategoryTabs` — nav horizontal sublinhada, substitui o acordeão de categorias
-  atual (`openCategoryId` → `selectedCategoryId`).
+  atual (`openCategoryId` → `selectedCategoryId`). Novo
+  `apps/cliente/src/components/CategoryTabs.tsx`.
 - Novo variant `minimal` no `Input` de `packages/ui` (label pequeno acima, valor
   serifado, só sublinhado) — **aditivo**, nunca troca o estilo default já usado pelos
-  outros 2 apps.
+  outros 2 apps. `packages/ui/src/Input.tsx` alterado — o branch sem `variant`
+  (default) ficou byte-a-byte idêntico ao JSX original, confirmado no diff.
 
-**Verificação**: `tsc --noEmit` em `packages/ui`; confirmar visualmente que o `Input`
-padrão (sem o novo variant) continua idêntico em `apps/pizzaria`/`apps/admin-pizzarias`.
+Nenhuma tela existente foi tocada nesta sprint — os 3 componentes novos ainda não são
+usados por nenhuma tela (entram nas Sprints 2-5) e o `Input` com `variant="minimal"`
+também ainda não (entra na Sprint 6).
+
+**Verificação**: `tsc --noEmit` limpo em `packages/ui`, `apps/cliente`,
+`apps/pizzaria` e `apps/admin-pizzarias`. Diff do `Input.tsx` revisado a mão — o
+branch default é literalmente o JSX de antes, sem nenhuma mudança, só precedido por
+um `if (variant === 'minimal')` novo.
 
 ### Sprint 2 — Menu.tsx ⏳
 
