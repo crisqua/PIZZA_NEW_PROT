@@ -41,4 +41,5 @@
   - [`docs/pizzaria_sprints.md`](docs/pizzaria_sprints.md) — histórico completo de todas as sprints e planos do projeto (Sprint 0 até o roadmap pós-piloto), com entregável, Definition of Done e status por sprint.
   - [`docs/PLANO_SEPARACAO_FRONTENDS.md`](docs/PLANO_SEPARACAO_FRONTENDS.md) — plano que guiou a separação da SPA única em `apps/cliente`, `apps/pizzaria`, `apps/admin-pizzarias` (Sprint 0, já executada).
   - [`docs/DESIGN_JORNADA_CLIENTE.md`](docs/DESIGN_JORNADA_CLIENTE.md) — sistema visual (dark + acento único por tenant) e jornada de pedido do App do Cliente, **aprovados em 27/08/2026**. Inclui link para o protótipo visual de referência.
+  - [`docs/PROTCLINEW.md`](docs/PROTCLINEW.md) — proposta de redesenho do App Cliente (cardápio editorial, **aprovada em 02/10/2026**), com link do protótipo clicável e plano de sprints de implementação, ainda não executado.
   
