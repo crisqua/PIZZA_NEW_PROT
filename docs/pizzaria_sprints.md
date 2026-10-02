@@ -516,6 +516,32 @@ no `admin-pizzarias`. Layout, colunas, paginação, e se também precisa enxerga
 audit log) — só restam a pendência do usuário abaixo (secrets do GitHub) e a tela de
 consulta opcional.
 
+### ⚡ Correção de performance — email no JWT (2026-10-03, commit `3581ff8`)
+
+Achado real testando `pizzariahk.vercel.app` (painel da pizzaria): mudar o status de
+um pedido (`PATCH /orders/:id/status`) levou **~3,4s** de "waiting for server
+response" no DevTools do Chrome, bem acima do piso de ~1-1,5s já conhecido do Render
+Free. Causa raiz: a auditoria desta sprint adicionou **2 idas ao banco extras** a essa
+transação — `resolveActorEmail(tx, user.id)` (busca só pra achar o email do usuário
+logado, já que o JWT nunca carregava esse campo) + o próprio insert do log — dobrando
+de 2 pra 4 round trips. Nesse projeto o custo é dominado por round trip (handshake de
+conexão do Render Free), não pela complexidade da query — dobrar os round trips de
+uma transação já lenta tem efeito proporcional real, confirmado pela medição.
+
+**Correção**: `AuthenticatedUser` ganha `email?: string`, populado a partir do JWT
+(access **e** refresh token, pra sobreviver a um refresh sem perder o campo). Os 2
+únicos callers de `resolveActorEmail` (`orders.service.ts`, `tenants.controller.ts`)
+passam a usar `user.email ?? await resolveActorEmail(...)` — só cai pro lookup no
+banco se for um token emitido antes desta mudança (expira em até 15min, período de
+transição curto, sem precisar de migração). Resultado: volta de 4 pra 3 round trips
+nessas 2 ações.
+
+**Descartado de propósito**: tirar a gravação do log de dentro da transação (deixaria
+mais rápido ainda, mas quebraria a garantia já documentada — "se a ação der rollback,
+o log some junto"); reescrever como 1 query SQL só via CTE (ganho menor que a opção
+do token, risco maior de manter). Suíte e2e completa 210/216 (as 6 falhas já
+conhecidas, confirmado que nenhuma toca auth/audit-log/orders).
+
 ### ✅ Pendência do usuário — secrets do GitHub Actions cadastrados em 2026-10-03
 
 Os dois secrets (`API_BASE_URL=https://pizza-api-homolog.onrender.com` e
