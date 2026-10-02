@@ -19,6 +19,11 @@ interface RefreshTokenPayload {
   sub: string;
   tenantId: string | null;
   role: UserRole;
+  // Sprint 15 (perf): carregado pro refresh token tambem, nao so' o access token --
+  // senao o email sumiria do access token novo a cada refresh (refresh() reconstroi
+  // "user" a partir DESTE payload, nao tem outro jeito de saber o email sem bater no
+  // banco de novo, que e' exatamente o round-trip que essa mudanca quer evitar).
+  email: string;
   type: 'refresh';
   familyId: string;
   // jti garante que cada emissao produza um JWT diferente mesmo quando sub/tenantId/role/
@@ -84,7 +89,7 @@ export class AuthService {
       }
 
       await this.logLoginSuccess(tenant.id, user, meta);
-      return { id: user.id, tenantId: user.tenantId, role: user.role as UserRole };
+      return { id: user.id, tenantId: user.tenantId, role: user.role as UserRole, email: user.email };
     }
 
     // Sem tenantSlug -> login de platform_superadmin, sem contexto de tenant.
@@ -98,7 +103,7 @@ export class AuthService {
     }
 
     await this.logLoginSuccess(null, user, meta);
-    return { id: user.id, tenantId: null, role: 'platform_superadmin' };
+    return { id: user.id, tenantId: null, role: 'platform_superadmin', email: user.email };
   }
 
   // "actorRole: 'unknown'" de proposito -- uma tentativa de login que falhou nao tem
@@ -177,7 +182,7 @@ export class AuthService {
         await this.emailVerification.generateAndSend(tx, tenant.id, created.id, created.email);
         return created;
       });
-      return { id: user.id, tenantId: user.tenantId, role: user.role as UserRole };
+      return { id: user.id, tenantId: user.tenantId, role: user.role as UserRole, email: user.email };
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === PRISMA_UNIQUE_CONSTRAINT) {
         throw new ConflictException('Ja existe uma conta com este email nesta pizzaria.');
@@ -190,7 +195,7 @@ export class AuthService {
   // mesma cadeia (chamado de dentro de refresh()).
   async issueTokens(user: AuthenticatedUser, familyId?: string): Promise<TokenPair> {
     const accessToken = await this.jwtService.signAsync(
-      { sub: user.id, tenantId: user.tenantId, role: user.role },
+      { sub: user.id, tenantId: user.tenantId, role: user.role, email: user.email },
       { secret: process.env.JWT_SECRET, expiresIn: expiresIn(process.env.JWT_EXPIRES_IN, '15m') },
     );
 
@@ -199,6 +204,10 @@ export class AuthService {
       sub: user.id,
       tenantId: user.tenantId,
       role: user.role,
+      // Fallback vazio so' por seguranca de tipo -- na pratica todo caller de
+      // issueTokens() hoje ja' tem o email resolvido (login/register populam, refresh()
+      // reconstroi a partir deste mesmo payload).
+      email: user.email ?? '',
       type: 'refresh',
       familyId: resolvedFamilyId,
       jti: randomUUID(),
@@ -260,7 +269,16 @@ export class AuthService {
 
     await this.revokeOne(payload.tenantId, stored.id);
 
-    const user: AuthenticatedUser = { id: payload.sub, tenantId: payload.tenantId, role: payload.role };
+    // email vem do proprio refresh token (ver comentario em RefreshTokenPayload) --
+    // string vazia so' acontece pra um refresh token emitido ANTES desta mudanca
+    // (ainda sem o campo), nesse caso undefined e' mais correto que string vazia (deixa
+    // o fallback de resolveActorEmail() no caller de audit log funcionar normalmente).
+    const user: AuthenticatedUser = {
+      id: payload.sub,
+      tenantId: payload.tenantId,
+      role: payload.role,
+      email: payload.email || undefined,
+    };
     return this.issueTokens(user, payload.familyId);
   }
 

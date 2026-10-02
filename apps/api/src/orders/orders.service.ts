@@ -359,7 +359,9 @@ export class OrdersService {
     await this.auditLog.record(tx, {
       tenantId: order.tenantId,
       actorId: user.id,
-      actorEmail: await resolveActorEmail(tx, user.id),
+      // Sprint 15 (perf): usa o email ja' presente no token (evita 1 ida ao banco);
+      // so' cai pro lookup se for um token emitido antes dessa mudanca (sem o campo).
+      actorEmail: user.email ?? (await resolveActorEmail(tx, user.id)),
       actorRole: user.role,
       action: 'order.status_change',
       targetType: 'order',

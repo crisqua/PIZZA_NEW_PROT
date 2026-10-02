@@ -88,7 +88,9 @@ export class TenantsController {
           await this.auditLog.record(tx, {
             tenantId: tenant.id,
             actorId: user.id,
-            actorEmail: await resolveActorEmail(tx, user.id),
+            // Sprint 15 (perf): usa o email ja' presente no token (evita 1 ida ao
+            // banco); so' cai pro lookup se for um token emitido antes dessa mudanca.
+            actorEmail: user.email ?? (await resolveActorEmail(tx, user.id)),
             actorRole: user.role,
             action: 'tenant.store_status_change',
             targetType: 'tenant',
