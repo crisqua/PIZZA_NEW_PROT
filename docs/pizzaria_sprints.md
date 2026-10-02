@@ -516,31 +516,19 @@ no `admin-pizzarias`. Layout, colunas, paginação, e se também precisa enxerga
 audit log) — só restam a pendência do usuário abaixo (secrets do GitHub) e a tela de
 consulta opcional.
 
-### ⚠️ Pendência do usuário — cadastrar os secrets do GitHub Actions
+### ✅ Pendência do usuário — secrets do GitHub Actions cadastrados em 2026-10-03
 
-Sem isso o `.github/workflows/audit-log-retention.yml` agendado roda todo dia às 4h
-(São Paulo), mas o `curl` dentro dele falha silenciosamente (secret vazio) — o expurgo
-diário simplesmente não acontece, sem erro visível em lugar nenhum além do próprio log
-do Actions. Não é algo que eu (Claude) consigo fazer — exige acesso ao repositório no
-GitHub:
-
-1. No GitHub: `Settings` → `Secrets and variables` → `Actions` → `New repository
-   secret`.
-2. Cadastrar **dois** secrets:
-   - `API_BASE_URL` — a URL base da API em produção/homolog, sem barra no final (ex.
-     `https://pizza-api-homolog.onrender.com`).
-   - `AUDIT_LOG_RETENTION_SECRET` — um valor aleatório forte (ex. gerar com `openssl
-     rand -hex 32`), e cadastrar o **mesmo valor exato** como variável de ambiente
-     `AUDIT_LOG_RETENTION_SECRET` no serviço do Render (dashboard → Environment) — os
-     dois lados (GitHub Actions e Render) precisam bater, é o segredo compartilhado que
-     autentica a chamada máquina-pra-máquina.
-3. Depois de cadastrar, confirmar que funciona: aba **Actions** do GitHub → workflow
-   "Audit log retention" → "Run workflow" (disparo manual, não precisa esperar o cron
-   das 4h) → conferir que o step "Trigger retention job" termina verde.
-4. Ver também o item correspondente em `docs/TESTES_PENDENTES.md` (seção "Expurgo do
-   Audit Log") — mesmo depois dos secrets cadastrados, ainda falta validar o
-   comportamento do job contra o volume real de tenants passando pela API no Render
-   (só testado localmente, direto no Supabase, até agora).
+Os dois secrets (`API_BASE_URL=https://pizza-api-homolog.onrender.com` e
+`AUDIT_LOG_RETENTION_SECRET`, valor aleatório de 64 hex gerado com `openssl rand -hex
+32`) foram cadastrados no GitHub (`Settings → Secrets and variables → Actions`) e o
+mesmo `AUDIT_LOG_RETENTION_SECRET` foi colado na env var de mesmo nome no serviço
+`pizza-api-homolog` do Render. **Disparo manual confirmado com sucesso**
+(`workflow_dispatch`, run #1, step "Trigger retention job" verde, 1m 6s) — primeira
+vez que o job rodou passando pela API real do Render (antes só tinha sido testado
+localmente, direto no Supabase, onde apareceu o sintoma de `"Engine is not yet
+connected"` registrado acima). O corpo da resposta (`{tenantCount, failed}`) não foi
+inspecionado neste disparo — `curl -sf` só confirma HTTP 2xx, não o conteúdo —
+registrado como item ainda em aberto em `docs/TESTES_PENDENTES.md`.
 
 ---
 
