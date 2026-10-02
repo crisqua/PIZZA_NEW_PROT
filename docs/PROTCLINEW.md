@@ -132,14 +132,25 @@ arquivo); `Card`/`Badge` continuam importados, ainda usados pela função princi
 anteriores — sem browser neste ambiente, validação visual/interativa pendente de
 smoke test manual do usuário.
 
-### Sprint 4 — PizzaBuilder.tsx ("Monte sua Pizza") ⏳
+### Sprint 4 — PizzaBuilder.tsx ("Monte sua Pizza") ✅ IMPLEMENTADA em 2026-10-03 (commit `0dc0fa1`, main, CI verde)
 
-- Linhas de sabor: mantém a foto pequena (76px, já existe hoje e ajuda a comparar os
-  2 sabores — única tela da Opção B que usa imagem), só retrabalha tipografia e os
-  badges "1ª Metade"/"2ª Metade".
-- Seletor de tamanho: link "Alterar" minimalista em vez da barra de pills — mesma
-  lógica de toggle (`showSizePicker`), só CSS.
-- Card de "Resumo do Pedido": borda fina + total serifado grande, igual ao protótipo.
+- Linhas de sabor: mantém a foto pequena (68px, já existe hoje e ajuda a comparar os
+  2 sabores — única tela da Opção B que usa imagem), perde a caixa `Card` ao redor
+  (vira linha solta), nome ganha `font-serif`. Badge "1ª Metade"/"2ª Metade" sem
+  mudança — o `Badge` padrão já bate com a identidade.
+- Seletor de tamanho: caixa → texto + link "Alterar" minimalista; opções expandidas
+  viram texto separado por "·" (mesmo padrão do `Menu.tsx`, Sprint 2) — mesma lógica
+  de disponibilidade (`selectedFlavors.every(f => priceForSize(f, size.id) != null)`).
+- "Resumo do Pedido": caixa com fundo/sombra → borda fina só, mesmo padrão usado no
+  protótipo pro Carrinho/Checkout.
+- `Card`/`CardContent` saem do import — sem uso em todo o arquivo depois desta sprint.
+
+**Zero mudança de lógica**: `selectedSizeId`/`showSizePicker`/`selectedFlavors`/
+`showFlavorSelector`/`calculatePrice`/`handleAddFlavor`/`handleRemoveFlavor`/
+`handleAddToCart` idênticos.
+
+**Verificação**: `tsc --noEmit` e `vite build` limpos. Mesma ressalva de sempre — sem
+browser neste ambiente, validação visual/interativa pendente de smoke test manual.
 
 ### Sprint 5 — Cart.tsx ⏳
 
