@@ -34,6 +34,11 @@ function resolveItemDisplay(item: CartItem): { name: string; subtitle: string; s
 
 export function Cart({ items, onUpdateQuantity, onRemoveItem, onBack, onCheckout }: CartProps) {
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  // Soma de unidades, nao numero de linhas -- mesmo criterio da barra flutuante do
+  // Menu.tsx (cartItemsCount em App.tsx). Achado real de teste: clicar "+" varias vezes
+  // na mesma pizza so' incrementa a linha existente (nunca duplica), entao contar linhas
+  // deixava o numero "travado" bem abaixo do que o cliente esperava ver.
+  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
   const deliveryFee = mockTenant.deliveryFee;
   const total = subtotal + deliveryFee;
 
@@ -71,7 +76,7 @@ export function Cart({ items, onUpdateQuantity, onRemoveItem, onBack, onCheckout
           <button onClick={onBack} className="p-2 hover:bg-card text-foreground rounded-full transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="font-serif text-xl text-foreground">Seu Carrinho <span className="text-primary">({items.length})</span></h1>
+          <h1 className="font-serif text-xl text-foreground">Seu Carrinho <span className="text-primary">({totalQuantity})</span></h1>
         </div>
       </div>
 

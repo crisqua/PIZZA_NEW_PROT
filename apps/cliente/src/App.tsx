@@ -303,7 +303,7 @@ export default function App() {
           onStartHalfHalf={handleStartHalfHalf}
           onAddDrink={handleAddDrink}
           onAddSobremesa={handleAddSobremesa}
-          cartItemsCount={cart.length}
+          cartItemsCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
           onViewCart={() => setView('cart')}
           isLoggedIn={isAuthenticated()}
           onAccountClick={handleAccountClick}
