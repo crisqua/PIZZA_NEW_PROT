@@ -1,12 +1,15 @@
 # APIs do Sistema — Pizzaria White-Label
 
 Documento vivo — mapeia toda rota de `apps/api` (prefixo real: `/v1/...`) à
-funcionalidade que ela atende. Gerado em 2026-09-28 lendo os controllers direto do
-código (fonte da verdade); atualize esta lista sempre que uma rota nascer, mudar de
-papel/guard ou for removida — mesma convenção do `docs/pizzaria_sprints.md`.
+funcionalidade que ela atende. Gerado em 2026-09-28, revisado em 2026-10-13 (conferido
+controller por controller contra o código — só faltava a rota interna do expurgo de
+audit log, adicionada abaixo) lendo os controllers direto do código (fonte da
+verdade); atualize esta lista sempre que uma rota nascer, mudar de papel/guard ou for
+removida — mesma convenção do `docs/pizzaria_sprints.md`.
 
 **Legenda de acesso**: 🌐 pública (sem login) · 🔒 autenticada (JWT) · papéis entre
-parênteses quando restrita a um subconjunto. `@RequiresModule` marca rota atrás de
+parênteses quando restrita a um subconjunto · 🔧 máquina-pra-máquina (segredo
+compartilhado via header, nunca JWT de usuário). `@RequiresModule` marca rota atrás de
 add-on pago (Estoque/Financeiro) — 403 se o plano do tenant não incluir o módulo.
 
 ---
@@ -168,6 +171,17 @@ add-on pago (Estoque/Financeiro) — 403 se o plano do tenant não incluir o mó
 | Método | Rota | Acesso | Funcionalidade |
 |---|---|---|---|
 | GET | `/health` | 🌐 | Health check (`SELECT 1`) — monitorado pelo Render, também usado pra medir o piso de latência de conexão com o Supabase. |
+
+---
+
+## Jobs internos (`/v1/internal`)
+
+Nunca chamado por nenhum dos 3 frontends — disparado só por automação (GitHub
+Actions agendado) ou manualmente via `curl`/`workflow_dispatch`.
+
+| Método | Rota | Acesso | Funcionalidade |
+|---|---|---|---|
+| POST | `/internal/audit-log-retention/run` | 🔧 (header `X-Retention-Job-Secret`) | Expurgo diário do audit log (Sprint 15): move eventos com +30 dias pra `audit_logs_archive`, apaga os com +2 anos. Disparado por `.github/workflows/audit-log-retention.yml` (cron diário) — o Render Free hiberna sem tráfego, então o gatilho precisa vir de fora. |
 
 ---
 
