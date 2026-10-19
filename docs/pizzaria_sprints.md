@@ -1106,14 +1106,14 @@ App.tsx` (estado `theme`, `useEffect` que persiste e aplica/remove a classe `dar
 `document.documentElement`, renderiza `<ThemeToggle>`); novo `apps/cliente/src/
 components/ThemeToggle.tsx`.
 
-**Verificação**: `tsc --noEmit` e `vite build` limpos em `apps/cliente`. **Validação
-visual real não foi possível nesta sessão** — tentativa de abrir o app com Playwright
-(instalado temporariamente, removido depois) travou em "Carregando cardápio..." porque
-não havia `apps/api` rodando neste ambiente (diferente do protótipo em Artifact, que
-era uma página isolada sem dependência de backend). Compensado com a checagem
-matemática de contraste acima e o fato de o protótipo já aprovado usar praticamente a
-mesma paleta. **Smoke test manual de verdade ainda pendente do usuário** — registrado
-em `docs/TESTES_PENDENTES.md`.
+**Verificação**: `tsc --noEmit` e `vite build` limpos em `apps/cliente`. Validação
+visual automatizada não foi possível nesta sessão (tentativa com Playwright travou em
+"Carregando cardápio..." por falta de `apps/api` rodando neste ambiente) — compensado
+com checagem matemática de contraste. **Usuário testou ao vivo em 2026-10-18** e achou
+um bug real na primeira tentativa: o botão flutuante ficava em cima do botão de login/
+conta do `Menu.tsx` (mesmo canto). Corrigido no mesmo dia (commit `baf6248`, desloca o
+botão de tema pra `right-[72px]`, abrindo espaço entre os dois). Depois da correção,
+usuário confirmou ("ficou mto bom") — ver `docs/TESTES_PENDENTES.md`.
 
 ---
 
