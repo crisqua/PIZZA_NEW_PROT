@@ -52,6 +52,8 @@ antes.
 | — | Plano à parte: redesenho do Financeiro | ✅ |
 | — | Plano à parte: app nas lojas (Sprints 17-21) | ⏳ (não iniciado) |
 | — | Plano à parte: tema claro/escuro no app Cliente | ✅ |
+| — | Plano à parte: tela de consulta do audit log | ⏳ (protótipo aprovado) |
+| — | Plano à parte: Sprint "Equipe" (cadastro de funcionários) | ⏳ (protótipo aprovado) |
 | 22 | Eliminar N transações por tenant (resumo de assinatura) | ✅ |
 | 23 | Cache do dashboard | ✅ |
 | 24 | Corte às 5h (Dashboard/OrdersPanel/orderCode) + top-products + Financeiro por período | ✅ |
@@ -510,38 +512,13 @@ homolog + flakiness de paginação de tenants, confirmado que nenhuma toca audit
 
 **Ainda não construído, por decisão explícita de sequenciamento** (não é a mesma coisa
 que "fora de escopo" — só entra quando chegar a vez): a tela de consulta do audit log
-no `admin-pizzarias`.
-
-### <span style="color:orange">⏳ Tela de consulta do audit log — protótipo aprovado em 2026-10-18, pendente de implementação</span>
-
-Desenho definido com o usuário: **não é uma tela nova** — reaproveita o fluxo que já
-existe em `TenantSales.tsx` ("Vendas por Pizzaria"). Um botão **"Ver Log desta
-Pizzaria"** fica ao lado do já existente "Ver Usuários desta Pizzaria" (mesmo padrão:
-1 consulta sob demanda pra 1 tenant já selecionado, nunca um loop cross-tenant — mesma
-disciplina da "Mudança de Dashboard"). Protótipo clicável aprovado ("mto bom") —
-`https://claude.ai/artifact/7nSCTMj6BLUAskmVND2ose`.
-
-**Decisões já fechadas no protótipo**:
-- **Junta `audit_logs` (últimos 30 dias) + `audit_logs_archive` (até 2 anos) numa lista
-  só**, ordenada por data — evita o buraco de "sei que algo aconteceu mas não acho
-  porque passou de 30 dias".
-- **3 filtros combináveis**: período (De/Até, dois `<input type="date">`) + tipo de
-  ação (dropdown com as 6 ações do vocabulário fechado) + "Limpar filtros".
-- **Colunas**: Data/Hora, Ação (badge colorido por tipo), Quem (nome + e-mail), Detalhe.
-- Reaproveita o guard de superadmin e o padrão de endpoint já usado em `GET
-  /admin/tenants/:id/sales` e `GET /admin/users?tenantId=`.
-
-**Ainda não feito, pendência real de implementação**: endpoint novo no backend (provável
-`GET /admin/tenants/:id/audit-log`, com `from`/`to`/`action` como query params, lendo
-`audit_logs` + `audit_logs_archive` via `runInTenantContext` pro tenant selecionado) +
-o botão/seção nova em `TenantSales.tsx` consumindo esse endpoint de verdade (o
-protótipo usa dado de exemplo fixo, só pra validar a interação). Lista de arquivos
-completa fica pra quando a implementação for priorizada — mesmo processo já usado no
-tema claro/escuro (plano detalhado antes de mexer em código).
+no `admin-pizzarias`. **Virou plano à parte, com protótipo já aprovado — ver seção
+própria "Plano à parte: tela de consulta do audit log" mais abaixo neste documento**
+(separada de propósito, 2026-10-18, pra não ficar misturada com o resto da Sprint 15).
 
 **Com isso, a Sprint 15 tem os 3 itens de código fechados** (rate limiting, gitleaks,
-audit log) — só restam a pendência do usuário abaixo (secrets do GitHub) e a tela de
-consulta opcional.
+audit log) — só resta a pendência do usuário abaixo (secrets do GitHub); a tela de
+consulta segue como plano separado, não bloqueia a Sprint 15 ser considerada fechada.
 
 ### ⚡ Correção de performance — email no JWT (2026-10-03, commit `3581ff8`)
 
@@ -1140,6 +1117,51 @@ um bug real na primeira tentativa: o botão flutuante ficava em cima do botão d
 conta do `Menu.tsx` (mesmo canto). Corrigido no mesmo dia (commit `baf6248`, desloca o
 botão de tema pra `right-[72px]`, abrindo espaço entre os dois). Depois da correção,
 usuário confirmou ("ficou mto bom") — ver `docs/TESTES_PENDENTES.md`.
+
+---
+
+# <span style="color:white">Plano à parte: tela de consulta do audit log ⏳ protótipo aprovado em 2026-10-18, aguardando aprovação pra implementar</span>
+
+Separada da Sprint 15 de propósito (2026-10-18) — a escrita do audit log e o expurgo já
+estão implementados e fechados; isso aqui é só a tela de consulta, que ficou pendente
+por decisão de sequenciamento desde o início.
+
+**Desenho definido com o usuário**: **não é uma tela nova** — reaproveita o fluxo que
+já existe em `TenantSales.tsx` ("Vendas por Pizzaria"), no `admin-pizzarias`. Um botão
+**"Ver Log desta Pizzaria"** fica ao lado do já existente "Ver Usuários desta
+Pizzaria" (mesmo padrão: 1 consulta sob demanda pra 1 tenant já selecionado, nunca um
+loop cross-tenant — mesma disciplina da "Mudança de Dashboard"). Protótipo clicável
+aprovado ("mto bom") — `https://claude.ai/artifact/7nSCTMj6BLUAskmVND2ose`.
+
+**Decisões já fechadas no protótipo**:
+- **Junta `audit_logs` (últimos 30 dias) + `audit_logs_archive` (até 2 anos) numa lista
+  só**, ordenada por data — evita o buraco de "sei que algo aconteceu mas não acho
+  porque passou de 30 dias".
+- **3 filtros combináveis**: período (De/Até, dois `<input type="date">`) + tipo de
+  ação (dropdown com as 6 ações do vocabulário fechado) + "Limpar filtros".
+- **Colunas**: Data/Hora, Ação (badge colorido por tipo), Quem (nome + e-mail), Detalhe.
+- Reaproveita o guard de superadmin e o padrão de endpoint já usado em `GET
+  /admin/tenants/:id/sales` e `GET /admin/users?tenantId=`.
+
+## Pendência real de implementação
+
+- **Backend**: endpoint novo, provável `GET /admin/tenants/:id/audit-log`, com
+  `from`/`to`/`action` como query params — lê `audit_logs` + `audit_logs_archive` via
+  `runInTenantContext` pro tenant selecionado, junta os dois resultados, ordena por
+  data. `@Roles('platform_superadmin')`, mesmo guard dos outros endpoints de
+  `tenants-admin.controller.ts`.
+- **Frontend** (`apps/admin-pizzarias`): botão + seção nova em `TenantSales.tsx`
+  (o protótipo usa dado de exemplo fixo, só pra validar a interação — a implementação
+  real chama o endpoint acima) + nova `getTenantAuditLog()` em `src/data/repository.ts`.
+- Lista de arquivos completa e detalhamento de testes e2e ficam pra quando a
+  implementação for priorizada — mesmo processo já usado no tema claro/escuro e na
+  Sprint Equipe (plano detalhado antes de mexer em código).
+
+## Dependência com outras sprints
+
+**Nenhuma.** A escrita do audit log e o expurgo (Sprint 15) já estão prontos — isso é
+só a camada de leitura/consulta, não tech em nenhuma tabela/rota nova além de ler o
+que já existe.
 
 ---
 
