@@ -204,15 +204,19 @@ cada 10s continua idêntico.
 Pizza → Carrinho → Checkout → Confirmação, Sprints 1-7 implementadas. Resta só a
 Sprint 8 (QA de ponta a ponta).
 
-### Sprint 8 — QA de ponta a ponta ⏳
+### Sprint 8 — QA de ponta a ponta ✅ VALIDADA em 2026-10-18 pelo usuário
 
-- `tsc --noEmit` em `apps/cliente` + `packages/ui`.
+- `tsc --noEmit` em `apps/cliente` + `packages/ui` — limpo.
 - Smoke test manual do fluxo real completo contra o homolog: login → cardápio (busca
-  + categorias) → meio a meio → carrinho → checkout → confirmação.
+  + categorias) → meio a meio → carrinho → checkout → confirmação — **testado e
+  confirmado pelo usuário** ("já fiz, pode dar ok").
 - Confirmar que `apps/pizzaria`/`apps/admin-pizzarias` não regrediram (único ponto
   compartilhado é o `Input` variant, aditivo).
-- Teste em largura mobile real (390px, mesmo padrão já usado no projeto — Playwright
-  quando disponível, ou dev server + redimensionar).
+- Teste em largura mobile real (390px) — feito pelo próprio usuário no navegador dele,
+  não nesta sessão (sem browser com `apps/api` local rodando neste ambiente).
+
+Com isso, **o redesenho PROTCLINEW (Sprints 1-8) está completo e validado de ponta a
+ponta.** Ver também `docs/TESTES_PENDENTES.md`, linha "Mudança de layout do Cliente".
 
 ## 4. Fora de escopo deste plano
 
