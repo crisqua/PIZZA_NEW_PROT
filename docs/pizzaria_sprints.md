@@ -51,6 +51,7 @@ antes.
 | — | Plano à parte: CNPJ da pizzaria | ✅ |
 | — | Plano à parte: redesenho do Financeiro | ✅ |
 | — | Plano à parte: app nas lojas (Sprints 17-21) | ⏳ (não iniciado) |
+| — | Plano à parte: tema claro/escuro no app Cliente | ✅ |
 | 22 | Eliminar N transações por tenant (resumo de assinatura) | ✅ |
 | 23 | Cache do dashboard | ✅ |
 | 24 | Corte às 5h (Dashboard/OrdersPanel/orderCode) + top-products + Financeiro por período | ✅ |
@@ -1062,6 +1063,57 @@ sem N+1 — mesmo padrão já validado nas correções de performance anteriores
 
 **Nenhuma.** Mexe só em `orders`/`financial`, não toca em nenhuma tabela/rota que outra
 sprint pendente dependa.
+
+---
+
+# <span style="color:blue">Plano à parte: tema claro/escuro no app Cliente ✅ IMPLEMENTADA em 2026-10-18 (commit `7f62523`, main, CI verde)</span>
+
+Pedido do usuário em 2026-10-13: deixar o cliente final de `apps/cliente` escolher entre
+fundo escuro (o único que existe hoje) ou claro. Protótipo clicável aprovado antes de
+implementar (Claude Design Artifact, `https://claude.ai/artifact/GY5jzJ1JRuE6VapwPAQaeK`
+— reconstrução fiel da tela Cardápio com um toggle sol/lua funcionando de verdade).
+Plano completo salvo em `docs/TEMA_CLARO_ESCURO_PLANO.md` antes do código ser tocado.
+
+**Achado que mudou o desenho original**: `App.tsx` já injeta a cor de marca de cada
+tenant (`mockTenant.primaryColor`) como estilo inline, sobrescrevendo qualquer token
+CSS — decisão tomada de deixar isso como está (nenhum tenant real usa cor
+problemática hoje; revisitar só se um dia um dono escolher uma cor clara ilegível no
+fundo claro).
+
+**Correção de escopo feita pelo usuário durante o planejamento**: o botão de trocar
+tema não fica só no Cardápio (desenho original) — vira um **botão flutuante único**,
+renderizado uma vez em `App.tsx` como sibling de todas as views (mesmo padrão já usado
+por `<UpdateBanner />` e pelo toast de "item adicionado"), visível em Cardápio, Monte
+sua Pizza, Carrinho, Checkout, Confirmação e Login sem precisar tocar em nenhum desses
+componentes individualmente.
+
+**Decisões**: tema padrão continua escuro (zero mudança visual pra quem nunca tocar no
+botão); preferência salva só no `localStorage` (é do aparelho, não da conta — nenhuma
+rota de API nova); dourado da marca (`--primary`/`--accent`) ganhou um tom mais escuro
+no tema claro (de `#c9a84c` pra `#8a6b28`) especificamente porque o tom original não
+tem contraste suficiente como TEXTO sobre fundo claro (preço, aba ativa, ícone do botão
+"+") — verificado matematicamente via fórmula de luminância do WCAG: contraste subiu de
+~2:1 (reprovado) pra ~4,7:1 (aprovado pra texto normal). Como preenchimento de botão/
+logo continua legível do mesmo jeito nos dois tons, só mudou o texto que vai por cima
+(`--primary-foreground` ganhou valor próprio por tema).
+
+**Arquivos**: `apps/cliente/src/styles/theme.css` (paleta clara nova vira o `:root`
+padrão; a paleta escura atual — já em produção — migra pra dentro de `.dark`,
+substituindo um bloco morto do shadcn que nunca era usado); `apps/cliente/index.html`
+(script síncrono antes do React montar, aplica a classe certa a partir do
+`localStorage` — evita o "flash" de tema errado no primeiro load); `apps/cliente/src/
+App.tsx` (estado `theme`, `useEffect` que persiste e aplica/remove a classe `dark` em
+`document.documentElement`, renderiza `<ThemeToggle>`); novo `apps/cliente/src/
+components/ThemeToggle.tsx`.
+
+**Verificação**: `tsc --noEmit` e `vite build` limpos em `apps/cliente`. **Validação
+visual real não foi possível nesta sessão** — tentativa de abrir o app com Playwright
+(instalado temporariamente, removido depois) travou em "Carregando cardápio..." porque
+não havia `apps/api` rodando neste ambiente (diferente do protótipo em Artifact, que
+era uma página isolada sem dependência de backend). Compensado com a checagem
+matemática de contraste acima e o fato de o protótipo já aprovado usar praticamente a
+mesma paleta. **Smoke test manual de verdade ainda pendente do usuário** — registrado
+em `docs/TESTES_PENDENTES.md`.
 
 ---
 
