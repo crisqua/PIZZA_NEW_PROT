@@ -510,8 +510,34 @@ homolog + flakiness de paginação de tenants, confirmado que nenhuma toca audit
 
 **Ainda não construído, por decisão explícita de sequenciamento** (não é a mesma coisa
 que "fora de escopo" — só entra quando chegar a vez): a tela de consulta do audit log
-no `admin-pizzarias`. Layout, colunas, paginação, e se também precisa enxergar
-`audit_logs_archive`, continuam em aberto.
+no `admin-pizzarias`.
+
+### <span style="color:orange">⏳ Tela de consulta do audit log — protótipo aprovado em 2026-10-18, pendente de implementação</span>
+
+Desenho definido com o usuário: **não é uma tela nova** — reaproveita o fluxo que já
+existe em `TenantSales.tsx` ("Vendas por Pizzaria"). Um botão **"Ver Log desta
+Pizzaria"** fica ao lado do já existente "Ver Usuários desta Pizzaria" (mesmo padrão:
+1 consulta sob demanda pra 1 tenant já selecionado, nunca um loop cross-tenant — mesma
+disciplina da "Mudança de Dashboard"). Protótipo clicável aprovado ("mto bom") —
+`https://claude.ai/artifact/7nSCTMj6BLUAskmVND2ose`.
+
+**Decisões já fechadas no protótipo**:
+- **Junta `audit_logs` (últimos 30 dias) + `audit_logs_archive` (até 2 anos) numa lista
+  só**, ordenada por data — evita o buraco de "sei que algo aconteceu mas não acho
+  porque passou de 30 dias".
+- **3 filtros combináveis**: período (De/Até, dois `<input type="date">`) + tipo de
+  ação (dropdown com as 6 ações do vocabulário fechado) + "Limpar filtros".
+- **Colunas**: Data/Hora, Ação (badge colorido por tipo), Quem (nome + e-mail), Detalhe.
+- Reaproveita o guard de superadmin e o padrão de endpoint já usado em `GET
+  /admin/tenants/:id/sales` e `GET /admin/users?tenantId=`.
+
+**Ainda não feito, pendência real de implementação**: endpoint novo no backend (provável
+`GET /admin/tenants/:id/audit-log`, com `from`/`to`/`action` como query params, lendo
+`audit_logs` + `audit_logs_archive` via `runInTenantContext` pro tenant selecionado) +
+o botão/seção nova em `TenantSales.tsx` consumindo esse endpoint de verdade (o
+protótipo usa dado de exemplo fixo, só pra validar a interação). Lista de arquivos
+completa fica pra quando a implementação for priorizada — mesmo processo já usado no
+tema claro/escuro (plano detalhado antes de mexer em código).
 
 **Com isso, a Sprint 15 tem os 3 itens de código fechados** (rate limiting, gitleaks,
 audit log) — só restam a pendência do usuário abaixo (secrets do GitHub) e a tela de
