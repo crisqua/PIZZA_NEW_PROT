@@ -2,6 +2,65 @@
 
 :root {
   --font-size: 16px;
+  --font-weight-medium: 600;
+  --font-weight-normal: 400;
+  --radius: 0.625rem;
+
+  /* Tema claro (padrao de fonte/layout -- a troca de cor de verdade acontece via
+  .dark abaixo). Dourado da marca (--primary/--accent) fica mais escuro aqui que no
+  tema escuro -- #c9a84c (usado la') nao tem contraste suficiente como TEXTO sobre
+  fundo claro (preco, aba ativa, icone do botao "+"); como preenchimento de botao/
+  circulo de logo continua legivel do mesmo jeito, so' muda o texto que vai por cima
+  (--primary-foreground vira claro em vez de escuro). */
+  --background: #faf7f1;
+  --foreground: #221d16;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #221d16;
+  --popover: #ffffff;
+  --popover-foreground: #221d16;
+  --primary: #8a6b28;
+  --primary-foreground: #faf7f1;
+  --secondary: #f3ede0;
+  --secondary-foreground: #221d16;
+  --muted: #f3ede0;
+  --muted-foreground: #70655a;
+  --muted-2: #9c9284;
+  --accent: #8a6b28;
+  --accent-foreground: #faf7f1;
+  --destructive: #a23b30;
+  --destructive-foreground: #faf7f1;
+  --border: #e6ded0;
+  --input: transparent;
+  --input-background: #ffffff;
+  --switch-background: #d8cfbd;
+  --ring: #8a6b28;
+  --chart-1: #c9a84c;
+  --chart-2: #f4a261;
+  --chart-3: #34d399;
+  --chart-4: #457b9d;
+  --chart-5: #1d3557;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #221d16;
+  --sidebar-primary: #8a6b28;
+  --sidebar-primary-foreground: #faf7f1;
+  --sidebar-accent: #f3ede0;
+  --sidebar-accent-foreground: #8a6b28;
+  --sidebar-border: #e6ded0;
+  --sidebar-ring: #8a6b28;
+  --success: #1f8f68;
+  --success-foreground: #faf7f1;
+  --warning: #a8710f;
+  --warning-foreground: #faf7f1;
+  --info: #2f5c7a;
+  --info-foreground: #faf7f1;
+}
+
+/* Tema escuro -- paleta identica a que ja esta em producao hoje (era o :root inteiro
+antes desta sprint), so' movida pra dentro de .dark. Classe aplicada em <html> por
+App.tsx (ver useEffect de tema), lida do localStorage com fallback pra 'dark' -- quem
+nunca mexeu no botao ve exatamente o app de hoje, sem nenhuma mudanca visual. */
+.dark {
   --background: #0f0f0f;
   --foreground: #f5f0e8;
   --surface: #181818;
@@ -24,15 +83,12 @@
   --input: transparent;
   --input-background: #1f1f1f;
   --switch-background: #4a4a4a;
-  --font-weight-medium: 600;
-  --font-weight-normal: 400;
   --ring: #c9a84c;
   --chart-1: #c9a84c;
   --chart-2: #f4a261;
   --chart-3: #34d399;
   --chart-4: #457b9d;
   --chart-5: #1d3557;
-  --radius: 0.625rem;
   --sidebar: #181818;
   --sidebar-foreground: #f5f0e8;
   --sidebar-primary: #c9a84c;
@@ -47,43 +103,6 @@
   --warning-foreground: #0f0f0f;
   --info: #457b9d;
   --info-foreground: #ffffff;
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --font-weight-medium: 500;
-  --font-weight-normal: 400;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
 }
 
 @theme inline {

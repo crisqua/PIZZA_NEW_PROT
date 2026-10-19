@@ -7,6 +7,7 @@ import { Cart } from './components/Cart';
 import { Auth } from './components/Auth';
 import { Checkout } from './components/Checkout';
 import { OrderConfirmation } from './components/OrderConfirmation';
+import { ThemeToggle } from './components/ThemeToggle';
 
 import { mockTenant, isAuthenticated, loadCatalog, tryRestoreSession, logout, verifyEmail, ApiOrder } from './data/repository';
 import { Pizza, Drink, CartItem, PizzaSizeId, priceForSize } from '@pizza/types';
@@ -22,6 +23,18 @@ export default function App() {
   // numero da barra mudar, o que passava a sensacao de "nao fez nada"). Some sozinho
   // apos 2.2s -- nao precisa de biblioteca de toast so' pra isso.
   const [addedToast, setAddedToast] = useState<string | null>(null);
+  // Tema claro/escuro (preferencia de aparelho, nao de conta -- fica so' no
+  // localStorage). 'dark' por padrao pra ningue'm que nunca mexeu no botao ver
+  // qualquer diferenca -- index.html ja aplica a classe antes do React montar
+  // (evita o "pisca" de tema errado), aqui so' sincroniza o estado React com ela.
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      const saved = localStorage.getItem('pizza-cliente-theme');
+      return saved === 'light' ? 'light' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
   const [selectedPizza, setSelectedPizza] = useState<Pizza | null>(null);
   const [selectedSize, setSelectedSize] = useState<PizzaSizeId>('oito-pedacos');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -108,6 +121,18 @@ export default function App() {
     const timer = setTimeout(() => setAddedToast(null), 2200);
     return () => clearTimeout(timer);
   }, [addedToast]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    try {
+      localStorage.setItem('pizza-cliente-theme', theme);
+    } catch {
+      // Storage bloqueado (aba anonima, etc.) -- tema ainda funciona nesta sessao,
+      // so' nao sobrevive a um reload.
+    }
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
 
   const handleStartHalfHalf = (pizza: Pizza, size: PizzaSizeId) => {
     setSelectedPizza(pizza);
@@ -311,6 +336,7 @@ export default function App() {
       style={{ '--primary': mockTenant.primaryColor, '--accent': mockTenant.primaryColor } as CSSProperties}
     >
       <UpdateBanner />
+      <ThemeToggle theme={theme} onToggle={toggleTheme} />
       {addedToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 bg-foreground text-background px-4 py-2.5 rounded-full shadow-lg text-sm font-medium max-w-[90vw]">
           <CheckCircle2 className="w-4 h-4 text-success shrink-0" />

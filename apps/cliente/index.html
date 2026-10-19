@@ -6,6 +6,19 @@
     <title>Pizza Express</title>
     <meta name="description" content="Peça sua pizza favorita online." />
     <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+    <script>
+      // Le o tema salvo ANTES do React montar e ja aplica a classe certa em <html> --
+      // sem isso, quem salvou "claro" veria a tela piscar escura por uma fracao de
+      // segundo (tema padrao) ate o useEffect de App.tsx rodar. Tudo dentro de
+      // try/catch: localStorage pode falhar (aba anonima, storage bloqueado) e isso
+      // nunca pode impedir o app de carregar -- so' cai pro padrao escuro.
+      try {
+        var saved = localStorage.getItem('pizza-cliente-theme');
+        if (saved === 'dark' || saved === null) document.documentElement.classList.add('dark');
+      } catch (e) {
+        document.documentElement.classList.add('dark');
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
