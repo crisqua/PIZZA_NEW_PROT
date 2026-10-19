@@ -1143,6 +1143,151 @@ usuário confirmou ("ficou mto bom") — ver `docs/TESTES_PENDENTES.md`.
 
 ---
 
+# <span style="color:white">Plano à parte: Sprint "Equipe" — cadastro de funcionários ⏳ aguardando aprovação pra implementar (plano escrito em 2026-10-18)</span>
+
+Pedido do usuário em 2026-10-18, motivado por uma pergunta de arquitetura ("dono pode
+ter vários funcionários operando o sistema — está preparado?"). Investigação no código
+real (não suposição) encontrou um achado importante: o papel `tenant_staff` está
+**autorizado em todo endpoint** (`@Roles('tenant_owner', 'tenant_staff')` em catálogo,
+estoque, financeiro, pedidos) mas **não existe nenhum caminho de código que crie um
+usuário com esse papel** — nem cadastro público, nem rota de admin, nem tela em
+nenhum dos 2 painéis. O papel ficou "esquecido": definido no RBAC, sem provisionamento
+possível. `Login.tsx` do painel da pizzaria até documenta isso num comentário:
+"não há cadastro público de owner/staff, essas contas são provisionadas pela
+plataforma" — mas a própria plataforma não tem como provisionar um `tenant_staff`.
+
+**Protótipo clicável aprovado** ("excelente") —
+`https://claude.ai/artifact/UNCEnHsiaXTj8ARqHeE8Dd`: nova tela "Equipe" no painel da
+pizzaria, item novo na sidebar (marcado "NOVO"), com cadastro de funcionário (nome,
+telefone, e-mail, senha provisória, tipo de contratação, data de admissão), toggle
+Ativo/Inativo por linha, e edição.
+
+## Decisões (registradas antes de implementar, mesmo processo do tema claro/escuro)
+
+1. **Só `tenant_owner` gerencia a Equipe** — `tenant_staff` não vê o item "Equipe" na
+   sidebar nem tem acesso às rotas novas (403 se tentar). Um funcionário não pode
+   cadastrar/editar outro funcionário nem a si mesmo.
+2. **Novo campo `User.active`** (Boolean, default `true`) — tecnicamente genérico na
+   tabela toda (clientes e donos também ganham a coluna), mas só a tela Equipe
+   expõe UI pra mudar o valor; cliente e dono sempre ficam `true` na prática (dono é
+   desativado via `Tenant.active`, nível tenant inteiro, não por essa coluna).
+3. **Checagem de `active` acontece DEPOIS de validar a senha**, não antes — diferente
+   do gate de `tenant.active` (que checa antes, de propósito, porque ali só revela
+   algo sobre o TENANT, nunca sobre um e-mail específico). Checar `active` antes da
+   senha vazaria "esse e-mail existe neste tenant" pra alguém que não sabe a senha —
+   checando depois, só quem já provou saber a senha descobre que a conta está
+   desativada.
+4. **Desativar um funcionário também revoga os refresh tokens dele** (mesmo mecanismo
+   de revogação de família já usado contra roubo de token) — login e refresh bloqueados
+   na hora; o access token de até 15 min já emitido continua valendo até expirar
+   sozinho (mesmo limite já aceito e documentado pro caso de tenant desativado).
+5. **Tipo de contratação é texto livre** (`contractType String?`, não um enum fixo no
+   banco) — sem precisar de migration toda vez que uma pizzaria quiser um tipo novo
+   (ex. "Estagiário", "Meio período"). O dropdown no frontend sempre sugere CLT/
+   Freelancer, mais qualquer valor **já usado por outro funcionário desse mesmo
+   tenant** (consulta os valores distintos já cadastrados) — um tipo digitado uma vez
+   fica disponível pra próxima contratação, sem tabela nova nem cadastro separado.
+6. **Senha definida pelo dono na hora do cadastro** — não existe nesta sprint um fluxo
+   de "funcionário troca a própria senha depois do primeiro login". Registrado como
+   possível melhoria futura, fora de escopo agora (mesmo raciocínio de não resolver
+   um problema que ninguém pediu ainda).
+7. **Auditoria**: criar funcionário reaproveita a ação já existente `user.create`
+   (ator = o dono que cadastrou) — não é uma ação nova. Ativar/desativar ganha uma
+   ação nova no vocabulário fechado, `user.status_change`, mesmo formato de
+   `metadata: {from, to}` que `order.status_change`/`tenant.store_status_change` já
+   usam (motivo igual ao que justificou `tenant.store_status_change`: vale ter rastro
+   de quem mudou o estado operacional, agora aplicado ao funcionário).
+8. **E-mail pode ser editado depois de criado** (dono corrigindo erro de digitação) —
+   mesma unicidade já existente (`@@unique([tenantId, email])`), conflito vira 409
+   tratado, não um 500 cru do Prisma.
+
+## Schema (`User`)
+
+```prisma
+active        Boolean   @default(true)
+contractType  String?   @map("contract_type") @db.VarChar(40)
+admissionDate DateTime? @map("admission_date") @db.Date
+```
+
+Migration `--create-only`, revisão manual de sempre (disciplina obrigatória neste
+projeto — `users` já teve FK composta derrubada sem avisar numa sprint anterior).
+
+## Backend (`apps/api`)
+
+- **Novo `src/tenants/dto/create-staff.dto.ts`** — `name`, `email` (`@IsEmail`), `password`
+  (`@MinLength(8) @MaxLength(72)`, mesma regra do `RegisterDto`), `phone`, `contractType?`,
+  `admissionDate?` (ISO date opcional).
+- **Novo `src/tenants/dto/update-staff.dto.ts`** — todos os campos acima opcionais
+  (PATCH), mais `active?: boolean`. Sem `password` aqui (redefinir senha de funcionário,
+  se precisar, é uma ação separada/futura, não implementada nesta sprint).
+- **Novo `src/tenants/staff.controller.ts`** (controller próprio, não inchar
+  `TenantsController`) — `@Controller('tenants/me/staff')`, `@Roles('tenant_owner')`
+  na classe inteira:
+  - `POST /` — hash de senha via o mesmo `hashPassword`/Argon2id já usado em
+    `auth.service.ts`; grava `role: 'tenant_staff'`, `tenantId` do próprio token
+    (nunca do body); audit log `user.create`.
+  - `GET /` — lista funcionários do próprio tenant (RLS cuida do isolamento sozinha),
+    ordenado por nome. Resposta nunca inclui `passwordHash`.
+  - `PATCH /:id` — edita campos; se `active` vier e for diferente do valor atual,
+    grava `user.status_change` (`metadata: {from, to}`) e, se virou `false`, revoga os
+    refresh tokens desse usuário (reaproveita a função de revogação de família já
+    existente). 404 se o `:id` não pertencer ao próprio tenant — RLS já garante isso
+    via `findUnique` dentro do `runInTenantContext`, nunca vaza se o ID existe em
+    outro tenant.
+  - `GET /contract-types` — devolve os valores distintos de `contractType` já usados
+    neste tenant (mais `CLT`/`Freelancer` sempre inclusos), pro dropdown do frontend.
+- **`src/tenants/tenants.module.ts`** — registra o controller/serviço novo.
+- **`src/auth/auth.service.ts`** (`validateCredentials`) — depois de `verifyPassword`
+  confirmar certo: `if (!user.active) { throw new ForbiddenException('Conta
+  desativada.'); }` (ordem invertida em relação ao gate de `tenant.active` — ver
+  decisão 3 acima).
+
+## Frontend (`apps/pizzaria`)
+
+- **`src/components/Sidebar.tsx`** — novo item "Equipe" (ícone `Users`), renderizado
+  só quando o papel logado é `tenant_owner`.
+- **Novo `src/components/Equipe.tsx`** — lista + formulário de cadastro/edição,
+  replicando o protótipo aprovado: toggle Ativo/Inativo por linha, badge de tipo de
+  contratação, formulário com os 6 campos (senha só aparece na criação, não na edição).
+- **`src/data/repository.ts`** — novas `getStaff()`, `createStaff(input)`,
+  `updateStaff(id, input)`, `getContractTypes()`.
+- **`src/App.tsx`** — novo branch `activePage === 'equipe'`.
+
+## Testes e2e (`apps/api/test`)
+
+Novo `test/tenants/staff-crud.e2e-spec.ts`:
+- `tenant_owner` cria funcionário → 201, resposta nunca inclui a senha/hash.
+- `tenant_staff`/`customer` tentando `POST /tenants/me/staff` → 403.
+- E-mail duplicado no mesmo tenant → 409 (não 500 cru).
+- `PATCH` desativando (`active: false`) → tentativa de login desse funcionário depois
+  dá 403 "Conta desativada"; refresh token emitido antes também passa a falhar.
+- Reativar (`active: true`) → login volta a funcionar normalmente.
+- Isolamento: dono do tenant A não consegue ver/editar funcionário do tenant B — 404,
+  nunca revela se o ID existe em outro tenant.
+- Audit log: confirma `user.create` na criação e `user.status_change` com
+  `metadata.from`/`metadata.to` corretos ao ativar/desativar.
+- Suíte completa precisa continuar 100% verde.
+
+## Verificação
+
+1. `npx tsc --noEmit` em `apps/api`, `apps/pizzaria`.
+2. Migration `--create-only`, revisão manual do SQL, só então `prisma migrate deploy`.
+3. Suíte e2e completa, servidores locais parados primeiro.
+4. Smoke test manual: cadastrar um funcionário → logar com a conta nova → confirmar
+   acesso ao Cardápio/Pedidos (mas não a "Equipe", que é só do dono) → desativar pelo
+   painel do dono → confirmar que o login do funcionário passa a falhar → reativar →
+   confirmar que volta a funcionar. Testar também o campo de tipo de contratação:
+   digitar um tipo novo, confirmar que aparece sugerido pro próximo cadastro.
+5. Commit + push + acompanhar o Actions run até `success`.
+
+## Dependência com outras sprints
+
+**Nenhuma.** Mexe só em `User` (tabela já existente, RLS já correta) e cria rotas
+novas sob `/tenants/me/staff` — não toca em `orders`/`catalog`/`financial`/
+`inventory` nem em nenhuma sprint pendente.
+
+---
+
 # Pendências consolidadas (visão geral, atualizada em 2026-10-01)
 
 - ~~**Desempenho Sistema**~~ — ✅ implementada por completo em 2026-09-27 (itens 1 e 2).
