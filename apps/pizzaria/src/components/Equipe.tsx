@@ -57,6 +57,10 @@ export function Equipe() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [isAddingPosition, setIsAddingPosition] = useState(false);
+  const [newPositionInput, setNewPositionInput] = useState('');
+  const [isAddingContractType, setIsAddingContractType] = useState(false);
+  const [newContractTypeInput, setNewContractTypeInput] = useState('');
 
   // Checkbox de Estoque/Financeiro so' aparece se a pizzaria ja tiver o modulo
   // contratado (decisao 9) -- nao faz sentido oferecer permissao pra algo que ela nao
@@ -73,6 +77,8 @@ export function Equipe() {
     setEditingId(null);
     setForm(EMPTY_FORM);
     setError(null);
+    setIsAddingPosition(false);
+    setIsAddingContractType(false);
     setIsFormOpen(true);
   };
 
@@ -89,6 +95,8 @@ export function Equipe() {
       permissions: member.permissions,
     });
     setError(null);
+    setIsAddingPosition(false);
+    setIsAddingContractType(false);
     setIsFormOpen(true);
   };
 
@@ -101,6 +109,40 @@ export function Equipe() {
       position,
       permissions: editingId ? prev.permissions : FIXED_POSITIONS.includes(position) ? ['pedidos'] : [],
     }));
+  };
+
+  const handlePositionSelectChange = (value: string) => {
+    if (value === '__add__') {
+      setIsAddingPosition(true);
+      return;
+    }
+    handlePositionChange(value);
+  };
+
+  const confirmNewPosition = () => {
+    const value = newPositionInput.trim();
+    if (!value) return;
+    setPositions((prev) => (prev.includes(value) ? prev : [...prev, value]));
+    handlePositionChange(value);
+    setIsAddingPosition(false);
+    setNewPositionInput('');
+  };
+
+  const handleContractTypeSelectChange = (value: string) => {
+    if (value === '__add__') {
+      setIsAddingContractType(true);
+      return;
+    }
+    setForm((prev) => ({ ...prev, contractType: value }));
+  };
+
+  const confirmNewContractType = () => {
+    const value = newContractTypeInput.trim();
+    if (!value) return;
+    setContractTypes((prev) => (prev.includes(value) ? prev : [...prev, value]));
+    setForm((prev) => ({ ...prev, contractType: value }));
+    setIsAddingContractType(false);
+    setNewContractTypeInput('');
   };
 
   const togglePermission = (permission: StaffPermission) => {
@@ -202,28 +244,60 @@ export function Equipe() {
 
               <div>
                 <label className="block text-sm font-medium mb-1.5">Cargo / Função</label>
-                <select
-                  value={form.position}
-                  onChange={(e) => handlePositionChange(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring transition-all"
-                >
-                  {positions.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
+                {isAddingPosition ? (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Nome do novo cargo"
+                      value={newPositionInput}
+                      onChange={(e) => setNewPositionInput(e.target.value)}
+                      autoFocus
+                    />
+                    <Button type="button" size="sm" onClick={confirmNewPosition}>Adicionar</Button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => { setIsAddingPosition(false); setNewPositionInput(''); }}>
+                      Cancelar
+                    </Button>
+                  </div>
+                ) : (
+                  <select
+                    value={form.position}
+                    onChange={(e) => handlePositionSelectChange(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+                  >
+                    {positions.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                    <option value="__add__">+ Adicionar novo cargo…</option>
+                  </select>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1.5">Tipo de contratação</label>
-                <select
-                  value={form.contractType}
-                  onChange={(e) => setForm({ ...form, contractType: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring transition-all"
-                >
-                  {contractTypes.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                {isAddingContractType ? (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Nome da nova modalidade"
+                      value={newContractTypeInput}
+                      onChange={(e) => setNewContractTypeInput(e.target.value)}
+                      autoFocus
+                    />
+                    <Button type="button" size="sm" onClick={confirmNewContractType}>Adicionar</Button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => { setIsAddingContractType(false); setNewContractTypeInput(''); }}>
+                      Cancelar
+                    </Button>
+                  </div>
+                ) : (
+                  <select
+                    value={form.contractType}
+                    onChange={(e) => handleContractTypeSelectChange(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+                  >
+                    {contractTypes.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                    <option value="__add__">+ Adicionar nova modalidade…</option>
+                  </select>
+                )}
               </div>
 
               <Input
