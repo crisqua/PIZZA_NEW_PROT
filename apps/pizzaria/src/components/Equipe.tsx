@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Pencil } from 'lucide-react';
+import { Plus, Pencil, Check, X } from 'lucide-react';
 import { Card, CardContent, Button, Input, Badge, Switch, formatPhone } from '@pizza/ui';
 import {
   StaffMember,
@@ -245,16 +245,30 @@ export function Equipe() {
               <div>
                 <label className="block text-sm font-medium mb-1.5">Cargo / Função</label>
                 {isAddingPosition ? (
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Nome do novo cargo"
-                      value={newPositionInput}
-                      onChange={(e) => setNewPositionInput(e.target.value)}
-                      autoFocus
-                    />
-                    <Button type="button" size="sm" onClick={confirmNewPosition}>Adicionar</Button>
-                    <Button type="button" size="sm" variant="outline" onClick={() => { setIsAddingPosition(false); setNewPositionInput(''); }}>
-                      Cancelar
+                  <div className="flex items-center gap-1">
+                    <div className="flex-1 min-w-0">
+                      <Input
+                        autoFocus
+                        placeholder="Nome do novo cargo"
+                        value={newPositionInput}
+                        onChange={(e) => setNewPositionInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') confirmNewPosition();
+                          if (e.key === 'Escape') { setIsAddingPosition(false); setNewPositionInput(''); }
+                        }}
+                      />
+                    </div>
+                    <Button type="button" size="sm" variant="ghost" onClick={confirmNewPosition} className="shrink-0 px-2">
+                      <Check className="w-4 h-4 text-success" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => { setIsAddingPosition(false); setNewPositionInput(''); }}
+                      className="shrink-0 px-2"
+                    >
+                      <X className="w-4 h-4 text-destructive" />
                     </Button>
                   </div>
                 ) : (
@@ -274,16 +288,30 @@ export function Equipe() {
               <div>
                 <label className="block text-sm font-medium mb-1.5">Tipo de contratação</label>
                 {isAddingContractType ? (
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Nome da nova modalidade"
-                      value={newContractTypeInput}
-                      onChange={(e) => setNewContractTypeInput(e.target.value)}
-                      autoFocus
-                    />
-                    <Button type="button" size="sm" onClick={confirmNewContractType}>Adicionar</Button>
-                    <Button type="button" size="sm" variant="outline" onClick={() => { setIsAddingContractType(false); setNewContractTypeInput(''); }}>
-                      Cancelar
+                  <div className="flex items-center gap-1">
+                    <div className="flex-1 min-w-0">
+                      <Input
+                        autoFocus
+                        placeholder="Nome da nova modalidade"
+                        value={newContractTypeInput}
+                        onChange={(e) => setNewContractTypeInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') confirmNewContractType();
+                          if (e.key === 'Escape') { setIsAddingContractType(false); setNewContractTypeInput(''); }
+                        }}
+                      />
+                    </div>
+                    <Button type="button" size="sm" variant="ghost" onClick={confirmNewContractType} className="shrink-0 px-2">
+                      <Check className="w-4 h-4 text-success" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => { setIsAddingContractType(false); setNewContractTypeInput(''); }}
+                      className="shrink-0 px-2"
+                    >
+                      <X className="w-4 h-4 text-destructive" />
                     </Button>
                   </div>
                 ) : (
@@ -347,18 +375,21 @@ export function Equipe() {
       <Card className="rounded-xl overflow-hidden">
         <div className="divide-y divide-border">
           {staff.map((member) => (
-            <div key={member.id} className={`flex flex-wrap items-center gap-4 p-4 ${member.active ? '' : 'opacity-60'}`}>
-              <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center font-bold text-sm shrink-0">
-                {initials(member.name)}
+            <div key={member.id} className={`p-4 space-y-3 ${member.active ? '' : 'opacity-60'}`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+                  {initials(member.name)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold truncate">{member.name}</h3>
+                  <p className="text-sm text-muted-foreground break-words">
+                    {member.email} · {member.phone}
+                    {member.admissionDate && ` · Admitido em ${new Date(member.admissionDate).toLocaleDateString('pt-BR')}`}
+                  </p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold truncate">{member.name}</h3>
-                <p className="text-sm text-muted-foreground truncate">
-                  {member.email} · {member.phone}
-                  {member.admissionDate && ` · Admitido em ${new Date(member.admissionDate).toLocaleDateString('pt-BR')}`}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap justify-end">
+
+              <div className="flex flex-wrap gap-2">
                 {member.position && <Badge>{member.position}</Badge>}
                 {member.contractType && <Badge variant="info">{member.contractType}</Badge>}
                 {member.permissions.length > 0 ? (
@@ -368,10 +399,15 @@ export function Equipe() {
                 ) : (
                   <Badge variant="secondary">Sem acesso a módulo</Badge>
                 )}
-                <span className={`text-sm font-medium ${member.active ? 'text-success' : 'text-muted-foreground'}`}>
-                  {member.active ? 'Ativo' : 'Inativo'}
-                </span>
-                <Switch checked={member.active} onCheckedChange={() => handleToggleActive(member)} />
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-medium ${member.active ? 'text-success' : 'text-muted-foreground'}`}>
+                    {member.active ? 'Ativo' : 'Inativo'}
+                  </span>
+                  <Switch checked={member.active} onCheckedChange={() => handleToggleActive(member)} />
+                </div>
                 <Button variant="ghost" size="sm" onClick={() => openEditForm(member)}>
                   <Pencil className="w-4 h-4" />
                 </Button>
