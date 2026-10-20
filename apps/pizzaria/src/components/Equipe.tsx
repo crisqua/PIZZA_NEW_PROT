@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Pencil } from 'lucide-react';
-import { Card, CardContent, Button, Input, Badge, Switch } from '@pizza/ui';
+import { Card, CardContent, Button, Input, Badge, Switch, formatPhone } from '@pizza/ui';
 import {
   StaffMember,
   StaffInput,
@@ -82,7 +82,7 @@ export function Equipe() {
       name: member.name,
       email: member.email,
       password: '',
-      phone: member.phone,
+      phone: formatPhone(member.phone),
       position: member.position ?? 'Atendente',
       contractType: member.contractType ?? 'CLT',
       admissionDate: member.admissionDate ? member.admissionDate.slice(0, 10) : '',
@@ -177,9 +177,12 @@ export function Equipe() {
               />
               <Input
                 label="Telefone"
+                type="tel"
+                inputMode="tel"
+                maxLength={16}
                 placeholder="(11) 90000-0000"
                 value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })}
               />
               <Input
                 label="E-mail (login)"
