@@ -53,7 +53,7 @@ antes.
 | — | Plano à parte: app nas lojas (Sprints 17-21) | ⏳ (não iniciado) |
 | — | Plano à parte: tema claro/escuro no app Cliente | ✅ |
 | — | Plano à parte: tela de consulta do audit log | ⏳ (protótipo aprovado) |
-| — | Plano à parte: Sprint "Equipe" (cadastro de funcionários) | ⏳ (protótipo aprovado) |
+| — | Plano à parte: Sprint "Equipe" (cadastro de funcionários) | ✅ |
 | 22 | Eliminar N transações por tenant (resumo de assinatura) | ✅ |
 | 23 | Cache do dashboard | ✅ |
 | 24 | Corte às 5h (Dashboard/OrdersPanel/orderCode) + top-products + Financeiro por período | ✅ |
@@ -1165,7 +1165,46 @@ que já existe.
 
 ---
 
-# <span style="color:white">Plano à parte: Sprint "Equipe" — cadastro de funcionários ⏳ aguardando aprovação pra implementar (plano escrito em 2026-10-18)</span>
+# <span style="color:blue">Plano à parte: Sprint "Equipe" — cadastro de funcionários ✅ IMPLEMENTADA em 2026-10-20 (main, suíte e2e 224/230)</span>
+
+Implementada exatamente como desenhada abaixo, incluindo o modelo de permissão por
+funcionário (decisão 9) fechado nesta conversa. Migration (`20261020015423_add_staff_fields_to_users`)
+revisada manualmente antes de aplicar — o Prisma tentou derrubar as mesmas 6 FKs/índice
+hand-written de sempre (`orders`/`order_items`/`products`/`refresh_tokens`/`inventory_items`),
+confirmado via query direta que sobreviveram. `npx tsc --noEmit` limpo em `apps/api` e
+`apps/pizzaria`; `vite build`/`nest build` limpos. Suíte e2e completa **224/230** (14
+casos novos em `staff-crud.e2e-spec.ts`, todos verdes) — as 6 falhas são as já
+conhecidas (CNPJ duplicado por dado sujo no homolog + flakiness de paginação de
+tenants), confirmado que nenhuma toca staff/auth/orders/catalog/inventory/financial.
+
+**Decisão adicional, fechada durante a implementação (não estava no desenho original)**:
+`RevenueController` (`GET /financial/revenue`, usado pelo gráfico de vendas do
+Dashboard) **não** ganhou `@RequiresStaffPermission('financeiro')` — só
+`ExpensesController` (despesas) foi gateado por essa permissão. Motivo: o Dashboard
+(decisão do usuário nesta conversa: "visível pra qualquer funcionário") usa
+`getRevenue()` pro próprio gráfico semanal — se a receita exigisse a permissão
+"financeiro", um Atendente sem essa permissão perderia parte do próprio Dashboard.
+Como receita é só um agregado de `Order.total` (dado que qualquer funcionário com a
+permissão "pedidos" já vê linha a linha no painel de Pedidos), a permissão
+"financeiro" protege especificamente o lado sensível — despesas/custos, que combinados
+com receita revelam margem — não o número de vendas em si.
+
+**Escopo deliberadamente mantido do jeito que já era** (decisão tomada durante a
+implementação, pra não exceder o que foi pedido): `PATCH /tenants/me` (tela
+Configurações) continua `@Roles('tenant_owner', 'tenant_staff')`, sem nenhum
+`StaffPermissionGuard` novo — "Configurações é owner-only" na decisão 9 se referia só
+a não existir um checkbox de permissão pra essa área no formulário da Equipe, não a
+revogar o acesso que `tenant_staff` já tinha antes desta sprint (mudar isso quebraria
+`tenants-me-isolation.e2e-spec.ts`, que testa exatamente um `tenant_staff` fazendo
+`PATCH /tenants/me`, e seria escopo maior do que o usuário pediu).
+
+**Performance do JWT** (ver decisão técnica abaixo, não estava no plano original):
+`permissions` viaja no ACCESS token (mesmo padrão do `email`, Sprint 15) pra
+`StaffPermissionGuard` nunca precisar de uma consulta ao banco por requisição — mas
+**não** viaja no refresh token: `AuthService.refresh()` relê `active`/`permissions`
+frescos do banco só pra `role:'tenant_staff'`, especificamente pra uma permissão
+revogada nunca ficar "presa" por até 7 dias (vida do refresh token) — staleness real
+fica limitada a 15min (vida do access token).
 
 Pedido do usuário em 2026-10-18, motivado por uma pergunta de arquitetura ("dono pode
 ter vários funcionários operando o sistema — está preparado?"). Investigação no código
@@ -1178,11 +1217,16 @@ possível. `Login.tsx` do painel da pizzaria até documenta isso num comentário
 "não há cadastro público de owner/staff, essas contas são provisionadas pela
 plataforma" — mas a própria plataforma não tem como provisionar um `tenant_staff`.
 
-**Protótipo clicável aprovado** ("excelente") —
+**Protótipo clicável aprovado** ("excelente"), **atualizado 2x em 2026-10-19** —
+primeiro com o campo de cargo/função, depois com os checkboxes de permissão por
+módulo (decisão 9 abaixo) —
 `https://claude.ai/artifact/UNCEnHsiaXTj8ARqHeE8Dd`: nova tela "Equipe" no painel da
 pizzaria, item novo na sidebar (marcado "NOVO"), com cadastro de funcionário (nome,
-telefone, e-mail, senha provisória, tipo de contratação, data de admissão), toggle
-Ativo/Inativo por linha, e edição.
+telefone, e-mail, senha provisória, cargo/função, tipo de contratação, data de
+admissão, acesso aos módulos), toggle Ativo/Inativo por linha, e edição. Inclui um
+4º funcionário de exemplo ("Fernanda Lima — Gerente", com Estoque e Financeiro
+marcados) ilustrando exatamente o caso levantado pelo usuário: cargo customizado com
+acesso a módulo específico, sem herdar nada de ninguém.
 
 ## Decisões (registradas antes de implementar, mesmo processo do tema claro/escuro)
 
@@ -1209,6 +1253,13 @@ Ativo/Inativo por linha, e edição.
    Freelancer, mais qualquer valor **já usado por outro funcionário desse mesmo
    tenant** (consulta os valores distintos já cadastrados) — um tipo digitado uma vez
    fica disponível pra próxima contratação, sem tabela nova nem cadastro separado.
+5b. **Cargo/função também é texto livre** (`position String?`, adicionado em
+   2026-10-19 a pedido do usuário) — mesmo raciocínio exato da decisão 5, campo
+   diferente: o dropdown sempre sugere Atendente/Pizzaiolo/Motoboy, mais qualquer
+   valor já usado por outro funcionário do mesmo tenant. Nome de coluna `position`
+   (não `role`) de propósito — `role` já existe em `User` e guarda o papel de RBAC
+   (`tenant_owner`/`tenant_staff`/`customer`/`platform_superadmin`); usar o mesmo nome
+   pra "cargo operacional" criaria confusão real entre dois conceitos diferentes.
 6. **Senha definida pelo dono na hora do cadastro** — não existe nesta sprint um fluxo
    de "funcionário troca a própria senha depois do primeiro login". Registrado como
    possível melhoria futura, fora de escopo agora (mesmo raciocínio de não resolver
@@ -1222,14 +1273,50 @@ Ativo/Inativo por linha, e edição.
 8. **E-mail pode ser editado depois de criado** (dono corrigindo erro de digitação) —
    mesma unicidade já existente (`@@unique([tenantId, email])`), conflito vira 409
    tratado, não um 500 cru do Prisma.
+9. **Permissão de acesso a módulo é por FUNCIONÁRIO, não por cargo** (decisão de
+   2026-10-19, motivada pela pergunta do usuário "atendente não terá acesso ao
+   financeiro, terá acesso ao estoque se o módulo for comprado"). Hoje o RBAC só tem 2
+   níveis (`tenant_owner` = tudo, `tenant_staff` = igual pra qualquer funcionário, só
+   gated por módulo pago do TENANT via `@RequiresModule`) — não existe "este
+   funcionário específico vê X, aquele não". Resolvido com um campo novo,
+   **independente do `position` (cargo, texto livre)**: `permissions: string[]`,
+   lista explícita de áreas (`pedidos`, `cardapio`, `estoque`, `financeiro`) marcada
+   por checkbox no cadastro de CADA funcionário. `position` não pode ser a fonte da
+   permissão porque é texto livre/customizável (decisão 5b) — não dá pra hardcodar
+   regra pra um cargo que o dono pode inventar na hora.
+   - **Duplo portão pra Estoque/Financeiro**: acesso exige módulo contratado pelo
+     tenant (`@RequiresModule`, já existe) **E** a permissão marcada pra aquela
+     pessoa (`@RequiresStaffPermission`, novo) — os dois, sempre. O checkbox de
+     Estoque/Financeiro só **aparece** no formulário se o tenant já tiver aquele
+     módulo contratado.
+   - **`tenant_owner` sempre ignora esse guard** — o dono nunca é restringido por
+     `permissions` (o campo só existe/importa pra `tenant_staff`).
+   - **Dashboard é sempre visível pra qualquer funcionário logado**, não entra na
+     lista de permissões configuráveis (é só leitura de KPI, baixo risco).
+   - **Configurações (CNPJ, horário, loja aberta/fechada) é owner-only sempre** — nem
+     aparece como opção de permissão pro funcionário nesta sprint.
+   - **Sem memória/template por cargo** (decisão explícita do usuário, "mantém o
+     simples... pode ser que eu não queira que o gerente novo veja o módulo que o
+     gerente anterior viu") — cada funcionário novo começa com as permissões em
+     branco (exceto a sugestão fraca dos 3 cargos fixos abaixo), mesmo repetindo um
+     cargo já usado antes nesse tenant. Nunca um "perfil" reutilizável automaticamente.
+   - **Sugestão de preenchimento no formulário** (editável, nunca travada): ao
+     escolher Atendente/Pizzaiolo/Motoboy, pré-marca `pedidos`; cargo customizado não
+     pré-marca nada — o dono decide do zero.
 
 ## Schema (`User`)
 
 ```prisma
 active        Boolean   @default(true)
+position      String?   @db.VarChar(40)
 contractType  String?   @map("contract_type") @db.VarChar(40)
 admissionDate DateTime? @map("admission_date") @db.Date
+permissions   String[]  @default([])   // "pedidos" | "cardapio" | "estoque" | "financeiro"
 ```
+
+`permissions` usa array nativo do Postgres (suportado direto pelo Prisma, sem tabela
+nova) — só é lido/escrito pra usuários `role: 'tenant_staff'`; `tenant_owner`/
+`customer` sempre ficam com `[]` e nunca são checados contra esse campo.
 
 Migration `--create-only`, revisão manual de sempre (disciplina obrigatória neste
 projeto — `users` já teve FK composta derrubada sem avisar numa sprint anterior).
@@ -1237,11 +1324,17 @@ projeto — `users` já teve FK composta derrubada sem avisar numa sprint anteri
 ## Backend (`apps/api`)
 
 - **Novo `src/tenants/dto/create-staff.dto.ts`** — `name`, `email` (`@IsEmail`), `password`
-  (`@MinLength(8) @MaxLength(72)`, mesma regra do `RegisterDto`), `phone`, `contractType?`,
-  `admissionDate?` (ISO date opcional).
+  (`@MinLength(8) @MaxLength(72)`, mesma regra do `RegisterDto`), `phone`, `position?`,
+  `contractType?`, `admissionDate?` (ISO date opcional), `permissions?: string[]`
+  (`@IsArray() @IsIn(['pedidos','cardapio','estoque','financeiro'], { each: true })`).
 - **Novo `src/tenants/dto/update-staff.dto.ts`** — todos os campos acima opcionais
   (PATCH), mais `active?: boolean`. Sem `password` aqui (redefinir senha de funcionário,
   se precisar, é uma ação separada/futura, não implementada nesta sprint).
+- **Validação de servidor pro `permissions` recebido**: o controller rejeita
+  (`BadRequestException`) se `estoque`/`financeiro` vier na lista mas o tenant não tiver
+  aquele módulo contratado (`@RequiresModule` já resolve isso pra leitura, mas a
+  ESCRITA do próprio array também precisa checar — senão o dono consegue marcar um
+  módulo que não tem, só pra ele nunca conseguir usar; evita dado inconsistente).
 - **Novo `src/tenants/staff.controller.ts`** (controller próprio, não inchar
   `TenantsController`) — `@Controller('tenants/me/staff')`, `@Roles('tenant_owner')`
   na classe inteira:
@@ -1258,21 +1351,51 @@ projeto — `users` já teve FK composta derrubada sem avisar numa sprint anteri
     outro tenant.
   - `GET /contract-types` — devolve os valores distintos de `contractType` já usados
     neste tenant (mais `CLT`/`Freelancer` sempre inclusos), pro dropdown do frontend.
+  - `GET /positions` — mesmo padrão, devolve os valores distintos de `position` já
+    usados neste tenant (mais `Atendente`/`Pizzaiolo`/`Motoboy` sempre inclusos).
 - **`src/tenants/tenants.module.ts`** — registra o controller/serviço novo.
 - **`src/auth/auth.service.ts`** (`validateCredentials`) — depois de `verifyPassword`
   confirmar certo: `if (!user.active) { throw new ForbiddenException('Conta
   desativada.'); }` (ordem invertida em relação ao gate de `tenant.active` — ver
   decisão 3 acima).
 
+### Guard novo: permissão por funcionário (decisão 9)
+
+- **Novo `src/common/staff-permission.decorator.ts`** — `@RequiresStaffPermission('pedidos' | 'cardapio' | 'estoque' | 'financeiro')`, mesmo padrão de `@RequiresModule`
+  (metadata via `SetMetadata`).
+- **Novo `src/common/staff-permission.guard.ts`** — `StaffPermissionGuard`: lê a
+  permissão exigida da metadata; se `user.role !== 'tenant_staff'` deixa passar direto
+  (dono/superadmin nunca são restringidos); senão checa
+  `user.permissions.includes(required)` — 403 se não tiver.
+- **Aplicado junto do `@Roles`/`@RequiresModule` já existentes** nos 4 controllers que
+  já existem: `OrdersController` (`@RequiresStaffPermission('pedidos')`),
+  `ProductsController`/`CategoriesController` (`'cardapio'`),
+  `InventoryController` (`'estoque'`, já tem `@RequiresModule('estoque')` — fica os
+  dois guards juntos), `ExpensesController`/`RevenueController` (`'financeiro'`, idem
+  com `@RequiresModule('financeiro')`).
+- **`AuthenticatedUser`** (usado pelos guards/`@CurrentUser()`) ganha `permissions:
+  string[]` — populado a partir do JWT (mesmo padrão já usado pro `email`, correção de
+  performance de 2026-10-03) ou, se o token for antigo e não tiver o claim, um lookup
+  pontual no banco (período de transição curto, token expira em até 15min).
+
 ## Frontend (`apps/pizzaria`)
 
 - **`src/components/Sidebar.tsx`** — novo item "Equipe" (ícone `Users`), renderizado
-  só quando o papel logado é `tenant_owner`.
+  só quando o papel logado é `tenant_owner`. **Além disso** (decisão 9): os itens
+  Pedidos/Cardápio/Estoque/Financeiro passam a ser filtrados também por
+  `currentUser.permissions` quando o papel é `tenant_staff` — hoje só filtram por
+  módulo contratado (`subscription.modules`), owner continua vendo tudo normalmente.
 - **Novo `src/components/Equipe.tsx`** — lista + formulário de cadastro/edição,
-  replicando o protótipo aprovado: toggle Ativo/Inativo por linha, badge de tipo de
-  contratação, formulário com os 6 campos (senha só aparece na criação, não na edição).
+  replicando o protótipo aprovado: toggle Ativo/Inativo por linha, badge de cargo e
+  badge de tipo de contratação, formulário com os 7 campos (senha só aparece na
+  criação, não na edição) **+ um bloco novo de checkboxes "Acesso aos módulos"**
+  (Pedidos/Cardápio sempre visíveis; Estoque/Financeiro só aparecem se
+  `tenantSubscription.modules` incluir aquele módulo). Pré-marca `pedidos` quando o
+  cargo escolhido é Atendente/Pizzaiolo/Motoboy; nada pré-marcado pra cargo
+  customizado (decisão 9 — sem memória por cargo).
 - **`src/data/repository.ts`** — novas `getStaff()`, `createStaff(input)`,
-  `updateStaff(id, input)`, `getContractTypes()`.
+  `updateStaff(id, input)`, `getContractTypes()`, `getPositions()`; `StaffInput`/
+  `StaffResponse` ganham `permissions: string[]`.
 - **`src/App.tsx`** — novo branch `activePage === 'equipe'`.
 
 ## Testes e2e (`apps/api/test`)
@@ -1288,6 +1411,14 @@ Novo `test/tenants/staff-crud.e2e-spec.ts`:
   nunca revela se o ID existe em outro tenant.
 - Audit log: confirma `user.create` na criação e `user.status_change` com
   `metadata.from`/`metadata.to` corretos ao ativar/desativar.
+- **Permissões (decisão 9)**: funcionário com `permissions: ['pedidos']` acessa
+  `GET /orders` mas recebe 403 em `GET /financial/expenses` mesmo que o tenant TENHA
+  o módulo Financeiro contratado; funcionário com `permissions: ['financeiro']` em
+  tenant SEM o módulo contratado também recebe 403 (módulo vem primeiro — prova o
+  duplo portão nos dois sentidos); `tenant_owner` sempre acessa os 4 módulos
+  independente de `permissions` (campo nem é checado pra ele); `POST
+  .../staff` com `permissions: ['financeiro']` num tenant sem o módulo → 400 (não
+  deixa salvar permissão pra módulo que a pizzaria não tem).
 - Suíte completa precisa continuar 100% verde.
 
 ## Verificação

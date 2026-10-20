@@ -36,6 +36,11 @@ const PUBLIC_USER_SELECT = {
   cep: true,
   city: true,
   state: true,
+  // Sprint "Equipe" -- frontend usa isto (GET /users/me, chamado no boot) pra saber a
+  // propria role/permissions e filtrar a Sidebar; so' tem valor real pra
+  // role:'tenant_staff', mas incluido pra todo mundo por simplicidade (mesmo raciocinio
+  // de "active" no schema -- generico na tabela, so' alguns papeis usam de verdade).
+  permissions: true,
   emailVerifiedAt: true,
   createdAt: true,
   updatedAt: true,

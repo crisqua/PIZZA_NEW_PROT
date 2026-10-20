@@ -88,8 +88,17 @@ export class AuthService {
         throw new UnauthorizedException('Credenciais invalidas.');
       }
 
+      // Checado DEPOIS da senha, de proposito -- diferente do gate de tenant.active
+      // acima (decisao 3, Sprint "Equipe"): checar active antes da senha vazaria "esse
+      // email existe neste tenant" pra alguem que nao sabe a senha. Checando depois,
+      // so' quem ja provou saber a senha descobre que a conta especifica foi desativada.
+      if (!user.active) {
+        await this.logLoginFailed(tenant.id, dto.email, dto.tenantSlug, meta);
+        throw new ForbiddenException('Conta desativada.');
+      }
+
       await this.logLoginSuccess(tenant.id, user, meta);
-      return { id: user.id, tenantId: user.tenantId, role: user.role as UserRole, email: user.email };
+      return { id: user.id, tenantId: user.tenantId, role: user.role as UserRole, email: user.email, permissions: user.permissions };
     }
 
     // Sem tenantSlug -> login de platform_superadmin, sem contexto de tenant.
@@ -195,7 +204,7 @@ export class AuthService {
   // mesma cadeia (chamado de dentro de refresh()).
   async issueTokens(user: AuthenticatedUser, familyId?: string): Promise<TokenPair> {
     const accessToken = await this.jwtService.signAsync(
-      { sub: user.id, tenantId: user.tenantId, role: user.role, email: user.email },
+      { sub: user.id, tenantId: user.tenantId, role: user.role, email: user.email, permissions: user.permissions },
       { secret: process.env.JWT_SECRET, expiresIn: expiresIn(process.env.JWT_EXPIRES_IN, '15m') },
     );
 
@@ -269,6 +278,29 @@ export class AuthService {
 
     await this.revokeOne(payload.tenantId, stored.id);
 
+    // Sprint "Equipe" -- permissions NAO viaja no refresh token (so' no access token,
+    // ver issueTokens): se viajasse aqui, uma permissao revogada pelo dono ficaria
+    // "presa" por ate 7 dias (vida do refresh token), ja que refresh() nao teria outro
+    // jeito de saber que mudou sem reler o banco. Em vez disso, so' pra
+    // role:'tenant_staff', relê active/permissions FRESCOS do banco a cada refresh (no
+    // maximo a cada 15min, vida do access token) -- closes o gap sem pagar o custo
+    // dessa leitura em TODA requisicao (so' no refresh, que e' bem menos frequente que
+    // os endpoints de negocio).
+    let permissions: string[] | undefined;
+    if (payload.role === 'tenant_staff' && payload.tenantId) {
+      const fresh = await this.tenantContext.runInTenantContext(payload.tenantId, (tx) =>
+        tx.user.findUnique({ where: { id: payload.sub }, select: { active: true, permissions: true } }),
+      );
+      // Defesa em profundidade -- decisao 4 ja revoga a familia inteira de refresh
+      // tokens no momento da desativacao (o "stored.revokedAt" acima normalmente ja
+      // teria pego isso antes de chegar aqui). Mantido pra nunca reemitir um access
+      // token novo pra uma conta desativada, mesmo numa corrida/edge case.
+      if (!fresh || !fresh.active) {
+        throw new UnauthorizedException('Conta desativada.');
+      }
+      permissions = fresh.permissions;
+    }
+
     // email vem do proprio refresh token (ver comentario em RefreshTokenPayload) --
     // string vazia so' acontece pra um refresh token emitido ANTES desta mudanca
     // (ainda sem o campo), nesse caso undefined e' mais correto que string vazia (deixa
@@ -278,6 +310,7 @@ export class AuthService {
       tenantId: payload.tenantId,
       role: payload.role,
       email: payload.email || undefined,
+      permissions,
     };
     return this.issueTokens(user, payload.familyId);
   }
@@ -317,6 +350,17 @@ export class AuthService {
     } else {
       await this.prisma.refreshToken.update({ where: { id: refreshTokenId }, data });
     }
+  }
+
+  // Sprint "Equipe" (decisao 4) -- diferente de revokeFamily/revokeOne abaixo (que
+  // revogam 1 cadeia de rotacao especifica), isto revoga TODAS as sessoes/dispositivos
+  // de um funcionario de uma vez, quando o dono desativa ele pelo painel. Recebe o "tx"
+  // ja aberto do caller (StaffService.update, dentro do mesmo runInTenantContext da
+  // propria transacao de desativar) em vez de abrir uma transacao propria -- se o
+  // UPDATE de "active" der rollback por qualquer motivo, a revogacao rollback junto
+  // (atomico com a propria desativacao, nao uma chamada solta depois).
+  async revokeAllSessionsForUser(tx: TenantTx, userId: string): Promise<void> {
+    await tx.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
   }
 
   private async revokeFamily(tenantId: string | null, familyId: string): Promise<void> {

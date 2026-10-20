@@ -10,6 +10,9 @@ interface AccessTokenPayload {
   // Opcional -- tokens emitidos antes da Sprint 15 (perf) nao tem este campo. Ver
   // AuthenticatedUser.email.
   email?: string;
+  // Opcional -- tokens emitidos antes da Sprint "Equipe" nao tem este campo. Ver
+  // AuthenticatedUser.permissions.
+  permissions?: string[];
 }
 
 // Sem Passport de proposito (mesmo padrao ja validado no Barberaria) — um unico metodo de
@@ -35,7 +38,13 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Token de acesso invalido ou expirado.');
     }
 
-    const user: AuthenticatedUser = { id: payload.sub, tenantId: payload.tenantId, role: payload.role, email: payload.email };
+    const user: AuthenticatedUser = {
+      id: payload.sub,
+      tenantId: payload.tenantId,
+      role: payload.role,
+      email: payload.email,
+      permissions: payload.permissions,
+    };
     request.user = user;
     // tenant_id extraido SOMENTE do JWT validado (nunca de URL/query/body) — e' o que
     // alimenta o TenantContextInterceptor (Sprint 1) daqui pra frente.

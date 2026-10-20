@@ -64,6 +64,9 @@ Sprints 0–10 e boa parte de 11a–27 concluídas. Pendências abertas conhecid
   mitigada; falta mover o upsert do contador sequencial pro fim da transação e
   testar `pool_timeout` do Prisma.
 - **App nas lojas (Sprints 17-21)** — plano escrito, nada implementado ainda.
+- **Sprint "Equipe"** — ✅ implementada em 2026-10-20 (cadastro de funcionários pelo
+  dono + permissão por módulo via `User.permissions`). `GET/POST /tenants/me/staff`,
+  `PATCH /tenants/me/staff/:id`, tela "Equipe" em `apps/pizzaria`.
 - Backlog sem sprint definida: pagamento online, WhatsApp, MFA, WebSocket/realtime,
   LGPD formal, pentest externo, observabilidade completa, particionamento de
   `orders`, Redis real em produção, vault de secrets dedicado, code-splitting.

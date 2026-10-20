@@ -6,6 +6,8 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { CurrentTenant } from '../common/decorators/tenant.decorator';
 import { TenantContextInterceptor } from '../common/interceptors/tenant-context.interceptor';
+import { RequiresStaffPermission } from '../common/staff-permission.decorator';
+import { StaffPermissionGuard } from '../common/staff-permission.guard';
 import { TenantTx } from '../prisma/tenant-context.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
@@ -13,9 +15,12 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductUploadService } from './product-upload.service';
 import { ProductsService } from './products.service';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+// StaffPermissionGuard na classe inteira (decisao 9) -- 'cardapio' e' uma das 4 areas
+// do vocabulario fechado. tenant_owner nunca e' restringido por ele.
+@UseGuards(JwtAuthGuard, RolesGuard, StaffPermissionGuard)
 @UseInterceptors(TenantContextInterceptor)
 @Roles('tenant_owner', 'tenant_staff')
+@RequiresStaffPermission('cardapio')
 @Controller('catalog/products')
 export class ProductsController {
   constructor(

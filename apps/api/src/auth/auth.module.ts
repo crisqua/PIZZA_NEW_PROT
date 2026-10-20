@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuditLogModule } from '../audit-log/audit-log.module';
+import { StaffPermissionGuard } from '../common/staff-permission.guard';
 import { ConsoleEmailSender } from '../email/console-email-sender.service';
 import { EMAIL_SENDER } from '../email/email-sender.interface';
 import { EmailVerificationService } from '../email/email-verification.service';
@@ -18,12 +19,17 @@ import { RolesGuard } from './guards/roles.guard';
     AuthService,
     JwtAuthGuard,
     RolesGuard,
+    // Sprint "Equipe" -- agrupado aqui com RolesGuard (mesma familia de autorizacao,
+    // mesmo unico provider real: Reflector, ja global do @nestjs/core) em vez de um
+    // modulo novo so' pra isto; todo controller que usa RolesGuard hoje ja importa
+    // AuthModule, entao ja ganha acesso a este guard tambem sem import extra.
+    StaffPermissionGuard,
     EmailVerificationService,
     // Token de injecao por string (nao a classe direta) -- e' isso que permite trocar
     // por ResendEmailSender/SmtpEmailSender/etc no dia que o provedor for escolhido,
     // mudando so' esta linha (Sprint 14).
     { provide: EMAIL_SENDER, useClass: ConsoleEmailSender },
   ],
-  exports: [AuthService, JwtAuthGuard, RolesGuard, JwtModule],
+  exports: [AuthService, JwtAuthGuard, RolesGuard, StaffPermissionGuard, JwtModule],
 })
 export class AuthModule {}

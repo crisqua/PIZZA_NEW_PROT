@@ -22,6 +22,8 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { CurrentTenant } from '../common/decorators/tenant.decorator';
 import { TenantContextInterceptor } from '../common/interceptors/tenant-context.interceptor';
+import { RequiresStaffPermission } from '../common/staff-permission.decorator';
+import { StaffPermissionGuard } from '../common/staff-permission.guard';
 import { TenantTx } from '../prisma/tenant-context.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
@@ -61,8 +63,13 @@ export class OrdersController {
     return this.ordersService.create(user.tenantId, user.id, idempotencyKey, dto);
   }
 
+  // StaffPermissionGuard aplicado nos 4 metodos abaixo (nao em "create", que e'
+  // customer-only) -- 'pedidos' e' uma das 4 areas do vocabulario fechado (decisao 9).
+  // tenant_owner/customer nunca sao restringidos por ele (ver StaffPermissionGuard).
   @Get()
   @Roles('customer', 'tenant_owner', 'tenant_staff')
+  @UseGuards(StaffPermissionGuard)
+  @RequiresStaffPermission('pedidos')
   @UseInterceptors(TenantContextInterceptor)
   list(@CurrentUser() user: AuthenticatedUser, @CurrentTenant() tx: TenantTx, @Query() query: ListOrdersQueryDto) {
     return this.ordersService.list(tx, user, query);
@@ -72,6 +79,8 @@ export class OrdersController {
   // senao "top-products" seria interpretado como um :id de pedido.
   @Get('top-products')
   @Roles('tenant_owner', 'tenant_staff')
+  @UseGuards(StaffPermissionGuard)
+  @RequiresStaffPermission('pedidos')
   @UseInterceptors(TenantContextInterceptor)
   topProducts(@CurrentTenant() tx: TenantTx) {
     return this.ordersService.topProducts(tx, 4);
@@ -79,6 +88,8 @@ export class OrdersController {
 
   @Get(':id')
   @Roles('customer', 'tenant_owner', 'tenant_staff')
+  @UseGuards(StaffPermissionGuard)
+  @RequiresStaffPermission('pedidos')
   @UseInterceptors(TenantContextInterceptor)
   findOne(@CurrentUser() user: AuthenticatedUser, @CurrentTenant() tx: TenantTx, @Param('id') id: string) {
     return this.ordersService.findOne(tx, user, id);
@@ -86,6 +97,8 @@ export class OrdersController {
 
   @Patch(':id/status')
   @Roles('tenant_owner', 'tenant_staff')
+  @UseGuards(StaffPermissionGuard)
+  @RequiresStaffPermission('pedidos')
   @UseInterceptors(TenantContextInterceptor)
   updateStatus(@CurrentUser() user: AuthenticatedUser, @CurrentTenant() tx: TenantTx, @Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
     return this.ordersService.updateStatus(tx, user, id, dto.status);

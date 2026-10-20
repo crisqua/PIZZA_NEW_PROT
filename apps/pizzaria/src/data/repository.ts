@@ -36,6 +36,25 @@ export let mockCategories: Category[] = [];
 export let mockPizzas: AdminProduct[] = [];
 export let unlockedModules: AddonId[] = [];
 
+// Sprint "Equipe" -- papel + permissoes do usuario logado, populados em
+// loadDashboardBoot() via GET /users/me (nunca chamado antes desta sprint: role e'
+// extraido do JWT no backend, mas o FRONTEND nunca tinha precisado saber o proprio
+// papel pra nada ate agora -- so' existia tenant_owner de verdade usando este painel).
+// Sidebar.tsx usa isto pra decidir o que mostrar; App.tsx usa pra gatear as telas.
+export type UserRole = 'platform_superadmin' | 'tenant_owner' | 'tenant_staff' | 'customer';
+export type StaffPermission = 'pedidos' | 'cardapio' | 'estoque' | 'financeiro';
+
+export let currentUser: { role: UserRole; permissions: StaffPermission[] } = {
+  role: 'tenant_owner',
+  permissions: [],
+};
+
+// tenant_owner nunca e' restringido por "permissions" (decisao 9) -- so' tenant_staff
+// precisa ter a area explicitamente marcada.
+export function hasStaffPermission(area: StaffPermission): boolean {
+  return currentUser.role !== 'tenant_staff' || currentUser.permissions.includes(area);
+}
+
 // Painel gerencia os 3 tipos de produto do cardapio (pizza/bebida/sobremesa) na mesma
 // tela (ProductForm.tsx com abas) -- Pizza usa os 3 precos por tamanho, bebida e
 // sobremesa usam preco unico + "tamanho" em texto livre (ex. "2L"/"Fatia").
@@ -118,6 +137,11 @@ interface SubscriptionResponse {
   modules: AddonId[];
 }
 
+interface MeResponse {
+  role: UserRole;
+  permissions: StaffPermission[] | null;
+}
+
 interface CategoryResponse {
   id: string;
   name: string;
@@ -165,11 +189,23 @@ function toAdminProduct(p: ProductResponse): AdminProduct {
 // produto (pizza/bebida/sobremesa) -- ProductForm.tsx com abas ja sabe criar/editar
 // qualquer um deles.
 export async function loadDashboardBoot(): Promise<void> {
-  const [tenant, subscription, categories, products] = await Promise.all([
+  const [tenant, subscription, me] = await Promise.all([
     apiFetch<TenantResponse>('/tenants/me'),
     apiFetch<SubscriptionResponse>('/tenants/me/subscription'),
-    apiFetch<CategoryResponse[]>('/catalog/categories'),
-    apiFetch<ProductResponse[]>('/catalog/products'),
+    apiFetch<MeResponse>('/users/me'),
+  ]);
+
+  currentUser = { role: me.role, permissions: me.permissions ?? [] };
+
+  // Sprint "Equipe" -- categorias/produtos agora sao gateados pela permissao
+  // "cardapio" (StaffPermissionGuard). Um funcionario sem essa permissao ainda precisa
+  // completar o boot normalmente (Dashboard/Pedidos continuam acessiveis pra ele) --
+  // .catch(() => []) evita que o 403 aqui derrube a Promise.all inteira; a Sidebar ja
+  // esconde o item "Cardapio" pra quem nao tem a permissao, entao os arrays vazios
+  // nunca chegam a ser exibidos de verdade.
+  const [categories, products] = await Promise.all([
+    apiFetch<CategoryResponse[]>('/catalog/categories').catch(() => [] as CategoryResponse[]),
+    apiFetch<ProductResponse[]>('/catalog/products').catch(() => [] as ProductResponse[]),
   ]);
 
   mockTenant = {
@@ -448,4 +484,51 @@ export async function getRevenue(from?: string, to?: string): Promise<DailyReven
   if (to) params.set('to', to);
   const query = params.toString();
   return apiFetch<DailyRevenue[]>(`/financial/revenue${query ? `?${query}` : ''}`);
+}
+
+// ---------- Equipe (Sprint "Equipe") ----------
+
+export interface StaffMember {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  position: string | null;
+  contractType: string | null;
+  admissionDate: string | null;
+  permissions: StaffPermission[];
+  active: boolean;
+  createdAt: string;
+}
+
+export interface StaffInput {
+  name: string;
+  email: string;
+  password?: string;
+  phone: string;
+  position?: string;
+  contractType?: string;
+  admissionDate?: string;
+  permissions?: StaffPermission[];
+  active?: boolean;
+}
+
+export async function getStaff(): Promise<StaffMember[]> {
+  return apiFetch<StaffMember[]>('/tenants/me/staff');
+}
+
+export async function createStaff(input: StaffInput): Promise<StaffMember> {
+  return apiFetch<StaffMember>('/tenants/me/staff', { method: 'POST', body: input });
+}
+
+export async function updateStaff(id: string, input: Partial<StaffInput>): Promise<StaffMember> {
+  return apiFetch<StaffMember>(`/tenants/me/staff/${id}`, { method: 'PATCH', body: input });
+}
+
+export async function getContractTypes(): Promise<string[]> {
+  return apiFetch<string[]>('/tenants/me/staff/contract-types');
+}
+
+export async function getPositions(): Promise<string[]> {
+  return apiFetch<string[]>('/tenants/me/staff/positions');
 }

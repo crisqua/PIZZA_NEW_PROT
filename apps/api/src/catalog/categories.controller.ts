@@ -6,6 +6,8 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { CurrentTenant } from '../common/decorators/tenant.decorator';
 import { TenantContextInterceptor } from '../common/interceptors/tenant-context.interceptor';
+import { RequiresStaffPermission } from '../common/staff-permission.decorator';
+import { StaffPermissionGuard } from '../common/staff-permission.guard';
 import { TenantTx } from '../prisma/tenant-context.service';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -14,9 +16,12 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 // "categories" tem RLS de verdade -- TenantContextInterceptor aberto, todas as queries
 // via @CurrentTenant() tx. Primeira vez que o interceptor serve uma LISTA de varias
 // linhas (nao so self-service de uma linha), mas o mecanismo e' o mesmo.
-@UseGuards(JwtAuthGuard, RolesGuard)
+// StaffPermissionGuard: categorias fazem parte do mesmo "cardapio" que produtos
+// (decisao 9) -- mesma permissao dos dois.
+@UseGuards(JwtAuthGuard, RolesGuard, StaffPermissionGuard)
 @UseInterceptors(TenantContextInterceptor)
 @Roles('tenant_owner', 'tenant_staff')
+@RequiresStaffPermission('cardapio')
 @Controller('catalog/categories')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}

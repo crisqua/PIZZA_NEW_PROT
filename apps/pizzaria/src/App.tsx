@@ -11,12 +11,14 @@ import { Settings } from './components/Settings';
 import { Inventory } from './components/Inventory';
 import { Financial } from './components/Financial';
 import { AddonUpsell } from './components/AddonUpsell';
+import { Equipe } from './components/Equipe';
 
 import {
   mockTenant,
   mockCategories,
   mockPizzas,
   unlockedModules,
+  currentUser,
   isAuthenticated,
   tryRestoreSession,
   loadDashboardBoot,
@@ -31,7 +33,7 @@ import {
 import { ADDONS } from './data/addons';
 import { Category } from '@pizza/types';
 
-type RestaurantView = 'dashboard' | 'menu' | 'product-form' | 'orders' | 'settings' | 'inventory' | 'financial';
+type RestaurantView = 'dashboard' | 'menu' | 'product-form' | 'orders' | 'settings' | 'inventory' | 'financial' | 'equipe';
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -156,6 +158,8 @@ export default function App() {
         tenantLogo={mockTenant.logo}
         activeAddons={unlockedModules}
         onLogout={handleLogout}
+        role={currentUser.role}
+        permissions={currentUser.permissions}
       />
       <div className="flex-1 min-w-0 min-h-screen bg-background relative pt-14 lg:pt-0">
         {activePage === 'dashboard' && <RestaurantDashboard />}
@@ -189,6 +193,7 @@ export default function App() {
             : <AddonUpsell addon={ADDONS.find(a => a.id === 'financeiro')!} />
         )}
         {activePage === 'settings' && <Settings />}
+        {activePage === 'equipe' && currentUser.role === 'tenant_owner' && <Equipe />}
       </div>
     </div>
   );

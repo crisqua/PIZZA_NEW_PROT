@@ -6,6 +6,8 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { CurrentTenant } from '../common/decorators/tenant.decorator';
 import { TenantContextInterceptor } from '../common/interceptors/tenant-context.interceptor';
+import { RequiresStaffPermission } from '../common/staff-permission.decorator';
+import { StaffPermissionGuard } from '../common/staff-permission.guard';
 import { RequiresModule } from '../module-gate/decorators/requires-module.decorator';
 import { ModuleGuard } from '../module-gate/guards/module.guard';
 import { TenantTx } from '../prisma/tenant-context.service';
@@ -17,11 +19,19 @@ import { ExpensesService } from './expenses.service';
 // Mesma ordem de guards ja validada em InventoryController (Sprint 6, primeiro
 // consumidor real do ModuleGuard): JwtAuthGuard seta tenantId -> RolesGuard checa papel
 // -> ModuleGuard resolve assinatura (propria transacao curta, antes do interceptor) ->
-// TenantContextInterceptor abre a transacao real do handler.
-@UseGuards(JwtAuthGuard, RolesGuard, ModuleGuard)
+// TenantContextInterceptor abre a transacao real do handler. StaffPermissionGuard
+// (Sprint "Equipe", decisao 9) gateia especificamente DESPESAS por "financeiro" --
+// RevenueController (receita agregada, usada tambem pelo Dashboard) e' deliberadamente
+// NAO gateado por este guard: receita e' so' um agregado de Order.total, dado que
+// qualquer funcionario com a permissao "pedidos" ja ve linha a linha no OrdersPanel;
+// "financeiro" protege o lado sensivel de verdade (despesas/custos, que combinados com
+// receita revelam margem) -- sem essa separacao, Atendente (decisao do usuario: ve
+// Dashboard, nao ve Financeiro) perderia o grafico de vendas do proprio Dashboard.
+@UseGuards(JwtAuthGuard, RolesGuard, ModuleGuard, StaffPermissionGuard)
 @UseInterceptors(TenantContextInterceptor)
 @Roles('tenant_owner', 'tenant_staff')
 @RequiresModule('financeiro')
+@RequiresStaffPermission('financeiro')
 @Controller('financial/expenses')
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}

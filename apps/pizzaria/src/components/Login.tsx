@@ -9,8 +9,10 @@ interface LoginProps {
 
 // Tela de Login (Sprint 9, MVP.md item 2: "Owner/staff da pizzaria faz login") -- hoje
 // nao existe nenhuma tela de autenticacao, o painel abre direto no dashboard. So' login,
-// sem cadastro (diferente do Auth.tsx do apps/cliente): nao ha' cadastro publico de
-// owner/staff, essas contas sao provisionadas pela plataforma.
+// sem cadastro (diferente do Auth.tsx do apps/cliente): nao ha' cadastro PUBLICO de
+// owner/staff. O dono (tenant_owner) e' provisionado pela plataforma no onboarding; um
+// funcionario (tenant_staff) e' provisionado pelo proprio dono, pela tela Equipe
+// (Sprint "Equipe") -- nenhum dos dois se auto-cadastra aqui.
 export function Login({ onAuthenticated }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

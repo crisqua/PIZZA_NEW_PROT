@@ -1,6 +1,7 @@
-import { LayoutDashboard, Pizza, ShoppingBag, Settings, LogOut, Package, Wallet, Lock } from 'lucide-react';
+import { LayoutDashboard, Pizza, ShoppingBag, Settings, LogOut, Package, Wallet, Lock, Users } from 'lucide-react';
 import { cn, Sidebar as SidebarShell } from '@pizza/ui';
 import { AddonId } from '@pizza/types';
+import { StaffPermission, UserRole } from '../data/repository';
 
 interface SidebarProps {
   activePage: string;
@@ -9,17 +10,43 @@ interface SidebarProps {
   tenantLogo: string;
   activeAddons: AddonId[];
   onLogout: () => void;
+  role: UserRole;
+  permissions: StaffPermission[];
 }
 
-export function Sidebar({ activePage, onNavigate, tenantName, tenantLogo, activeAddons, onLogout }: SidebarProps) {
-  const menuItems: { id: string; name: string; icon: typeof LayoutDashboard; addonId?: AddonId }[] = [
+export function Sidebar({
+  activePage,
+  onNavigate,
+  tenantName,
+  tenantLogo,
+  activeAddons,
+  onLogout,
+  role,
+  permissions,
+}: SidebarProps) {
+  const isOwner = role === 'tenant_owner';
+
+  const allItems: { id: string; name: string; icon: typeof LayoutDashboard; addonId?: AddonId; permission?: StaffPermission; ownerOnly?: boolean }[] = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
-    { id: 'orders', name: 'Pedidos', icon: ShoppingBag },
-    { id: 'menu', name: 'Cardápio', icon: Pizza },
-    { id: 'inventory', name: 'Estoque', icon: Package, addonId: 'estoque' },
-    { id: 'financial', name: 'Financeiro', icon: Wallet, addonId: 'financeiro' },
+    { id: 'orders', name: 'Pedidos', icon: ShoppingBag, permission: 'pedidos' },
+    { id: 'menu', name: 'Cardápio', icon: Pizza, permission: 'cardapio' },
+    { id: 'inventory', name: 'Estoque', icon: Package, addonId: 'estoque', permission: 'estoque' },
+    { id: 'financial', name: 'Financeiro', icon: Wallet, addonId: 'financeiro', permission: 'financeiro' },
+    { id: 'equipe', name: 'Equipe', icon: Users, ownerOnly: true },
     { id: 'settings', name: 'Configurações', icon: Settings },
   ];
+
+  // "Equipe" nunca aparece pra tenant_staff (decisao 1) -- diferente de
+  // estoque/financeiro, que aparecem travados com upsell quando falta o modulo, aqui
+  // nao ha' nada pra "destravar" do ponto de vista do funcionario. Itens com permissao
+  // que o funcionario simplesmente nao tem (ex. Financeiro sem a permissao, mesmo a
+  // pizzaria tendo o modulo) tambem somem -- diferente de modulo nao contratado, que
+  // ainda mostra cadeado + upsell (decisao do dono, nao do funcionario).
+  const menuItems = allItems.filter((item) => {
+    if (item.ownerOnly) return isOwner;
+    if (item.permission && !isOwner && !permissions.includes(item.permission)) return false;
+    return true;
+  });
 
   return (
     <SidebarShell

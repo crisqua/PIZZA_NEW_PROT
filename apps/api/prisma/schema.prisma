@@ -110,6 +110,20 @@ model User {
   // (decisao do usuario): so' rastreia, nunca impede login/checkout. Fica pronto pra
   // ligar um guard futuro se quiser travar depois.
   emailVerifiedAt DateTime? @map("email_verified_at")
+  // Equipe (Sprint "Equipe", 2026-10-19) -- generico na tabela toda (mesmo padrao de
+  // phone/cep acima: preenchido de verdade so' pra role:'tenant_staff', clientes/donos
+  // ficam com os defaults). "active" tambem aplica a tenant_owner/customer em teoria, mas
+  // na pratica so' a tela Equipe expoe UI pra mudar o valor (dono e' desativado via
+  // Tenant.active, nivel tenant inteiro, nao por aqui). "position" (cargo/funcao, texto
+  // livre) e' deliberadamente uma coluna separada de "role" (RBAC) acima -- sao conceitos
+  // diferentes, usar o mesmo nome pros dois confundiria. "permissions" so' e' checado pra
+  // role:'tenant_staff' (StaffPermissionGuard); tenant_owner/platform_superadmin/customer
+  // nunca sao restringidos por ele.
+  active          Boolean   @default(true)
+  position        String?   @db.VarChar(40)
+  contractType    String?   @map("contract_type") @db.VarChar(40)
+  admissionDate   DateTime? @map("admission_date") @db.Date
+  permissions     String[]  @default([])
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
