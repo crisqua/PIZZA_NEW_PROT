@@ -54,6 +54,7 @@ antes.
 | — | Plano à parte: tema claro/escuro no app Cliente | ✅ |
 | — | Plano à parte: tela de consulta do audit log | ⏳ (protótipo aprovado) |
 | — | Plano à parte: Sprint "Equipe" (cadastro de funcionários) | ✅ |
+| — | Plano à parte: App Cliente — moldura, cabeçalho e Meus Pedidos | ⏳ (protótipo aprovado) |
 | 22 | Eliminar N transações por tenant (resumo de assinatura) | ✅ |
 | 23 | Cache do dashboard | ✅ |
 | 24 | Corte às 5h (Dashboard/OrdersPanel/orderCode) + top-products + Financeiro por período | ✅ |
@@ -1162,6 +1163,172 @@ aprovado ("mto bom") — `https://claude.ai/artifact/7nSCTMj6BLUAskmVND2ose`.
 **Nenhuma.** A escrita do audit log e o expurgo (Sprint 15) já estão prontos — isso é
 só a camada de leitura/consulta, não tech em nenhuma tabela/rota nova além de ler o
 que já existe.
+
+---
+
+# <span style="color:white">Plano à parte: App Cliente — moldura, cabeçalho e Meus Pedidos ⏳ protótipo aprovado em 2026-10-24, aguardando aprovação pra implementar</span>
+
+Pedido do usuário em 2026-10-24, a partir de duas referências visuais reais: um print
+do app da Barbearia (cabeçalho com hamburguer à esquerda, saudação + avatar à direita)
+e um print de um app de delivery real ("Vitella") com uma seção **"Peça mais uma vez"**
+mostrando os pedidos recentes como cards direto na tela principal do cardápio.
+
+**Investigação no código real (não suposição) encontrou**:
+- Hoje não existe hamburguer nenhum no app Cliente — só um botão único de conta
+  (`Menu.tsx:106-113`) que, quando logado, **desloga instantaneamente ao toque, sem
+  nenhuma confirmação** (`App.tsx:277-284`, `handleAccountClick`).
+- `ThemeToggle.tsx` é um botão `fixed` solto, flutuando por cima do resto da UI, sem
+  nenhuma integração com o cabeçalho (motivo do bug de sobreposição corrigido na
+  sprint do tema claro/escuro).
+- **Não existe nenhuma tela de histórico de pedidos.** O app só mostra o ÚLTIMO pedido,
+  guardado em `lastOrder`/`orderId` (estado em memória de `App.tsx:41-42`) — se perde
+  a cada F5, e nunca existiu um jeito de consultar pedidos anteriores.
+- `GET /v1/orders` **já** filtra por `customerId` pra `role:'customer'` (RLS garante
+  isolamento, confirmado em `orders.service.ts`) e **já** devolve `items`/`orderCode`/
+  `createdAt`/`total` pra qualquer chamador (confirmado em `order-response.util.ts`,
+  `toOrderResponse()`) — só que o tipo local `ApiOrder` do `apps/cliente` nunca
+  declarou/mapeou `items`, porque nunca precisou até agora. **Zero mudança de backend
+  necessária** pra essa sprint.
+- `GET /v1/orders` exige `date` ou `from`+`to` desde a sprint "Desempenho Sistema"
+  (decisão deliberada, sem modo "histórico completo de uma vez") — o histórico desta
+  sprint segue a mesma regra, com os mesmos pills 7/30/90 dias já usados em
+  `Financial.tsx`/`TenantSales.tsx`.
+- `GET /v1/users/me` já retorna `email` (confirmado em `PUBLIC_USER_SELECT`,
+  `users.controller.ts`) — só o `MeResponse`/`Customer` do `apps/cliente` nunca
+  mapeava esse campo.
+- Não existe, em nenhum dos 3 frontends do monorepo, nenhum conceito de "moldura de
+  app"/container tipo celular — seria um padrão novo, não reaproveitado de lugar
+  nenhum.
+
+**Protótipo clicável aprovado** ("eu gostei") —
+`https://claude.ai/artifact/2qgC5MNkZXrAXgtYE8iaPW`: jornada completa dentro da
+moldura nova — cardápio (com "Peça novamente") → adicionar ao carrinho → carrinho →
+checkout → confirmação → acompanhamento ao vivo (status avançando a cada 10s, mesmo
+padrão de polling real) → menu hamburguer → histórico de pedidos → detalhe.
+
+## Decisões (registradas antes de implementar, mesmo processo da Sprint Equipe)
+
+1. **Moldura é só cosmética/CSS, só em telas largas** (`@media (min-width: 461px)`) —
+   num celular real o app continua full-bleed, exatamente como hoje. Nenhuma mudança
+   de comportamento, só de apresentação.
+2. **Cabeçalho consolidado numa linha só**: hamburguer (esquerda) → logo + nome da
+   pizzaria (meio) → saudação + avatar com iniciais + `ThemeToggle` (direita, agrupados).
+   O pill "Aberto/Fechado" ganha texto mais rico quando fechado — "Fechado — abre hoje
+   às HH:MM" — usando `mockTenant.openingTime`, que já existe desde a Sprint 27 (sem
+   dado novo).
+3. **Toque no avatar/hamburguer deixa de deslogar instantaneamente** — abre o menu
+   lateral; "Sair" vira um item deliberado dentro dele, não mais um tap acidental.
+4. **"Peça novamente"**: seção nova na tela principal do Cardápio (baseada na
+   referência do usuário), mostrando os 2 pedidos mais recentes como cards —
+   complementar ao "Histórico completo" que fica dentro do menu hamburguer. Só
+   renderiza se o cliente estiver logado e tiver pelo menos 1 pedido anterior.
+5. **Menu lateral (drawer)**: "Acompanhe meus pedidos", "Histórico de pedidos", "Sair"
+   quando logado; só "Entrar" quando não logado.
+6. **"Histórico de pedidos" reaproveita `GET /v1/orders` já existente** — zero rota
+   nova no backend. Pills 7/30/90 dias (mesmo padrão já usado no Financeiro/Vendas por
+   Pizzaria), já que o período continua obrigatório.
+7. **"Acompanhe meus pedidos" deixa de depender de estado em memória** — hoje
+   `lastOrder` se perde a cada F5 (motivo pelo qual essa tela só existia logo após o
+   checkout). Passa a derivar do mesmo endpoint de histórico, numa janela curta (ex.
+   últimos 2 dias), escolhendo o pedido mais recente cujo status não é `completed`/
+   `cancelled`. Sem pedido ativo → estado vazio claro.
+8. **Clicar num pedido (peça novamente / histórico) abre o detalhe** — generaliza
+   `OrderConfirmation.tsx` pra aceitar também um `ApiOrder` completo (hoje só recebe
+   campos soltos: `orderId`, `total`, `customerName`...), sem quebrar o caminho atual
+   (checkout → confirmação, que continua passando os campos soltos).
+9. **"Pedir de novo com 1 toque"** (recriar o carrinho inteiro automaticamente a partir
+   de um pedido antigo) **fica FORA desta sprint** — é uma funcionalidade maior
+   (preços/disponibilidade podem ter mudado desde então), registrada como possível
+   evolução futura. Por enquanto o card só abre o detalhe do pedido.
+10. **Correção de desempenho encontrada durante a conversa**: o polling de 10s de
+    `OrderConfirmation.tsx` hoje nunca para sozinho, mesmo com o pedido já
+    `completed`/`cancelled` — continua batendo na API pra sempre enquanto a tela
+    ficar aberta. Com "Acompanhe meus pedidos" virando um item permanente do menu
+    (não mais uma tela de uso único logo após o checkout), fica mais fácil o cliente
+    voltar nela depois do pedido já ter terminado e deixar rodando sem perceber —
+    corrigido parando o `setInterval` assim que o status chega num estado final.
+11. **Cor do tema continua 100% por tenant** — o protótipo usa o dourado padrão só
+    porque é o tema de produção hoje; `App.tsx:336` já aplica
+    `--primary: mockTenant.primaryColor` no `style` da raiz, então qualquer pizzaria
+    com cor própria configurada em Configurações já reflete automaticamente, sem
+    mudança nenhuma nesta sprint.
+
+## Backend (`apps/api`)
+
+**Nenhuma mudança.** `GET /v1/orders` já filtra por `customerId` pra `customer` e já
+exige `date` ou `from`+`to` — exatamente o comportamento que o histórico desta sprint
+precisa. `GET /v1/users/me` já devolve `email`.
+
+## Frontend (`apps/cliente`)
+
+### Arquivos novos
+- **`src/components/AppFrame.tsx`** — wrapper puramente cosmético que aplica a moldura
+  em telas largas, sem lógica nenhuma além de CSS/classe condicional.
+- **`src/components/HamburgerMenu.tsx`** — drawer lateral com overlay/scrim: itens
+  "Acompanhe meus pedidos" / "Histórico de pedidos" / "Sair" (logado) ou "Entrar" (não
+  logado); fecha ao clicar fora ou num item.
+- **`src/components/OrderHistory.tsx`** — pills 7/30/90 dias + lista de pedidos
+  (`getMyOrders(from, to)`), cada linha abre o detalhe.
+- **`src/components/OrderTracking.tsx`** — "Acompanhe meus pedidos": busca o pedido
+  ativo via `getActiveOrder()`, reaproveita o miolo de `OrderConfirmation.tsx` (ver
+  refactor abaixo); estado vazio se não houver pedido ativo.
+- **`src/components/ReorderSection.tsx`** — seção "Peça novamente" embutida no topo do
+  `Menu.tsx`.
+
+### Arquivos alterados
+- **`src/data/repository.ts`**:
+  - `ApiOrder` ganha `items: ApiOrderItem[]` (novo tipo espelhando `OrderItemResponse`
+    do backend) — dado que já vem na resposta, só faltava tipar/mapear.
+  - `MeResponse`/`mockCustomer` ganham `email: string` — mesma situação.
+  - Nova `getMyOrders(from: string, to: string): Promise<ApiOrder[]>` →
+    `GET /orders?from=&to=`.
+  - Nova `getActiveOrder(): Promise<ApiOrder | null>` — chama `getMyOrders` numa
+    janela curta e filtra client-side por status não-terminal, pegando o mais recente.
+- **`src/components/Menu.tsx`** — header reescrito (remove o botão único de conta,
+  linhas 94-114 atuais): hamburguer + saudação (`mockCustomer.name`, só se logado) +
+  avatar com iniciais + `ThemeToggle` integrado (deixa de ser `fixed`); pill
+  "Aberto/Fechado" ganha o texto de horário quando fechado; `<ReorderSection>` inserida
+  entre a busca e as abas de categoria. Novas props: `onOpenMenu`, `theme`,
+  `onToggleTheme`.
+- **`src/components/ThemeToggle.tsx`** — deixa de ser `fixed`/flutuante, vira botão
+  inline dentro do cabeçalho do `Menu.tsx` (mesmos props `theme`/`onToggle`).
+- **`src/components/OrderConfirmation.tsx`** — aceita também um `order?: ApiOrder`
+  completo, além dos campos soltos já existentes (que continuam funcionando pro
+  caminho atual checkout→confirmação); o `useEffect` do polling passa a checar o
+  status recebido e dar `clearInterval` quando `completed`/`cancelled` (decisão 10).
+- **`src/App.tsx`** — `ClientView` ganha os estados novos (histórico/detalhe/
+  acompanhamento); novo estado `isMenuOpen`; remove o `<ThemeToggle>` solto do nível
+  raiz (linha 339, passa a viver dentro do `<Menu>`); `handleAccountClick` é
+  substituído (hamburguer abre o drawer, "Sair" fica dentro dele); toda a árvore de
+  views existente passa a ficar dentro de `<AppFrame>`.
+
+### `packages/types`
+- `Customer` ganha `email: string`.
+
+## Testes
+
+100% frontend, sem mudança de schema/endpoint — não precisa de suíte e2e nova no
+backend. `tsc --noEmit` + `vite build` em `apps/cliente`/`packages/types`. Sem teste
+automatizado de UI (mesma limitação já registrada nesta sessão: sem browser disponível
+neste ambiente) — validação manual pelo usuário, mesmo processo já usado no tema
+claro/escuro.
+
+## Verificação
+
+1. `npx tsc --noEmit` + `vite build` em `apps/cliente`, `packages/types`.
+2. Smoke test manual: moldura aparece em tela larga, some em mobile real → abrir drawer
+   → "Acompanhe meus pedidos" (vazio se nada ativo) → fazer um pedido de teste →
+   confirmar que aparece ao vivo em "Acompanhe meus pedidos" → marcar `completed` no
+   painel da pizzaria → confirmar (DevTools → Network) que o polling realmente para →
+   "Histórico de pedidos" → trocar os pills 7/30/90 → abrir detalhe de um pedido →
+   "Peça novamente" na tela principal reflete os mesmos pedidos recentes → "Sair" dentro
+   do menu desloga de verdade (não mais no toque único do avatar).
+3. Commit + push + acompanhar o Actions run até `success`.
+
+## Dependência com outras sprints
+
+**Nenhuma.** Não toca em nenhuma tabela/rota nova — só lê o que `GET /orders`/
+`GET /users/me` já devolvem hoje.
 
 ---
 
