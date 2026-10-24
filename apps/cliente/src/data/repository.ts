@@ -139,6 +139,7 @@ function toSimpleProduct(p: ProductResponse): Drink {
 interface MeResponse {
   id: string;
   name: string;
+  email: string;
   phone: string;
   address: string;
   addressNumber: string;
@@ -154,6 +155,7 @@ async function loadMe(): Promise<void> {
   mockCustomer = {
     id: me.id,
     name: me.name,
+    email: me.email,
     phone: me.phone,
     address: me.address,
     addressNumber: me.addressNumber,
@@ -266,13 +268,41 @@ export async function updateProfile(payload: UpdateProfilePayload): Promise<void
   await apiFetch('/users/me', { method: 'PATCH', body: payload });
 }
 
+// Espelha OrderItemResponse do backend (order-response.util.ts) -- o dado ja vinha na
+// resposta de GET /orders, so' nunca tinha sido tipado/mapeado neste app.
+export interface ApiOrderItem {
+  id: string;
+  productId: string;
+  secondProductId: string | null;
+  type: string;
+  size: string | null;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+}
+
+export type ApiOrderStatus = 'pending' | 'preparing' | 'delivery' | 'completed' | 'cancelled';
+
 export interface ApiOrder {
   id: string;
   orderCode: string;
-  status: 'pending' | 'preparing' | 'delivery' | 'completed' | 'cancelled';
+  status: ApiOrderStatus;
   customerName: string;
   total: number;
   createdAt: string;
+  items: ApiOrderItem[];
+  deliveryFee?: number;
+  paymentMethod?: string;
+  address?: string;
+  addressNumber?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+}
+
+export function isFinalStatus(status: ApiOrderStatus): boolean {
+  return status === 'completed' || status === 'cancelled';
 }
 
 // Mapeia o carrinho (CartItem[], ja' com preco calculado no client so' pra exibicao) pro
@@ -303,4 +333,29 @@ export async function createOrder(payload: CreateOrderPayload, idempotencyKey: s
 
 export async function getOrder(id: string): Promise<ApiOrder> {
   return apiFetch<ApiOrder>(`/orders/${id}`);
+}
+
+// Historico do cliente logado. GET /orders exige date OU from+to (sprint "Desempenho
+// Sistema") e o backend ja filtra por customerId pra role 'customer' (RLS). from/to sao
+// INSTANTES ISO exatos (lt/gte no banco), nao datas puras -- por isso a janela e' montada
+// a partir de "agora", com 1h de folga no `to` pra nunca perder um pedido recem-criado.
+export async function getMyOrders(from: string, to: string): Promise<ApiOrder[]> {
+  const params = new URLSearchParams({ from, to });
+  const orders = await apiFetch<ApiOrder[]>(`/orders?${params.toString()}`);
+  return [...orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Pedidos dos ultimos `days` dias corridos ate agora.
+export function getMyOrdersLastDays(days: number): Promise<ApiOrder[]> {
+  const now = Date.now();
+  return getMyOrders(new Date(now - days * DAY_MS).toISOString(), new Date(now + 60 * 60 * 1000).toISOString());
+}
+
+// Pedido ativo = o mais recente que ainda nao chegou em estado final. Janela curta
+// (2 dias) de proposito -- nao precisa do historico inteiro pra achar o que esta em andamento.
+export async function getActiveOrder(): Promise<ApiOrder | null> {
+  const orders = await getMyOrdersLastDays(2);
+  return orders.find((o) => !isFinalStatus(o.status)) ?? null;
 }

@@ -7,14 +7,17 @@ import { Cart } from './components/Cart';
 import { Auth } from './components/Auth';
 import { Checkout } from './components/Checkout';
 import { OrderConfirmation } from './components/OrderConfirmation';
-import { ThemeToggle } from './components/ThemeToggle';
+import { AppFrame } from './components/AppFrame';
+import { HamburgerMenu } from './components/HamburgerMenu';
+import { OrderHistory } from './components/OrderHistory';
+import { OrderTracking } from './components/OrderTracking';
 
-import { mockTenant, isAuthenticated, loadCatalog, tryRestoreSession, logout, verifyEmail, ApiOrder } from './data/repository';
+import { mockTenant, mockCustomer, isAuthenticated, loadCatalog, tryRestoreSession, logout, verifyEmail, ApiOrder } from './data/repository';
 import { Pizza, Drink, CartItem, PizzaSizeId, priceForSize } from '@pizza/types';
 import { Button, UpdateBanner } from '@pizza/ui';
 
 export default function App() {
-  type ClientView = 'menu' | 'builder' | 'cart' | 'auth' | 'checkout' | 'confirmation';
+  type ClientView = 'menu' | 'builder' | 'cart' | 'auth' | 'checkout' | 'confirmation' | 'history' | 'tracking' | 'orderDetail';
 
   const [ready, setReady] = useState(false);
   const [view, setView] = useState<ClientView>('menu');
@@ -40,6 +43,11 @@ export default function App() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderId, setOrderId] = useState('');
   const [lastOrder, setLastOrder] = useState<ApiOrder | null>(null);
+  // Menu lateral (hamburguer) e detalhe de um pedido antigo (aberto pelo historico ou
+  // por "Peca novamente") -- `detailBackTo` guarda pra onde o "Voltar" do detalhe leva.
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [detailOrder, setDetailOrder] = useState<ApiOrder | null>(null);
+  const [detailBackTo, setDetailBackTo] = useState<'menu' | 'history'>('menu');
   // De onde a tela de Auth foi aberta -- decide pra onde volta depois (login vindo do
   // carrinho segue pro checkout; login vindo do icone de cadeado no Menu volta pro Menu).
   const [authOrigin, setAuthOrigin] = useState<'cart' | 'menu'>('cart');
@@ -271,16 +279,22 @@ export default function App() {
     setView(isAuthenticated() ? 'checkout' : 'auth');
   };
 
-  // Icone de cadeado/pessoa no Menu (pedido do usuario): deslogado abre a tela de Auth
-  // (volta pro Menu ao terminar); logado desloga na hora (sem tela de confirmacao --
-  // mesmo padrao direto do botao "Sair" dos outros 2 apps do monorepo).
-  const handleAccountClick = () => {
-    if (isAuthenticated()) {
-      logout().then(() => setAuthVersion((v) => v + 1));
-    } else {
-      setAuthOrigin('menu');
-      setView('auth');
-    }
+  // Menu lateral: "Entrar" abre a tela de Auth (volta pro Menu ao terminar); "Sair" so'
+  // existe dentro do drawer -- antes, tocar no icone de conta deslogava na hora, sem
+  // confirmacao nenhuma.
+  const handleLogin = () => {
+    setAuthOrigin('menu');
+    setView('auth');
+  };
+
+  const handleLogout = () => {
+    logout().then(() => setAuthVersion((v) => v + 1));
+  };
+
+  const handleOpenOrderFrom = (origin: 'menu' | 'history') => (order: ApiOrder) => {
+    setDetailOrder(order);
+    setDetailBackTo(origin);
+    setView('orderDetail');
   };
 
   const handleOrderSuccess = (order: ApiOrder) => {
@@ -331,12 +345,22 @@ export default function App() {
   }
 
   return (
+    <AppFrame>
     <div
       className="relative"
       style={{ '--primary': mockTenant.primaryColor, '--accent': mockTenant.primaryColor } as CSSProperties}
     >
       <UpdateBanner />
-      <ThemeToggle theme={theme} onToggle={toggleTheme} />
+      <HamburgerMenu
+        open={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        isLoggedIn={isAuthenticated()}
+        customerName={mockCustomer?.name}
+        onTrackOrders={() => setView('tracking')}
+        onOrderHistory={() => setView('history')}
+        onLogout={handleLogout}
+        onLogin={handleLogin}
+      />
       {addedToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 bg-foreground text-background px-4 py-2.5 rounded-full shadow-lg text-sm font-medium max-w-[90vw]">
           <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
@@ -353,7 +377,10 @@ export default function App() {
           cartItemsCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
           onViewCart={() => setView('cart')}
           isLoggedIn={isAuthenticated()}
-          onAccountClick={handleAccountClick}
+          onOpenMenu={() => setIsMenuOpen(true)}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onOpenOrder={handleOpenOrderFrom('menu')}
         />
       )}
       {view === 'builder' && selectedPizza && (
@@ -392,6 +419,16 @@ export default function App() {
           onBackToMenu={handleBackToMenu}
         />
       )}
+      {view === 'history' && <OrderHistory onBack={() => setView('menu')} onOpenOrder={handleOpenOrderFrom('history')} />}
+      {view === 'tracking' && <OrderTracking onBack={() => setView('menu')} onOpenHistory={() => setView('history')} />}
+      {view === 'orderDetail' && detailOrder && (
+        <OrderConfirmation
+          order={detailOrder}
+          backLabel="Voltar"
+          onBackToMenu={() => setView(detailBackTo === 'history' ? 'history' : 'menu')}
+        />
+      )}
     </div>
+    </AppFrame>
   );
 }

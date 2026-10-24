@@ -54,7 +54,7 @@ antes.
 | — | Plano à parte: tema claro/escuro no app Cliente | ✅ |
 | — | Plano à parte: tela de consulta do audit log | ⏳ (protótipo aprovado) |
 | — | Plano à parte: Sprint "Equipe" (cadastro de funcionários) | ✅ |
-| — | Plano à parte: App Cliente — moldura, cabeçalho e Meus Pedidos | ⏳ (protótipo aprovado) |
+| — | Plano à parte: App Cliente — moldura, cabeçalho e Meus Pedidos | ✅ (implementada, validação manual pendente) |
 | 22 | Eliminar N transações por tenant (resumo de assinatura) | ✅ |
 | 23 | Cache do dashboard | ✅ |
 | 24 | Corte às 5h (Dashboard/OrdersPanel/orderCode) + top-products + Financeiro por período | ✅ |
@@ -1166,7 +1166,39 @@ que já existe.
 
 ---
 
-# <span style="color:white">Plano à parte: App Cliente — moldura, cabeçalho e Meus Pedidos ⏳ protótipo aprovado em 2026-10-24, aguardando aprovação pra implementar</span>
+# <span style="color:blue">Plano à parte: App Cliente — moldura, cabeçalho e Meus Pedidos ✅ IMPLEMENTADA em 2026-10-24 (validação manual pendente — ver `docs/TESTES_PENDENTES.md`)</span>
+
+**Implementação (2026-10-24, aprovada pelo usuário no mesmo dia)**: 100% frontend, sem
+mudança de backend/schema, exatamente como planejado. `tsc --noEmit` limpo em
+`apps/cliente` e `packages/types`; `vite build` limpo. Sem teste automatizado de UI (sem
+browser neste ambiente) — validação manual pelo usuário, registrada em
+`docs/TESTES_PENDENTES.md`.
+
+Ajustes reais encontrados durante a implementação (não estavam no desenho original):
+- **`from`/`to` de `GET /orders` são INSTANTES ISO exatos** (`gte`/`lt` no banco), não
+  datas puras — enviar `YYYY-MM-DD` seria lido como meia-noite UTC. `getMyOrdersLastDays(n)`
+  monta a janela a partir de "agora", com 1h de folga no `to` pra nunca perder um pedido
+  recém-criado. `getMyOrders(from, to)` segue com a assinatura do plano.
+- **Moldura em 2 níveis**: `.app-frame` carrega o `transform` (faz a barra do carrinho, o
+  toast e o drawer — todos `position: fixed` — se posicionarem relativo à moldura) mas NÃO
+  rola; quem rola é `.app-frame-scroll` por dentro. Com o `transform` no elemento que
+  rola, os `fixed` rolariam junto com o conteúdo. As telas usam `min-h-dvh`/`min-h-screen`,
+  sobrescritos dentro da moldura pra usar a altura dela (`--frame-h`).
+- **Texto do pill fechado** diz "abre hoje" só se ainda não passou da abertura no fuso de
+  São Paulo; senão "abre amanhã" (o plano dizia sempre "hoje").
+- **`OrderConfirmation`** ganhou modo "detalhe" (prop `order`): mostra itens/endereço,
+  esconde "Próximos passos", e **não faz polling** se o pedido já chegou `completed`/
+  `cancelled`; no modo checkout o polling agora para sozinho ao chegar em estado final
+  (decisão 10). Helpers de exibição compartilhados em `components/orderDisplay.ts`.
+- "Peça novamente" busca os últimos 30 dias (2 pedidos mais recentes); falha de rede é
+  silenciosa (é só um atalho, nunca pode atrapalhar o cardápio).
+
+**Arquivos**: novos `AppFrame.tsx`, `HamburgerMenu.tsx`, `OrderHistory.tsx`,
+`OrderTracking.tsx`, `ReorderSection.tsx`, `orderDisplay.ts`; alterados `App.tsx`,
+`Menu.tsx`, `OrderConfirmation.tsx`, `ThemeToggle.tsx` (agora inline), `repository.ts`,
+`styles/theme.css`, `packages/types/src/index.ts` (`Customer.email`).
+
+*Texto original do plano (aprovado antes da implementação):*
 
 Pedido do usuário em 2026-10-24, a partir de duas referências visuais reais: um print
 do app da Barbearia (cabeçalho com hamburguer à esquerda, saudação + avatar à direita)

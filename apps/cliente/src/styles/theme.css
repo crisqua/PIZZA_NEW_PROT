@@ -217,3 +217,45 @@ nunca mexeu no botao ve exatamente o app de hoje, sem nenhuma mudanca visual. */
     line-height: 1.5;
   }
 }
+
+/* Moldura de celular (plano "App Cliente -- moldura, cabecalho e Meus Pedidos") --
+puramente cosmetica e SO' em telas largas: num celular real (<=460px) nenhuma regra
+abaixo se aplica e o app continua full-bleed como sempre foi.
+Estrutura em 2 niveis de proposito: .app-frame tem o `transform` (faz todo elemento
+`position: fixed` filho -- barra do carrinho, toast, drawer -- se posicionar relativo
+a moldura, nao a janela) e NAO rola; quem rola e' .app-frame-scroll por dentro. Se o
+transform ficasse no elemento que rola, os `fixed` rolariam junto com o conteudo. */
+@media (min-width: 461px) {
+  .app-frame-backdrop {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: var(--secondary);
+  }
+  .app-frame {
+    --frame-h: min(900px, calc(100dvh - 32px));
+    position: relative;
+    width: 430px;
+    max-width: 100%;
+    height: var(--frame-h);
+    border: 1px solid var(--border);
+    border-radius: 2rem;
+    background: var(--background);
+    box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.35);
+    overflow: hidden;
+    transform: translateZ(0);
+  }
+  .app-frame-scroll {
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  /* As telas usam min-h-dvh/min-h-screen (altura da JANELA) -- dentro da moldura a
+  referencia passa a ser a altura da propria moldura. */
+  .app-frame .min-h-dvh,
+  .app-frame .min-h-screen {
+    min-height: var(--frame-h);
+  }
+}

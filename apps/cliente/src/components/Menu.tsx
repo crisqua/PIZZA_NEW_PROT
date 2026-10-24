@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Plus, Lock, User, Search, ShoppingCart } from 'lucide-react';
-import { mockPizzas, mockDrinks, mockSobremesas, mockTenant, mockCategories, pizzaSizes } from '../data/repository';
+import { Plus, Menu as MenuIcon, Search, ShoppingCart } from 'lucide-react';
+import { mockPizzas, mockDrinks, mockSobremesas, mockTenant, mockCategories, mockCustomer, pizzaSizes, ApiOrder } from '../data/repository';
 import { Pizza, Drink, PizzaSizeId, priceForSize } from '@pizza/types';
 import { Button, Badge, formatCurrency } from '@pizza/ui';
 import { SectionDivider } from './SectionDivider';
 import { DottedRow } from './DottedRow';
 import { CategoryTabs } from './CategoryTabs';
+import { ThemeToggle } from './ThemeToggle';
+import { ReorderSection } from './ReorderSection';
 
 interface MenuProps {
   onAddSingleFlavor: (pizza: Pizza, size: PizzaSizeId) => void;
@@ -15,7 +17,10 @@ interface MenuProps {
   cartItemsCount: number;
   onViewCart: () => void;
   isLoggedIn: boolean;
-  onAccountClick: () => void;
+  onOpenMenu: () => void;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
+  onOpenOrder: (order: ApiOrder) => void;
 }
 
 const BEBIDAS_ID = 'bebidas';
@@ -38,7 +43,28 @@ function firstAvailableSize(pizza: Pizza): PizzaSizeId | null {
   return pizzaSizes.find((s) => priceForSize(pizza, s.id) != null)?.id ?? null;
 }
 
-export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobremesa, cartItemsCount, onViewCart, isLoggedIn, onAccountClick }: MenuProps) {
+// Texto do pill quando a loja esta fechada: usa o horario de abertura ja cadastrado
+// (Sprint 27) -- "hoje" se ainda nao passou da abertura no fuso de Sao Paulo, senao
+// "amanha". Sem horario cadastrado, so' "Fechado".
+function closedLabel(): string {
+  const opening = mockTenant.openingTime;
+  if (!opening) return 'Fechado';
+  const nowSP = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/Sao_Paulo',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date());
+  return `Fechado — abre ${nowSP < opening ? 'hoje' : 'amanhã'} às ${opening}`;
+}
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+}
+
+export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobremesa, cartItemsCount, onViewCart, isLoggedIn, onOpenMenu, theme, onToggleTheme, onOpenOrder }: MenuProps) {
   // So' entram categorias de pizza que realmente tem pizza (mesmo filtro de sempre),
   // mais Bebidas/Sobremesas sinteticas no fim -- igual a` lista que o acordeao antigo
   // ja respeitava, so' que agora vira uma lista so' pro CategoryTabs (PROTCLINEW,
@@ -92,7 +118,37 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
   return (
     <div className="min-h-dvh bg-background pb-28">
       <div className="bg-surface border-b border-border">
-        <div className="px-6 pt-6 flex items-center justify-between">
+        <div className="px-4 pt-5 pb-4 flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={onOpenMenu}
+            aria-label="Abrir menu"
+            className="w-9 h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          >
+            <MenuIcon className="w-4.5 h-4.5" />
+          </button>
+          <div className="w-9 h-9 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-serif font-semibold text-sm shrink-0">
+            {mockTenant.logo}
+          </div>
+          <h1 className="font-serif text-base font-semibold text-foreground truncate flex-1 min-w-0">{mockTenant.name}</h1>
+          {isLoggedIn && mockCustomer && (
+            <span className="hidden min-[390px]:block text-xs text-muted-foreground truncate max-w-[72px]">
+              Olá, {mockCustomer.name.split(' ')[0]}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onOpenMenu}
+            title={isLoggedIn ? 'Abrir menu da conta' : 'Entrar'}
+            aria-label={isLoggedIn ? 'Abrir menu da conta' : 'Entrar na conta'}
+            className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center text-[11px] font-bold text-foreground shrink-0"
+          >
+            {isLoggedIn && mockCustomer ? initialsOf(mockCustomer.name) : '?'}
+          </button>
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+        </div>
+
+        <div className="px-6 pb-6 flex flex-col items-center text-center">
           <span
             className={`inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border ${
               mockTenant.isOpen
@@ -101,23 +157,8 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
             }`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${mockTenant.isOpen ? 'bg-success' : 'bg-destructive'}`} />
-            {mockTenant.isOpen ? 'Aberto' : 'Fechado'}
+            {mockTenant.isOpen ? 'Aberto' : closedLabel()}
           </span>
-          <button
-            onClick={onAccountClick}
-            title={isLoggedIn ? 'Sair' : 'Entrar'}
-            aria-label={isLoggedIn ? 'Sair da conta' : 'Entrar na conta'}
-            className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
-          >
-            {isLoggedIn ? <User className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
-          </button>
-        </div>
-
-        <div className="px-6 pt-5 pb-7 flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-serif font-semibold text-xl shrink-0">
-            {mockTenant.logo}
-          </div>
-          <h1 className="font-serif text-2xl font-semibold text-foreground mt-3.5">{mockTenant.name}</h1>
           <div className="w-9 h-px bg-primary my-3" />
           <p className="text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center justify-center flex-wrap gap-x-1.5">
             {mockTenant.openingTime && mockTenant.closingTime && (
@@ -153,6 +194,7 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
       </div>
 
       <div className="px-6 max-w-md mx-auto">
+        {isLoggedIn && !isSearching && <ReorderSection onOpenOrder={onOpenOrder} />}
         {isSearching ? (
           <div className="pt-7">
             <SectionDivider label="Resultados da busca" />

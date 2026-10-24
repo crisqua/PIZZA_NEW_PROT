@@ -67,6 +67,10 @@ Sprints 0–10 e boa parte de 11a–27 concluídas. Pendências abertas conhecid
 - **Sprint "Equipe"** — ✅ implementada em 2026-10-20 (cadastro de funcionários pelo
   dono + permissão por módulo via `User.permissions`). `GET/POST /tenants/me/staff`,
   `PATCH /tenants/me/staff/:id`, tela "Equipe" em `apps/pizzaria`.
+- **App Cliente — moldura, cabeçalho e Meus Pedidos** — ✅ implementada em 2026-10-24
+  (frontend only: moldura em tela larga, drawer hambúrguer, histórico/acompanhe/"Peça
+  novamente", polling que para em estado final). Falta a validação manual (ver
+  `docs/TESTES_PENDENTES.md`).
 - Backlog sem sprint definida: pagamento online, WhatsApp, MFA, WebSocket/realtime,
   LGPD formal, pentest externo, observabilidade completa, particionamento de
   `orders`, Redis real em produção, vault de secrets dedicado, code-splitting.
