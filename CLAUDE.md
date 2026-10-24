@@ -56,10 +56,10 @@ Supabase, RLS forçada por tenant. Infra: Supabase (banco) + Render (API,
 
 Sprints 0–10 e boa parte de 11a–27 concluídas. Pendências abertas conhecidas:
 - **Sprint 11b** — fechar o piloto com tenant real (ainda não escolhido).
-- **Sprint 15** — ✅ completa em 2026-10-01 (rate limiting, gitleaks, audit log
-  append-only). Resta cadastrar os secrets `API_BASE_URL`/`AUDIT_LOG_RETENTION_SECRET`
-  no GitHub (Settings → Secrets → Actions) e, opcionalmente, a tela de consulta do
-  audit log no `admin-pizzarias`.
+- **Sprint 15** — ✅ completa (rate limiting, gitleaks, audit log append-only; secrets
+  `API_BASE_URL`/`AUDIT_LOG_RETENTION_SECRET` já cadastrados no GitHub desde
+  2026-10-03). Falta só, opcionalmente, a tela de consulta do audit log no
+  `admin-pizzarias` (protótipo aprovado, plano escrito, não implementada).
 - **Sprint 25** — 🟡 parcial: concorrência no checkout (pedido fantasma) parcialmente
   mitigada; falta mover o upsert do contador sequencial pro fim da transação e
   testar `pool_timeout` do Prisma.

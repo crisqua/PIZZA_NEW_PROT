@@ -44,7 +44,7 @@ antes.
 | 13 | Telefone + endereço no cadastro | ✅ |
 | 14 | Confirmação de e-mail | ✅ |
 | 11b | Fechar o piloto com tenant real | ⏳ |
-| 15 | Rate limiting + audit log + secrets no CI | 🟡 (3 partes de código ✅; falta o usuário cadastrar secrets no GitHub) |
+| 15 | Rate limiting + audit log + secrets no CI | ✅ |
 | 16 | Upload de imagem real (Supabase Storage) | ✅ |
 | — | Plano à parte: responsividade mobile | ✅ |
 | — | Plano à parte: código de pedido sequencial por dia | ✅ |
