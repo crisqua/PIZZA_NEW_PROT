@@ -12,19 +12,31 @@ interface ReorderSectionProps {
 const RECENT_WINDOW_DAYS = 30;
 const MAX_CARDS = 2;
 
+// Binding de modulo (mesmo padrao de mockPizzas/mockCategories em repository.ts) --
+// sobrevive a remontagem do componente. Bug real reportado pelo usuario: Menu.tsx
+// remonta inteiro (key={authVersion}-${catalogVersion} em App.tsx) toda vez que a aba
+// volta a ficar em foco, pra sempre refletir preco/produto atualizado -- antes disso
+// era inofensivo, mas com "Peca novamente" existindo, cada remontagem fazia a secao
+// comecar vazia de novo e so reaparecer depois que a busca terminasse (pisca-pisca
+// visivel). Guardando o ultimo resultado aqui, uma remontagem reusa o que ja tinha
+// (sem sumir da tela) e so revalida em segundo plano.
+let cachedOrders: ApiOrder[] = [];
+
 // "Peca novamente" no topo do Cardapio: os 2 pedidos mais recentes do cliente logado.
 // So' renderiza se houver pelo menos 1 pedido (e so' e' montada com o cliente logado --
 // Menu.tsx controla isso). Por ora o card abre o DETALHE do pedido; recriar o carrinho
 // com 1 toque ficou de fora de proposito (precos/disponibilidade podem ter mudado).
 // Falha de rede e' silenciosa: e' um atalho, nunca pode atrapalhar o cardapio.
 export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
-  const [orders, setOrders] = useState<ApiOrder[]>([]);
+  const [orders, setOrders] = useState<ApiOrder[]>(cachedOrders);
 
   useEffect(() => {
     let cancelled = false;
     getMyOrdersLastDays(RECENT_WINDOW_DAYS)
       .then((result) => {
-        if (!cancelled) setOrders(result.slice(0, MAX_CARDS));
+        const next = result.slice(0, MAX_CARDS);
+        cachedOrders = next;
+        if (!cancelled) setOrders(next);
       })
       .catch(() => undefined);
     return () => {
