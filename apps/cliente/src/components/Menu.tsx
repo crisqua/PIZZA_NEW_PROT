@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Menu as MenuIcon, Search, ShoppingCart } from 'lucide-react';
+import { Plus, Menu as MenuIcon, Search, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { mockPizzas, mockDrinks, mockSobremesas, mockTenant, mockCategories, mockCustomer, pizzaSizes, ApiOrder } from '../data/repository';
 import { Pizza, Drink, PizzaSizeId, priceForSize } from '@pizza/types';
 import { Button, Badge, formatCurrency } from '@pizza/ui';
@@ -174,8 +174,11 @@ export function Menu({ onAddSingleFlavor, onStartHalfHalf, onAddDrink, onAddSobr
         </div>
 
         {!mockTenant.isOpen && (
-          <div className="mx-6 mb-6 px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm font-medium text-center">
-            Esta pizzaria está fechada no momento. Volte mais tarde para fazer seu pedido.
+          <div className="mx-6 mb-6 px-4 py-3.5 rounded-lg bg-destructive border border-destructive flex items-center gap-2.5 justify-center text-center shadow-sm">
+            <AlertTriangle className="w-5 h-5 text-destructive-foreground shrink-0" />
+            <p className="text-destructive-foreground text-sm font-semibold">
+              Esta pizzaria está fechada no momento. Volte mais tarde para fazer seu pedido.
+            </p>
           </div>
         )}
       </div>
