@@ -251,6 +251,25 @@ transform ficasse no elemento que rola, os `fixed` rolariam junto com o conteudo
     height: 100%;
     overflow-x: hidden;
     overflow-y: auto;
+    /* Barra de rolagem cinza padrao do navegador quebrava a ilusao de "app nativo"
+    dentro da moldura (achado real do usuario) -- fina e na cor da marca em vez do
+    cinza do SO. Firefox via scrollbar-color/scrollbar-width; Chrome/Safari/Edge via
+    ::-webkit-scrollbar abaixo. */
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) transparent;
+  }
+  .app-frame-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .app-frame-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .app-frame-scroll::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 999px;
+  }
+  .app-frame-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
   }
   /* As telas usam min-h-dvh/min-h-screen (altura da JANELA) -- dentro da moldura a
   referencia passa a ser a altura da propria moldura. */

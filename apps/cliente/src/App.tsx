@@ -345,11 +345,8 @@ export default function App() {
   }
 
   return (
-    <AppFrame>
-    <div
-      className="relative"
-      style={{ '--primary': mockTenant.primaryColor, '--accent': mockTenant.primaryColor } as CSSProperties}
-    >
+    <AppFrame style={{ '--primary': mockTenant.primaryColor, '--accent': mockTenant.primaryColor } as CSSProperties}>
+      <div className="relative">
       <UpdateBanner />
       <HamburgerMenu
         open={isMenuOpen}
