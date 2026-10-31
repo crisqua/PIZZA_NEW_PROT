@@ -1364,6 +1364,143 @@ claro/escuro.
 
 ---
 
+# <span style="color:blue">Plano à parte: App Cliente — "Pedir de novo" (checagem de preço/disponibilidade) ⏳ AGUARDANDO APROVAÇÃO</span>
+
+Continuação da sprint "App Cliente — moldura, cabeçalho e Meus Pedidos" (acima). A
+decisão 9 daquela sprint deixou **de propósito** fora do escopo recriar o carrinho a
+partir de um pedido antigo com 1 toque, justamente porque preço e disponibilidade dos
+produtos podem ter mudado desde então — esta sprint implementa exatamente essa parte
+que ficou pendente.
+
+**Protótipo clicável aprovado** (atualizado na mesma URL do protótipo anterior, agora
+refeito pra seguir fielmente os componentes reais — `Menu.tsx`/`Cart.tsx`/
+`Checkout.tsx`/`OrderConfirmation.tsx` — em vez de inventar um visual novo):
+`https://claude.ai/artifact/2qgC5MNkZXrAXgtYE8iaPW`
+
+## Jornada
+
+1. Cliente abre um pedido antigo (card "Peça novamente" no Cardápio, ou um item do
+   Histórico) → cai no detalhe do pedido (`OrderConfirmation` em modo detalhe, como já
+   existe hoje).
+2. Toca em **"Pedir de novo"** (botão novo no rodapé do detalhe, ao lado do "Voltar"
+   que já existe).
+3. Tela nova **"Revisar pedido"**: checagem rápida contra o catálogo atual, cada item
+   aparece com um de 3 estados — preço igual (já marcado), preço mudou (já marcado,
+   preço antigo riscado + preço novo, pode desmarcar), indisponível (travado,
+   desmarcado, não entra na conta).
+4. Barra inferior dinâmica: "X itens selecionados · R$ subtotal atual" + "Adicionar ao
+   carrinho". Se **todos** os itens estiverem indisponíveis, mostra só o aviso + "Ver
+   cardápio atualizado" (sem botão de adicionar).
+5. Ao confirmar, os itens somam no carrinho existente (nunca substituem) e o cliente
+   cai direto no **Carrinho** pra revisar/editar antes do checkout — não finaliza
+   pedido sozinho.
+6. Se a pizzaria estiver fechada (`!mockTenant.isOpen`), o fluxo é bloqueado antes da
+   revisão, com o mesmo banner vermelho sólido já usado no Cardápio/Carrinho/Checkout.
+
+## Decisões
+
+1. **Entrada única: botão "Pedir de novo" dentro do detalhe do pedido**
+   (`OrderConfirmation.tsx` em modo detalhe) — não um ícone solto nos cards de "Peça
+   novamente"/Histórico. Mantém o fluxo de sempre passar pelo detalhe primeiro, que já
+   existe e já é familiar.
+2. **Checagem 100% client-side, contra o catálogo já carregado em memória**
+   (`mockPizzas`/`mockDrinks`/`mockSobremesas`, o mesmo `GET /catalog/products` que o
+   Cardápio já usa hoje) — **zero rota nova no backend**.
+3. **Match por `productId`/`secondProductId`** (chave real do produto), **não por
+   nome** — `ApiOrderItem` já guarda esses IDs; comparar por nome quebraria com
+   qualquer produto renomeado.
+4. **3 estados por item**:
+   - *Indisponível* — `productId` (ou `secondProductId`, pra pizza meio-a-meio) não
+     existe mais como produto ativo no catálogo atual.
+   - *Preço alterado* — produto existe, mas o preço atual pro `size` salvo é diferente
+     do `unitPrice` gravado no pedido.
+   - *Preço igual* — produto existe e o preço não mudou.
+5. **Preço cobrado/exibido é sempre o atual** — nunca reaproveita `unitPrice` do pedido
+   antigo, em nenhuma hipótese.
+6. **Itens somam no carrinho existente** (mesma lógica de merge por item que
+   `handleAddPizzaToCart`/`handleAddDrink`/`handleAddSobremesa` já fazem em
+   `App.tsx`), nunca substituem o que já estava no carrinho.
+7. **Depois de confirmar, navega pro Carrinho** (`view: 'cart'`), não direto pro
+   Checkout — cliente sempre revisa/edita quantidades antes de pagar.
+8. **Bloqueio total se a pizzaria estiver fechada** — reaproveita o mesmo
+   `!mockTenant.isOpen` e o mesmo banner (`bg-destructive` sólido) já usado em
+   `Menu.tsx`/`Cart.tsx`/`Checkout.tsx`.
+9. **Fora de escopo**: disponibilidade de **estoque de ingrediente** (módulo
+   Inventory é outra coisa, não exposto ao cliente); "indisponível" aqui significa só
+   "produto desativado/removido do cardápio pela pizzaria".
+
+## Backend (`apps/api`)
+
+**Nenhuma mudança.** O catálogo atual já é o mesmo `GET /catalog/products` que o
+Cardápio carrega; os itens do pedido antigo já vêm completos em `GET /v1/orders`
+(`items[].productId`, `secondProductId`, `size`, `unitPrice`, `quantity`, `name`).
+
+## Frontend (`apps/cliente`)
+
+### Arquivos novos
+- **`src/components/ReorderReview.tsx`** — tela "Revisar pedido": lista os itens com
+  checkbox (indisponíveis travados/desmarcados), resumo dinâmico (contagem + subtotal
+  atual), estado "tudo indisponível", bloqueio de loja fechada, e botão de confirmar
+  que devolve ao `App.tsx` a lista de `CartItem` selecionados pra merge.
+- **`src/data/reorderCheck.ts`** — função pura `checkReorderAvailability(order:
+  ApiOrder): ReorderCheckItem[]`, compara cada `ApiOrderItem` do pedido contra o
+  catálogo atual em memória (decisões 2-4) e devolve, por item: status
+  (`same`/`changed`/`unavailable`), preço atual, e o `CartItem` já pronto pra merge
+  (reconstruindo `pizza.flavors`/`pizza.size` ou `drink`/`sobremesa` a partir do
+  produto atual) quando disponível.
+
+### Arquivos alterados
+- **`src/components/OrderConfirmation.tsx`** — footer em modo detalhe ganha 2 botões
+  (hoje só tem 1): "Pedir de novo" (primário, novo, só aparece se a prop `onReorder`
+  for passada) + o botão de voltar que já existe (`backLabel`/`onBackToMenu`).
+- **`src/App.tsx`**:
+  - `ClientView` ganha o estado `'reorderReview'`.
+  - novo estado `reorderOrder: ApiOrder | null` (pedido em revisão).
+  - `handleOpenOrderFrom(origin)` passa `onReorder` pro `OrderConfirmation` quando em
+    modo detalhe (abre `ReorderReview` com esse pedido).
+  - nova função `handleConfirmReorder(items: CartItem[])` — merge no `cart` existente
+    (decisão 6), toast "`N` itens adicionados ao carrinho", `view: 'cart'`.
+- **`src/data/repository.ts`** — nenhuma mudança de tipo (já tem `ApiOrderItem`,
+  `CartItem`, catálogo em memória); só é consumido pelo `reorderCheck.ts` novo.
+
+### `packages/types`
+Nenhuma mudança — os tipos (`ApiOrderItem`, `CartItem`) já têm todo campo necessário.
+
+## Testes
+
+100% frontend, sem mudança de backend/schema — não precisa de suíte e2e nova.
+`npx tsc --noEmit` + `vite build` em `apps/cliente`, `packages/types`. Sem teste
+automatizado de UI (mesma limitação já registrada: sem browser neste ambiente) —
+validação manual pelo usuário.
+
+Cenários de validação manual:
+1. Pedido antigo com todos os itens iguais ao cardápio atual → tudo marcado, preço
+   igual, soma bate.
+2. Pedido antigo com 1 item de preço alterado no cardápio → aparece riscado + preço
+   novo, soma usa o preço novo.
+3. Pedido antigo com 1 item desativado/removido do cardápio → aparece travado/
+   indisponível, não entra na soma.
+4. Pedido 100% indisponível → sem botão de adicionar, só "Ver cardápio atualizado".
+5. Confirmar com itens já no carrinho → soma (merge), não substitui.
+6. Pizzaria fechada → fluxo bloqueado antes da revisão.
+7. Pizza meio-a-meio com um dos dois sabores desativado → item inteiro marcado
+   indisponível (não dá pra "pedir de novo" só metade).
+
+## Verificação
+
+1. `npx tsc --noEmit` + `vite build` em `apps/cliente`, `packages/types`.
+2. Smoke test manual com os 7 cenários acima.
+3. Commit + push + acompanhar o Actions run até `success`.
+
+## Dependência com outras sprints
+
+Depende da sprint "App Cliente — moldura, cabeçalho e Meus Pedidos" (acima, já
+implementada) — reaproveita `OrderConfirmation.tsx`, `ReorderSection.tsx`,
+`OrderHistory.tsx` e o estado de `cart`/`view` de `App.tsx` que ela introduziu. Não
+toca em nenhuma tabela/rota nova.
+
+---
+
 # <span style="color:blue">Plano à parte: Sprint "Equipe" — cadastro de funcionários ✅ IMPLEMENTADA em 2026-10-20 (main, suíte e2e 224/230)</span>
 
 Implementada exatamente como desenhada abaixo, incluindo o modelo de permissão por

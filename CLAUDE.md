@@ -71,6 +71,10 @@ Sprints 0–10 e boa parte de 11a–27 concluídas. Pendências abertas conhecid
   (frontend only: moldura em tela larga, drawer hambúrguer, histórico/acompanhe/"Peça
   novamente", polling que para em estado final). Falta a validação manual (ver
   `docs/TESTES_PENDENTES.md`).
+- **App Cliente — "Pedir de novo"** — ⏳ plano escrito, aguardando aprovação do
+  usuário (ver `docs/pizzaria_sprints.md`). Checagem de preço/disponibilidade atual
+  antes de somar itens de um pedido antigo ao carrinho; frontend only, zero mudança de
+  backend.
 - Backlog sem sprint definida: pagamento online, WhatsApp, MFA, WebSocket/realtime,
   LGPD formal, pentest externo, observabilidade completa, particionamento de
   `orders`, Redis real em produção, vault de secrets dedicado, code-splitting.
