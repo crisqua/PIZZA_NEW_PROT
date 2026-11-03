@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { getMyOrdersLastDays, ApiOrder } from '../data/repository';
 import { Badge } from '@pizza/ui';
@@ -11,6 +11,7 @@ interface ReorderSectionProps {
 
 const RECENT_WINDOW_DAYS = 30;
 const MAX_CARDS = 5;
+const MIN_THUMB_PCT = 15;
 
 // Binding de modulo (mesmo padrao de mockPizzas/mockCategories em repository.ts) --
 // sobrevive a remontagem do componente. Bug real reportado pelo usuario: Menu.tsx
@@ -31,6 +32,8 @@ let cachedOrders: ApiOrder[] = [];
 // silenciosa: e' um atalho, nunca pode atrapalhar o cardapio.
 export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
   const [orders, setOrders] = useState<ApiOrder[]>(cachedOrders);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [thumb, setThumb] = useState({ widthPct: 100, leftPct: 0 });
 
   useEffect(() => {
     let cancelled = false;
@@ -46,18 +49,38 @@ export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
     };
   }, []);
 
+  // Barra fina embaixo do carrossel: so' um indicador visual (nao e' clicavel/
+  // arrastavel) de quanto da lista esta visivel e a posicao do scroll, pra sinalizar
+  // "tem mais pra arrastar" quando ha mais de 2 pedidos.
+  const updateThumb = () => {
+    const el = scrollerRef.current;
+    if (!el || el.scrollWidth <= 0) return;
+    const widthPct = Math.max(Math.min(100, (el.clientWidth / el.scrollWidth) * 100), MIN_THUMB_PCT);
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    const scrollPct = maxScroll > 0 ? el.scrollLeft / maxScroll : 0;
+    setThumb({ widthPct, leftPct: scrollPct * (100 - widthPct) });
+  };
+
+  useEffect(() => {
+    updateThumb();
+  }, [orders]);
+
   if (orders.length === 0) return null;
 
   return (
     <div className="pt-7">
       <SectionDivider label="PEÇA NOVAMENTE" />
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div
+        ref={scrollerRef}
+        onScroll={updateThumb}
+        className="mt-4 flex gap-2 overflow-x-auto -mx-6 px-6 snap-x snap-mandatory"
+      >
         {orders.map((order) => (
           <button
             key={order.id}
             type="button"
             onClick={() => onOpenOrder(order)}
-            className="text-left border border-border rounded-lg p-2 min-w-0 hover:bg-secondary transition-colors"
+            className="shrink-0 basis-[calc(50%-4px)] min-w-0 snap-start text-left border border-border rounded-lg p-2 hover:bg-secondary transition-colors"
           >
             <div className="flex items-center justify-between gap-1">
               <Badge variant={statusVariant(order.status)} className="px-1.5 py-0.5 text-[9px]">
@@ -79,6 +102,14 @@ export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
           </button>
         ))}
       </div>
+      {orders.length > 2 && (
+        <div className="mt-2.5 mx-6 h-[3px] bg-border rounded-full relative overflow-hidden">
+          <div
+            className="absolute inset-y-0 bg-primary rounded-full"
+            style={{ width: `${thumb.widthPct}%`, left: `${thumb.leftPct}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }
