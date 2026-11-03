@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { getMyOrdersLastDays, ApiOrder } from '../data/repository';
-import { Badge, formatCurrency } from '@pizza/ui';
+import { Badge } from '@pizza/ui';
 import { SectionDivider } from './SectionDivider';
 import { STATUS_LABEL, statusVariant, formatOrderDate, summarizeItems } from './orderDisplay';
 
@@ -49,25 +49,23 @@ export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
   return (
     <div className="pt-7">
       <SectionDivider label="PEÇA NOVAMENTE" />
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 space-y-2">
         {orders.map((order) => (
           <button
             key={order.id}
             type="button"
             onClick={() => onOpenOrder(order)}
-            className="w-full text-left border border-border rounded-xl p-4 flex items-center gap-3 hover:bg-secondary transition-colors"
+            className="w-full text-left border border-border rounded-lg p-3 flex items-center gap-2.5 hover:bg-secondary transition-colors"
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground">
-                  #{order.orderCode} · {formatOrderDate(order.createdAt)}
-                </span>
+                <span className="text-xs font-semibold text-foreground">Pedido #{order.orderCode}</span>
                 <Badge variant={statusVariant(order.status)}>{STATUS_LABEL[order.status]}</Badge>
               </div>
-              <p className="text-sm text-foreground mt-1.5 truncate">{summarizeItems(order) || 'Ver detalhes do pedido'}</p>
-              <p className="font-serif text-primary font-semibold mt-1">{formatCurrency(order.total)}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Data: {formatOrderDate(order.createdAt)}</p>
+              <p className="text-xs text-foreground mt-1 truncate">Itens: {summarizeItems(order) || 'Ver detalhes do pedido'}</p>
             </div>
-            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           </button>
         ))}
       </div>
