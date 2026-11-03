@@ -33,6 +33,7 @@ let cachedOrders: ApiOrder[] = [];
 export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
   const [orders, setOrders] = useState<ApiOrder[]>(cachedOrders);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const [thumb, setThumb] = useState({ widthPct: 100, leftPct: 0 });
 
   useEffect(() => {
@@ -49,9 +50,11 @@ export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
     };
   }, []);
 
-  // Barra fina embaixo do carrossel: so' um indicador visual (nao e' clicavel/
-  // arrastavel) de quanto da lista esta visivel e a posicao do scroll, pra sinalizar
-  // "tem mais pra arrastar" quando ha mais de 2 pedidos.
+  // Barra fina embaixo do carrossel: reflete quanto da lista esta visivel e a posicao
+  // do scroll, e TAMBEM funciona como scrollbar de verdade -- clicar nela pula pra
+  // posicao, arrastar rola junto. Necessario pra quem usa mouse sem touch/trackpad
+  // horizontal: a scrollbar nativa foi escondida de proposito (ver .no-scrollbar),
+  // entao sem isso nao haveria nenhum jeito de navegar via clique/arrasto.
   const updateThumb = () => {
     const el = scrollerRef.current;
     if (!el || el.scrollWidth <= 0) return;
@@ -64,6 +67,26 @@ export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
   useEffect(() => {
     updateThumb();
   }, [orders]);
+
+  const seekToClientX = (clientX: number) => {
+    const scroller = scrollerRef.current;
+    const track = trackRef.current;
+    if (!scroller || !track) return;
+    const rect = track.getBoundingClientRect();
+    const pct = rect.width > 0 ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0;
+    scroller.scrollLeft = pct * (scroller.scrollWidth - scroller.clientWidth);
+  };
+
+  const handleTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    seekToClientX(e.clientX);
+    const onMove = (ev: PointerEvent) => seekToClientX(ev.clientX);
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
 
   if (orders.length === 0) return null;
 
@@ -103,11 +126,17 @@ export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
         ))}
       </div>
       {orders.length > 2 && (
-        <div className="mt-2.5 mx-6 h-[3px] bg-border rounded-full relative overflow-hidden">
-          <div
-            className="absolute inset-y-0 bg-primary rounded-full"
-            style={{ width: `${thumb.widthPct}%`, left: `${thumb.leftPct}%` }}
-          />
+        <div
+          ref={trackRef}
+          onPointerDown={handleTrackPointerDown}
+          className="mt-2.5 mx-6 h-2.5 flex items-center cursor-pointer touch-none"
+        >
+          <div className="w-full h-[3px] bg-border rounded-full relative overflow-hidden">
+            <div
+              className="absolute inset-y-0 bg-primary rounded-full pointer-events-none"
+              style={{ width: `${thumb.widthPct}%`, left: `${thumb.leftPct}%` }}
+            />
+          </div>
         </div>
       )}
     </div>
