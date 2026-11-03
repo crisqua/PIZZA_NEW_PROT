@@ -78,6 +78,14 @@ export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
   };
 
   const handleTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Sem isso o navegador trata o arrasto do mouse como selecao de texto da pagina
+    // inteira (achado real do usuario: arrastar a barra selecionava as abas de
+    // categoria em azul). preventDefault() evita o gesto nativo; user-select no body
+    // e' reforco pra cobrir navegador que ainda tentar selecionar mesmo assim.
+    e.preventDefault();
+    const prevUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+
     const scroller = scrollerRef.current;
     // O scroll-snap (snap-x snap-mandatory, pros cards travarem de 2 em 2) briga com
     // scrollLeft setado via script durante um arrasto continuo -- o navegador tenta
@@ -91,6 +99,7 @@ export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       if (scroller) scroller.style.scrollSnapType = '';
+      document.body.style.userSelect = prevUserSelect;
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
