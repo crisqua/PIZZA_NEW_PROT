@@ -78,11 +78,19 @@ export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
   };
 
   const handleTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const scroller = scrollerRef.current;
+    // O scroll-snap (snap-x snap-mandatory, pros cards travarem de 2 em 2) briga com
+    // scrollLeft setado via script durante um arrasto continuo -- o navegador tenta
+    // "puxar" de volta pro ponto de snap mais proximo a cada ajuste, travando o
+    // arrasto da barra (achado real do usuario: "trava, nao desliza"). Desliga o
+    // snap so' enquanto o dedo/mouse esta arrastando a barra e devolve no fim.
+    if (scroller) scroller.style.scrollSnapType = 'none';
     seekToClientX(e.clientX);
     const onMove = (ev: PointerEvent) => seekToClientX(ev.clientX);
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      if (scroller) scroller.style.scrollSnapType = '';
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
