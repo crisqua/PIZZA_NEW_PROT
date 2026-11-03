@@ -49,31 +49,31 @@ export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
   return (
     <div className="pt-7">
       <SectionDivider label="PEÇA NOVAMENTE" />
-      <div className="mt-4 space-y-1.5">
+      <div className="mt-4 grid grid-cols-2 gap-2">
         {orders.map((order) => (
           <button
             key={order.id}
             type="button"
             onClick={() => onOpenOrder(order)}
-            className="w-full text-left border border-border rounded-lg p-2 flex items-center gap-1.5 hover:bg-secondary transition-colors"
+            className="text-left border border-border rounded-lg p-2 min-w-0 hover:bg-secondary transition-colors"
           >
-            <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-1">
               <Badge variant={statusVariant(order.status)} className="px-1.5 py-0.5 text-[9px]">
                 {STATUS_LABEL[order.status]}
               </Badge>
-              <p className="text-[11px] font-semibold text-foreground mt-1">Pedido #{order.orderCode}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Data: {formatOrderDate(order.createdAt)}</p>
-              {order.items?.length ? (
-                order.items.map((item) => (
-                  <p key={item.id} className="text-[10px] text-foreground mt-0.5 truncate">
-                    {item.quantity}x {item.name}
-                  </p>
-                ))
-              ) : (
-                <p className="text-[10px] text-foreground mt-0.5">Ver detalhes do pedido</p>
-              )}
+              <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
             </div>
-            <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
+            <p className="text-[11px] font-semibold text-foreground mt-1 truncate">Pedido #{order.orderCode}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">Data: {formatOrderDate(order.createdAt)}</p>
+            {order.items?.length ? (
+              order.items.map((item) => (
+                <p key={item.id} className="text-[10px] text-foreground mt-0.5 truncate">
+                  {item.quantity}x {item.name}
+                </p>
+              ))
+            ) : (
+              <p className="text-[10px] text-foreground mt-0.5">Ver detalhes do pedido</p>
+            )}
           </button>
         ))}
       </div>
