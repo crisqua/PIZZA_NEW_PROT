@@ -10,7 +10,7 @@ interface ReorderSectionProps {
 }
 
 const RECENT_WINDOW_DAYS = 30;
-const MAX_CARDS = 2;
+const MAX_CARDS = 5;
 
 // Binding de modulo (mesmo padrao de mockPizzas/mockCategories em repository.ts) --
 // sobrevive a remontagem do componente. Bug real reportado pelo usuario: Menu.tsx
@@ -22,11 +22,13 @@ const MAX_CARDS = 2;
 // (sem sumir da tela) e so revalida em segundo plano.
 let cachedOrders: ApiOrder[] = [];
 
-// "Peca novamente" no topo do Cardapio: os 2 pedidos mais recentes do cliente logado.
-// So' renderiza se houver pelo menos 1 pedido (e so' e' montada com o cliente logado --
-// Menu.tsx controla isso). Por ora o card abre o DETALHE do pedido; recriar o carrinho
-// com 1 toque ficou de fora de proposito (precos/disponibilidade podem ter mudado).
-// Falha de rede e' silenciosa: e' um atalho, nunca pode atrapalhar o cardapio.
+// "Peca novamente" no topo do Cardapio: ate 5 pedidos mais recentes dos ultimos 30
+// dias do cliente logado -- so' um atalho rapido, o historico completo com filtros
+// fica na tela "Historico de pedidos" (OrderHistory.tsx). So' renderiza se houver pelo
+// menos 1 pedido (e so' e' montada com o cliente logado -- Menu.tsx controla isso).
+// Por ora o card abre o DETALHE do pedido; recriar o carrinho com 1 toque ficou de
+// fora de proposito (precos/disponibilidade podem ter mudado). Falha de rede e'
+// silenciosa: e' um atalho, nunca pode atrapalhar o cardapio.
 export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
   const [orders, setOrders] = useState<ApiOrder[]>(cachedOrders);
 
