@@ -73,7 +73,7 @@ export function ReorderSection({ onOpenOrder }: ReorderSectionProps) {
       <div
         ref={scrollerRef}
         onScroll={updateThumb}
-        className="mt-4 flex gap-2 overflow-x-auto -mx-6 px-6 snap-x snap-mandatory"
+        className="mt-4 flex gap-2 overflow-x-auto -mx-6 px-6 snap-x snap-mandatory no-scrollbar"
       >
         {orders.map((order) => (
           <button

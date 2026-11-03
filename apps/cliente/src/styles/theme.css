@@ -278,3 +278,15 @@ transform ficasse no elemento que rola, os `fixed` rolariam junto com o conteudo
     min-height: var(--frame-h);
   }
 }
+
+/* Esconde a barra de rolagem nativa de um scroller horizontal que ja tem seu proprio
+indicador visual (ex.: carrossel "Peca novamente") -- sem isso a barra cinza do
+navegador aparecia colada em cima do indicador customizado, parecendo "duas barras"
+(achado real do usuario). Fora da moldura de proposito: vale em qualquer largura, nao
+so' quando a moldura esta ativa. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
