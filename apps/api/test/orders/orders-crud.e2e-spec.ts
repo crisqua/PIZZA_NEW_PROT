@@ -554,23 +554,24 @@ describe('/v1/orders', () => {
   });
 
   // "Produtos Mais Vendidos (Mensal)" -- soma no banco (groupBy), so' pedidos completed
-  // dos ultimos 30 dias corridos.
-  it('GET /orders/top-products soma so pedidos completed dentro dos ultimos 30 dias', async () => {
+  // dentro do mes-calendario atual (Sprint 36 -- antes era janela deslizante de 30 dias).
+  it('GET /orders/top-products soma so pedidos completed dentro do mes-calendario atual', async () => {
     const withinWindow = await request(app.getHttpServer())
       .post('/v1/orders')
       .set('Authorization', `Bearer ${customerToken}`)
       .set('Idempotency-Key', randomUUID())
       .send({ items: [{ productId: drinkA.id, quantity: 2 }], phone: '119999', address: 'Rua Top', paymentMethod: 'dinheiro', cep: VALID_CEP })
       .expect(201);
-    // Fora da janela de 30 dias -- quantidade bem maior, se contasse dominaria a soma
-    // (prova que realmente foi excluido, nao so' coincidencia de numero pequeno).
+    // Fora do mes atual -- quantidade bem maior, se contasse dominaria a soma (prova
+    // que realmente foi excluido, nao so' coincidencia de numero pequeno). 40 dias
+    // corridos atras cai sempre num mes anterior (nenhum mes tem mais de 31 dias).
     const outsideWindow = await request(app.getHttpServer())
       .post('/v1/orders')
       .set('Authorization', `Bearer ${customerToken}`)
       .set('Idempotency-Key', randomUUID())
       .send({ items: [{ productId: drinkA.id, quantity: 50 }], phone: '119999', address: 'Rua Top', paymentMethod: 'dinheiro', cep: VALID_CEP })
       .expect(201);
-    // Dentro da janela, mas nunca fica completed -- tambem nao deveria contar.
+    // Dentro do mes atual, mas nunca fica completed -- tambem nao deveria contar.
     const neverCompleted = await request(app.getHttpServer())
       .post('/v1/orders')
       .set('Authorization', `Bearer ${customerToken}`)

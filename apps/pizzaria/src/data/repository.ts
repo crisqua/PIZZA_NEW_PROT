@@ -406,9 +406,10 @@ export interface TopProduct {
   revenue: number;
 }
 
-// "Produtos Mais Vendidos (Mensal)" -- ultimos 30 dias corridos, somado no BACKEND (ver
-// OrdersService.topProducts). Antes disso, Dashboard.tsx baixava o historico de pedidos
-// inteiro so' pra esse calculo, sem limite de tempo.
+// "Produtos Mais Vendidos (Mensal)" -- mes-calendario atual (Sprint 36; ate entao era
+// janela deslizante de 30 dias), somado no BACKEND (ver OrdersService.topProducts).
+// Antes disso, Dashboard.tsx baixava o historico de pedidos inteiro so' pra esse
+// calculo, sem limite de tempo.
 export async function getTopProducts(): Promise<TopProduct[]> {
   return apiFetch<TopProduct[]>('/orders/top-products');
 }

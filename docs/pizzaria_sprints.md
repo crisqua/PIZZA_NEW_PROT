@@ -1877,6 +1877,20 @@ depender do texto do cargo.
   já conhecida — CNPJ duplicado por dado sujo no homolog, ver Sprint 35 — não
   relacionada a esta mudança).
 
+**2º adendo no mesmo dia — "Produtos Mais Vendidos" vira mês-calendário**: olhando o
+card no Dashboard, o usuário perguntou se a janela era "mês atual ou 30 dias corridos
+pra trás" — era 30 dias corridos (decisão original da Sprint 24, para o card nunca
+ficar com pouco dado logo no dia 1). Pedido do usuário: trocar pra mês-calendário
+("acho que fica até mais performático e é o dash daquele mês"). Mudou só
+`apps/api/src/orders/orders.service.ts` (`topProducts`): em vez de
+`Date.now() - 30 dias`, `since` passa a ser o dia 1 00:00 UTC do mês corrente
+(`Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)`). Teste e2e correspondente
+(`orders-crud.e2e-spec.ts`) atualizado (comentário + título; a asserção em si não
+mudou — um pedido criado "40 dias atrás" cai sempre num mês anterior, já que nenhum
+mês tem mais de 31 dias, então continua corretamente excluído pela nova regra).
+`npx tsc --noEmit` limpo; teste rodado isolado (`-t "top-products"`, `--testTimeout
+30000` por lentidão pontual do homolog nesta sessão) — **2/2 verde**.
+
 ## Dependência com outras sprints
 
 **Nenhuma.** Não muda schema (reaproveita a coluna `User.permissions`, já existente

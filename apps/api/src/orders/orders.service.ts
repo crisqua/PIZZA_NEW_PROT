@@ -299,12 +299,16 @@ export class OrdersService {
     return orders.map(toOrderResponse);
   }
 
-  // "Produtos Mais Vendidos (Mensal)" (Sprint 24, item 2b) -- ultimos 30 dias corridos
-  // (nao mes-calendario, decisao do usuario: evita ficar com pouco dado logo apos o dia
-  // 1). Soma no BANCO (groupBy), nao traz todo item de pedido pro cliente somar -- antes
-  // disso, Dashboard.tsx baixava o historico de pedidos inteiro so' pra esse calculo.
+  // "Produtos Mais Vendidos (Mensal)" (Sprint 24, item 2b) -- ate a Sprint 36 era uma
+  // janela deslizante de 30 dias corridos (decisao original: evitar ficar com pouco
+  // dado logo apos o dia 1). Trocado pra MES-CALENDARIO atual (decisao do usuario,
+  // Sprint 36): o rotulo "(Mensal)" devia refletir literalmente o mes corrente, nao uma
+  // janela deslizante -- dia 1 00:00 UTC ate agora. Soma no BANCO (groupBy), nao traz
+  // todo item de pedido pro cliente somar -- antes disso, Dashboard.tsx baixava o
+  // historico de pedidos inteiro so' pra esse calculo.
   async topProducts(tx: TenantTx, limit: number) {
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
     const grouped = await tx.orderItem.groupBy({
       by: ['name'],
       where: { order: { status: 'completed', createdAt: { gte: since } } },
