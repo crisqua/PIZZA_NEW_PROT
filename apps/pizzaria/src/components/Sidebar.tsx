@@ -2,6 +2,7 @@ import { LayoutDashboard, Pizza, ShoppingBag, Settings, LogOut, Package, Wallet,
 import { cn, Sidebar as SidebarShell } from '@pizza/ui';
 import { AddonId } from '@pizza/types';
 import { StaffPermission, UserRole } from '../data/repository';
+import { StoreOpenToggle } from './StoreOpenToggle';
 
 interface SidebarProps {
   activePage: string;
@@ -54,13 +55,22 @@ export function Sidebar({
       mobileTitle={tenantName}
       widthClassName="w-72"
       header={
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center text-2xl text-primary-foreground">
-            {tenantLogo}
+        <div className="p-6 flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center text-2xl text-primary-foreground">
+              {tenantLogo}
+            </div>
+            <div>
+              <h2 className="font-bold text-lg text-foreground">{tenantName}</h2>
+              <p className="text-xs text-muted-foreground">Painel de Gestão</p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-bold text-lg text-foreground">{tenantName}</h2>
-            <p className="text-xs text-muted-foreground">Painel de Gestão</p>
+          {/* "Loja Aberta" era repetido no cabecalho do Dashboard e de Pedidos (cada
+          tela com sua propria copia) -- um unico lugar aqui, visivel em toda tela do
+          painel, elimina a duplicacao e resolve o pedido do usuario de ver isso
+          "embaixo do nome da pizzaria". */}
+          <div className="self-start">
+            <StoreOpenToggle />
           </div>
         </div>
       }

@@ -71,6 +71,7 @@ antes.
 | 33 | App Cliente — moldura, cabeçalho e Meus Pedidos | ✅ (implementada, validação manual pendente) |
 | 34 | App Cliente — "Pedir de novo" (preço/disponibilidade) | ⏳ (aguardando aprovação) |
 | 35 | Equipe (cadastro de funcionários) | ✅ |
+| 36 | Painel Pizzaria — identidade do usuário + "Loja Aberta" única na sidebar | ✅ |
 
 Backlog sem sprint definida: pagamento online, notificações WhatsApp, MFA,
 WebSocket/realtime, exportação/exclusão LGPD formal, pentest externo, observabilidade
@@ -1801,6 +1802,47 @@ Novo `test/tenants/staff-crud.e2e-spec.ts`:
 **Nenhuma.** Mexe só em `User` (tabela já existente, RLS já correta) e cria rotas
 novas sob `/tenants/me/staff` — não toca em `orders`/`catalog`/`financial`/
 `inventory` nem em nenhuma sprint pendente.
+
+---
+
+# <span style="color:blue">Sprint 36 — Painel Pizzaria: identidade do usuário + "Loja Aberta" única na sidebar ✅ IMPLEMENTADA em 2026-11-10</span>
+
+Pedido do usuário ("não consegui identificar o usuário" olhando um print do
+Dashboard). Protótipo iterado ao vivo (4 posições testadas antes de fechar: rodapé da
+sidebar, topo da sidebar empilhado com o nome da pizzaria, faixa full-width acima de
+tudo, chip no cabeçalho do Dashboard) —
+`https://claude.ai/artifact/1YV4JdRS4uj77W9woLm2k6`. Decisão final do usuário: "Loja
+Aberta" sai do cabeçalho de cada tela e vira único, na sidebar, embaixo do nome da
+pizzaria; "Olá, {primeiro nome}" + cargo (Dono/Funcionário) fica no cabeçalho do
+Dashboard, ao lado do título.
+
+**Achado de investigação (antes de desenhar)**: o painel não tem nenhuma barra
+persistente — cada tela (`Dashboard.tsx`, `OrdersPanel.tsx`, ...) renderiza seu próprio
+cabeçalho; o único elemento comum a toda tela é a `Sidebar.tsx`. O backend já devolvia
+`name`/`email` do usuário logado em `GET /users/me` (`PUBLIC_USER_SELECT` em
+`users.controller.ts`) — o frontend (`repository.ts`'s `MeResponse`) simplesmente
+descartava esses campos. **Zero mudança de backend.**
+
+**O que mudou** (frontend only, `apps/pizzaria`):
+- `data/repository.ts` — `MeResponse`/`currentUser` passam a guardar `name`.
+- `components/Sidebar.tsx` — cabeçalho vira `flex-col`; `<StoreOpenToggle />` entra
+  embaixo do bloco logo+nome+"Painel de Gestão", dentro do mesmo card (`self-start`
+  pra não esticar a pílula pela largura toda).
+- `components/Dashboard.tsx` — remove o `<StoreOpenToggle />` duplicado do cabeçalho;
+  acrescenta avatar (iniciais) + "Olá, {primeiro nome}" + rótulo do papel
+  (`currentUser.role === 'tenant_owner' ? 'Dono' : 'Funcionário'`) ao lado do título.
+- `components/OrdersPanel.tsx` — remove o `<StoreOpenToggle />` duplicado (também
+  tinha seu próprio `useState` local, dessincronizado do Dashboard até trocar de
+  tela — bug latente que a unificação na sidebar elimina de graça).
+- `components/StoreOpenToggle.tsx` — comentário atualizado: único ponto de uso agora
+  é a Sidebar.
+
+`npx tsc --noEmit` e `npx vite build` limpos em `apps/pizzaria`.
+
+## Dependência com outras sprints
+
+**Nenhuma.** Só toca componentes de `apps/pizzaria`; não muda schema, rota de API
+nem nenhum outro frontend.
 
 ---
 

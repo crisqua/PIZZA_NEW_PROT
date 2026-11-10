@@ -44,9 +44,10 @@ export let unlockedModules: AddonId[] = [];
 export type UserRole = 'platform_superadmin' | 'tenant_owner' | 'tenant_staff' | 'customer';
 export type StaffPermission = 'pedidos' | 'cardapio' | 'estoque' | 'financeiro';
 
-export let currentUser: { role: UserRole; permissions: StaffPermission[] } = {
+export let currentUser: { role: UserRole; permissions: StaffPermission[]; name: string } = {
   role: 'tenant_owner',
   permissions: [],
+  name: '',
 };
 
 // tenant_owner nunca e' restringido por "permissions" (decisao 9) -- so' tenant_staff
@@ -140,6 +141,7 @@ interface SubscriptionResponse {
 interface MeResponse {
   role: UserRole;
   permissions: StaffPermission[] | null;
+  name: string;
 }
 
 interface CategoryResponse {
@@ -195,7 +197,7 @@ export async function loadDashboardBoot(): Promise<void> {
     apiFetch<MeResponse>('/users/me'),
   ]);
 
-  currentUser = { role: me.role, permissions: me.permissions ?? [] };
+  currentUser = { role: me.role, permissions: me.permissions ?? [], name: me.name };
 
   // Sprint "Equipe" -- categorias/produtos agora sao gateados pela permissao
   // "cardapio" (StaffPermissionGuard). Um funcionario sem essa permissao ainda precisa

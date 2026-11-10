@@ -79,6 +79,10 @@ nenhum item "sem número" nesse doc. Pendências abertas conhecidas:
   preço/disponibilidade atual antes de somar itens de um pedido antigo ao carrinho;
   frontend only, zero mudança de backend. Entrada confirmada: botão no rodapé do
   detalhe do pedido (`OrderConfirmation.tsx`), ao lado do "Voltar".
+- **Sprint 36 — Painel Pizzaria: identidade do usuário + "Loja Aberta" única** — ✅
+  implementada em 2026-11-10 (frontend only, `apps/pizzaria`). "Olá, {nome}" + cargo
+  no cabeçalho do Dashboard; "Loja Aberta" saiu de Dashboard/Pedidos (duplicados) e
+  virou único, na Sidebar, embaixo do nome da pizzaria.
 - Backlog sem sprint definida: pagamento online, WhatsApp, MFA, WebSocket/realtime,
   LGPD formal, pentest externo, observabilidade completa, particionamento de
   `orders`, Redis real em produção, vault de secrets dedicado, code-splitting.

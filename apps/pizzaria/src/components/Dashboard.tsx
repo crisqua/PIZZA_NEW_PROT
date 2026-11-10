@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { DollarSign, ShoppingBag, Users, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, formatCurrency } from '@pizza/ui';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { getOrders, getRevenue, getTopProducts, ApiOrder, DailyRevenue, TopProduct } from '../data/repository';
-import { StoreOpenToggle } from './StoreOpenToggle';
+import { getOrders, getRevenue, getTopProducts, ApiOrder, DailyRevenue, TopProduct, currentUser } from '../data/repository';
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -20,6 +19,14 @@ function businessDayRange(now: Date): { from: Date; to: Date } {
   const from = now >= cutoffToday ? cutoffToday : new Date(cutoffToday.getTime() - 24 * 60 * 60 * 1000);
   const to = new Date(from.getTime() + 24 * 60 * 60 * 1000);
   return { from, to };
+}
+
+function initialsFrom(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  const first = parts[0][0] ?? '';
+  const last = parts.length > 1 ? parts[parts.length - 1][0] ?? '' : '';
+  return (first + last).toUpperCase();
 }
 
 // Antes desta sprint, TODO numero aqui era inventado (sem nenhum import de repository/
@@ -80,7 +87,17 @@ export function Dashboard() {
           <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
           <p className="text-muted-foreground">Visão geral do seu negócio</p>
         </div>
-        <StoreOpenToggle />
+        {currentUser.name && (
+          <div className="flex items-center gap-2.5">
+            <div className="w-[34px] h-[34px] rounded-full bg-muted border border-border flex items-center justify-center text-xs font-bold text-primary shrink-0">
+              {initialsFrom(currentUser.name)}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">Olá, {currentUser.name.split(' ')[0]}</p>
+              <p className="text-xs text-muted-foreground">{currentUser.role === 'tenant_owner' ? 'Dono' : 'Funcionário'}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
