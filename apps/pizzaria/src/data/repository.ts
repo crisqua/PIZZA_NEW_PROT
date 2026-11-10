@@ -42,7 +42,7 @@ export let unlockedModules: AddonId[] = [];
 // papel pra nada ate agora -- so' existia tenant_owner de verdade usando este painel).
 // Sidebar.tsx usa isto pra decidir o que mostrar; App.tsx usa pra gatear as telas.
 export type UserRole = 'platform_superadmin' | 'tenant_owner' | 'tenant_staff' | 'customer';
-export type StaffPermission = 'pedidos' | 'cardapio' | 'estoque' | 'financeiro';
+export type StaffPermission = 'pedidos' | 'cardapio' | 'estoque' | 'financeiro' | 'loja';
 
 export let currentUser: { role: UserRole; permissions: StaffPermission[]; name: string } = {
   role: 'tenant_owner',

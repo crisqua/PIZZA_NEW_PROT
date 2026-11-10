@@ -1839,10 +1839,50 @@ descartava esses campos. **Zero mudança de backend.**
 
 `npx tsc --noEmit` e `npx vite build` limpos em `apps/pizzaria`.
 
+**Adendo no mesmo dia — nova permissão "loja"**: o usuário notou, já olhando o
+resultado no ar, que **qualquer funcionário** conseguia abrir/fechar a loja (não só o
+dono). Investigação confirmou: `PATCH /tenants/me` tinha `@Roles('tenant_owner',
+'tenant_staff')` no controller inteiro, **sem nenhum** `@RequiresStaffPermission()` —
+decisão original da Sprint "Equipe" (ver Sprint 35) deixou "configurações" de
+propósito sem gate granular. Antes desta sprint o botão só aparecia em Dashboard/
+Pedidos (que qualquer funcionário já acessa); a unificação na sidebar tornou esse
+buraco visível em toda tela, e o usuário pediu pra restringir: **"acho que o gerente
+e dono devem ter permissão para abrir ou fechar"**. Como "cargo" (`position`) é texto
+livre e não dá pra usar como gate confiável, a solução foi criar uma 5ª permissão no
+mesmo vocabulário fechado de Pedidos/Cardápio/Estoque/Financeiro: **"loja"** — o dono
+marca o checkbox pra quem quiser (ex. o funcionário com cargo "Gerente"), sem
+depender do texto do cargo.
+
+**O que mudou**:
+- `apps/api/src/tenants/staff-permissions.ts` — `STAFF_PERMISSIONS` ganha `'loja'`
+  (sem entrada em `STAFF_PERMISSION_MODULE`: é feature core, não exige módulo pago,
+  igual pedidos/cardápio). DTOs de criar/editar funcionário já validam o novo valor
+  automaticamente (`@IsIn(STAFF_PERMISSIONS)`).
+- `apps/api/src/tenants/tenants.controller.ts` (`updateMe`) — check manual (não dá
+  pra usar `@RequiresStaffPermission()` na rota inteira, porque o mesmo PATCH edita
+  telefone/endereço/taxa de entrega, que continuam liberados pra qualquer
+  `tenant_staff`): se `dto.isOpen` veio no body e o usuário é `tenant_staff` sem
+  `'loja'` em `permissions`, 403. `tenant_owner` nunca é restringido.
+- `apps/pizzaria/src/data/repository.ts` — `StaffPermission` ganha `'loja'`.
+- `apps/pizzaria/src/components/Equipe.tsx` — checkbox "Loja (abrir/fechar)" na
+  tela de cadastro/edição de funcionário, ao lado de Pedidos/Cardápio (sempre
+  disponível, sem depender de módulo contratado).
+- `apps/pizzaria/src/components/Sidebar.tsx` — `<StoreOpenToggle />` só renderiza se
+  `role === 'tenant_owner' || permissions.includes('loja')`; defesa em profundidade
+  (o backend já rejeita o PATCH sem a permissão de qualquer forma).
+- `apps/api/test/tenants/tenants-me-isolation.e2e-spec.ts` — 2 casos novos:
+  `tenant_staff` sem `'loja'` recebe 403 no `isOpen` mas continua editando outros
+  campos (phone) normalmente; `tenant_staff` com `'loja'` consegue abrir/fechar.
+  Rodado isolado localmente contra o Supabase homolog: **16/17 verde** (a 1 falha é a
+  já conhecida — CNPJ duplicado por dado sujo no homolog, ver Sprint 35 — não
+  relacionada a esta mudança).
+
 ## Dependência com outras sprints
 
-**Nenhuma.** Só toca componentes de `apps/pizzaria`; não muda schema, rota de API
-nem nenhum outro frontend.
+**Nenhuma.** Não muda schema (reaproveita a coluna `User.permissions`, já existente
+desde a Sprint "Equipe"); o adendo da permissão "loja" só adiciona uma checagem a mais
+dentro de `PATCH /tenants/me`, não cria rota nova nem toca em `orders`/`catalog`/
+`financial`/`inventory`.
 
 ---
 

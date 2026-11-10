@@ -26,6 +26,12 @@ export function Sidebar({
   permissions,
 }: SidebarProps) {
   const isOwner = role === 'tenant_owner';
+  // Sprint 36 -- "Loja Aberta" passou a exigir a permissao "loja" pra tenant_staff
+  // (pedido do usuario: so' Dono e quem tiver essa permissao, ex. Gerente, deve poder
+  // abrir/fechar a loja). O backend ja' rejeita o PATCH sem a permissao
+  // (TenantsController.updateMe) -- esconder o botao aqui e' so' a UI refletindo a
+  // mesma regra, nao e' o unico portao.
+  const canToggleStore = isOwner || permissions.includes('loja');
 
   const allItems: { id: string; name: string; icon: typeof LayoutDashboard; addonId?: AddonId; permission?: StaffPermission; ownerOnly?: boolean }[] = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
@@ -68,10 +74,13 @@ export function Sidebar({
           {/* "Loja Aberta" era repetido no cabecalho do Dashboard e de Pedidos (cada
           tela com sua propria copia) -- um unico lugar aqui, visivel em toda tela do
           painel, elimina a duplicacao e resolve o pedido do usuario de ver isso
-          "embaixo do nome da pizzaria". */}
-          <div className="self-start">
-            <StoreOpenToggle />
-          </div>
+          "embaixo do nome da pizzaria". So' renderiza pra quem pode de fato usar
+          (ver canToggleStore acima) -- funcionario sem a permissao nem ve o botao. */}
+          {canToggleStore && (
+            <div className="self-start">
+              <StoreOpenToggle />
+            </div>
+          )}
         </div>
       }
       footer={

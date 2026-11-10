@@ -4,7 +4,13 @@
 // desta lista: configuracoes continua com o mesmo acesso que tenant_staff ja tinha antes
 // desta sprint (sem mudanca de RBAC), e Equipe e' owner-only sempre (nem aparece como
 // opcao de permissao).
-export const STAFF_PERMISSIONS = ['pedidos', 'cardapio', 'estoque', 'financeiro'] as const;
+// "loja" (Sprint 36) e' excecao a essa regra: nao tem @RequiresStaffPermission() num
+// controller inteiro, porque ela gateia so' UM CAMPO (isOpen) dentro de PATCH
+// /tenants/me, que continua aberto pra tenant_staff editar o resto (telefone,
+// endereco, taxa de entrega) -- ver o check manual em TenantsController.updateMe().
+// Pedido do usuario: so' Dono e quem tiver "loja" marcada (ex. Gerente) pode abrir/
+// fechar a loja.
+export const STAFF_PERMISSIONS = ['pedidos', 'cardapio', 'estoque', 'financeiro', 'loja'] as const;
 
 export type StaffPermission = (typeof STAFF_PERMISSIONS)[number];
 

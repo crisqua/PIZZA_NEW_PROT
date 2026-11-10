@@ -149,6 +149,61 @@ describe('/v1/tenants/me — self-service', () => {
       .expect(200);
   });
 
+  it('tenant_staff sem permissao "loja" recebe 403 ao tentar abrir/fechar a loja (Sprint 36)', async () => {
+    const staff = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'me-iso-staff-no-loja', role: 'tenant_staff' });
+    try {
+      const loginRes = await request(app.getHttpServer())
+        .post('/v1/auth/login')
+        .send({ email: staff.email, password: staff.password, tenantSlug: staff.tenantSlug })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch('/v1/tenants/me')
+        .set('Authorization', `Bearer ${loginRes.body.accessToken}`)
+        .send({ isOpen: false })
+        .expect(403);
+
+      // Resto da rota continua liberado pra tenant_staff sem nenhuma permissao -- a
+      // restricao da Sprint 36 e' so' do campo "isOpen", nao da rota inteira.
+      await request(app.getHttpServer())
+        .patch('/v1/tenants/me')
+        .set('Authorization', `Bearer ${loginRes.body.accessToken}`)
+        .send({ phone: '11999998888' })
+        .expect(200);
+    } finally {
+      await cleanupTenantWithUser(prisma, tenantContext, staff);
+    }
+  }, 15000);
+
+  it('tenant_staff com permissao "loja" consegue abrir/fechar a loja (Sprint 36)', async () => {
+    const staff = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'me-iso-staff-loja', role: 'tenant_staff' });
+    try {
+      await tenantContext.runInTenantContext(staff.tenantId, (tx) =>
+        tx.user.update({ where: { id: staff.userId }, data: { permissions: ['loja'] } }),
+      );
+
+      const loginRes = await request(app.getHttpServer())
+        .post('/v1/auth/login')
+        .send({ email: staff.email, password: staff.password, tenantSlug: staff.tenantSlug })
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .patch('/v1/tenants/me')
+        .set('Authorization', `Bearer ${loginRes.body.accessToken}`)
+        .send({ isOpen: false })
+        .expect(200);
+      expect(res.body.isOpen).toBe(false);
+
+      await request(app.getHttpServer())
+        .patch('/v1/tenants/me')
+        .set('Authorization', `Bearer ${loginRes.body.accessToken}`)
+        .send({ isOpen: true })
+        .expect(200);
+    } finally {
+      await cleanupTenantWithUser(prisma, tenantContext, staff);
+    }
+  }, 15000);
+
   it.each(['25:99', '9:00', 'abc'])('PATCH com horario mal formatado ("%s") retorna 400', async (value) => {
     await request(app.getHttpServer())
       .patch('/v1/tenants/me')
@@ -172,5 +227,5 @@ describe('/v1/tenants/me — self-service', () => {
     } finally {
       await cleanupTenantWithUser(prisma, tenantContext, customer);
     }
-  });
+  }, 15000);
 });

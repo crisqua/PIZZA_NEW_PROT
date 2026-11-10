@@ -19,6 +19,7 @@ const PERMISSION_LABELS: Record<StaffPermission, string> = {
   cardapio: 'Cardápio',
   estoque: 'Estoque',
   financeiro: 'Financeiro',
+  loja: 'Loja (abrir/fechar)',
 };
 
 interface FormState {
@@ -65,7 +66,8 @@ export function Equipe() {
   // Checkbox de Estoque/Financeiro so' aparece se a pizzaria ja tiver o modulo
   // contratado (decisao 9) -- nao faz sentido oferecer permissao pra algo que ela nao
   // comprou (o backend tambem rejeita, isto aqui e' so' a UI refletindo a mesma regra).
-  const availablePermissions: StaffPermission[] = ['pedidos', 'cardapio', ...(['estoque', 'financeiro'] as const).filter((m) => unlockedModules.includes(m))];
+  // "loja" (Sprint 36) e' core como pedidos/cardapio -- sem modulo pago pra checar.
+  const availablePermissions: StaffPermission[] = ['pedidos', 'cardapio', 'loja', ...(['estoque', 'financeiro'] as const).filter((m) => unlockedModules.includes(m))];
 
   useEffect(() => {
     getStaff().then(setStaff).catch(() => undefined);

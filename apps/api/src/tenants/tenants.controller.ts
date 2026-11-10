@@ -72,6 +72,17 @@ export class TenantsController {
   @Patch('me')
   async updateMe(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateTenantBrandingDto) {
     const tenant = await this.findOwnTenant(user);
+    // Sprint 36: abrir/fechar a loja (campo "isOpen") passou a exigir a permissao
+    // "loja" pra tenant_staff -- pedido do usuario depois de notar que QUALQUER
+    // funcionario conseguia mudar o status da loja (nenhum StaffPermissionGuard
+    // cobria esta rota, decisao 9 original deixou "configuracoes" de proposito sem
+    // gate). Nao da' pra usar @RequiresStaffPermission() aqui: a mesma rota tambem
+    // edita telefone/endereco/taxa de entrega, que continuam liberados pra
+    // tenant_staff sem nenhuma permissao extra -- so' este campo especifico fica
+    // mais restrito.
+    if (dto.isOpen !== undefined && user.role === 'tenant_staff' && !(user.permissions ?? []).includes('loja')) {
+      throw new ForbiddenException('Funcionario sem permissao para abrir/fechar a loja.');
+    }
     const cnpj = resolveCnpj(dto.cnpj);
     try {
       const updated = await this.prisma.tenant.update({ where: { id: tenant.id }, data: { ...dto, cnpj } });
