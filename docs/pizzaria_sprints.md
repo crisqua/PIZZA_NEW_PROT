@@ -46,15 +46,15 @@ antes.
 | 11b | Fechar o piloto com tenant real | ⏳ |
 | 15 | Rate limiting + audit log + secrets no CI | ✅ |
 | 16 | Upload de imagem real (Supabase Storage) | ✅ |
-| — | Plano à parte: responsividade mobile | ✅ |
-| — | Plano à parte: código de pedido sequencial por dia | ✅ |
-| — | Plano à parte: CNPJ da pizzaria | ✅ |
-| — | Plano à parte: redesenho do Financeiro | ✅ |
-| — | Plano à parte: app nas lojas (Sprints 17-21) | ⏳ (não iniciado) |
-| — | Plano à parte: tema claro/escuro no app Cliente | ✅ |
-| — | Plano à parte: tela de consulta do audit log | ⏳ (protótipo aprovado) |
-| — | Plano à parte: Sprint "Equipe" (cadastro de funcionários) | ✅ |
-| — | Plano à parte: App Cliente — moldura, cabeçalho e Meus Pedidos | ✅ (implementada, validação manual pendente) |
+| 16a | Responsividade mobile | ✅ |
+| 16b | Código de pedido sequencial por dia | ✅ |
+| 16c | CNPJ da pizzaria | ✅ |
+| 16d | Redesenho do Financeiro | ✅ |
+| 17 | App nas lojas: contas de desenvolvedor + legal | ⏳ |
+| 18 | App nas lojas: PoC técnica com Capacitor | ⏳ |
+| 19 | App nas lojas: pipeline de build white-label | ⏳ |
+| 20 | App nas lojas: primeiro envio real às lojas | ⏳ |
+| 21 | App nas lojas: pós-lançamento | ⏳ |
 | 22 | Eliminar N transações por tenant (resumo de assinatura) | ✅ |
 | 23 | Cache do dashboard | ✅ |
 | 24 | Corte às 5h (Dashboard/OrdersPanel/orderCode) + top-products + Financeiro por período | ✅ |
@@ -62,10 +62,15 @@ antes.
 | 26 | Diretório de usuários cross-tenant (admin) | ✅ |
 | 27 | Horário de funcionamento + loja aberta/fechada | ✅ |
 | 28 | Job batch pra denormalizar pedidos/usuários no Dashboard | ❌ (substituída) |
-| — | **Mudança de Dashboard** (remove agregado cross-tenant, consulta por pizzaria) | ✅ |
+| 29 | **Mudança de Dashboard** (remove agregado cross-tenant, consulta por pizzaria) | ✅ |
 | — | Usuários dentro de Vendas por Pizzaria (sai da tela cross-tenant lenta) | ✅ |
 | — | Pizzaria nasce com a loja fechada por padrão | ✅ |
-| — | **Desempenho Sistema** (`GET /orders` sem filtro, `/financial/expenses` sem filtro) | ✅ |
+| 30 | **Desempenho Sistema** (`GET /orders` sem filtro, `/financial/expenses` sem filtro) | ✅ |
+| 31 | Tema claro/escuro no app Cliente | ✅ |
+| 32 | Tela de consulta do audit log | ⏳ (protótipo aprovado) |
+| 33 | App Cliente — moldura, cabeçalho e Meus Pedidos | ✅ (implementada, validação manual pendente) |
+| 34 | App Cliente — "Pedir de novo" (preço/disponibilidade) | ⏳ (aguardando aprovação) |
+| 35 | Equipe (cadastro de funcionários) | ✅ |
 
 Backlog sem sprint definida: pagamento online, notificações WhatsApp, MFA,
 WebSocket/realtime, exportação/exclusão LGPD formal, pentest externo, observabilidade
@@ -513,9 +518,9 @@ homolog + flakiness de paginação de tenants, confirmado que nenhuma toca audit
 
 **Ainda não construído, por decisão explícita de sequenciamento** (não é a mesma coisa
 que "fora de escopo" — só entra quando chegar a vez): a tela de consulta do audit log
-no `admin-pizzarias`. **Virou plano à parte, com protótipo já aprovado — ver seção
-própria "Plano à parte: tela de consulta do audit log" mais abaixo neste documento**
-(separada de propósito, 2026-10-18, pra não ficar misturada com o resto da Sprint 15).
+no `admin-pizzarias`. **Virou plano à parte, com protótipo já aprovado — ver Sprint 32
+("Tela de consulta do audit log") mais abaixo neste documento** (separada de
+propósito, 2026-10-18, pra não ficar misturada com o resto da Sprint 15).
 
 **Com isso, a Sprint 15 tem os 3 itens de código fechados** (rate limiting, gitleaks,
 audit log) — só resta a pendência do usuário abaixo (secrets do GitHub); a tela de
@@ -581,7 +586,7 @@ não relacionadas).
 
 ---
 
-## Plano à parte: responsividade mobile ✅ IMPLEMENTADO (commits `ebfc7c9` + `4e78640`)
+## Sprint 16a — Responsividade mobile ✅ IMPLEMENTADA (commits `ebfc7c9` + `4e78640`)
 
 Pedido separado do usuário depois de ver telas do `apps/pizzaria` cortadas num celular
 real. **Causa raiz sistêmica**: o container de página tinha só `flex-1` sem `min-w-0` —
@@ -595,7 +600,7 @@ página inteira pra fora da viewport. Fix: `min-w-0` no container, nos dois apps
 
 ---
 
-## Plano à parte: código de pedido sequencial por dia ✅ IMPLEMENTADO (commit `65ebe72`)
+## Sprint 16b — Código de pedido sequencial por dia ✅ IMPLEMENTADA (commit `65ebe72`)
 
 `Order.id` (UUID) cortado em 8 caracteres era só cosmético, não sequencial, sem
 garantia de unicidade de prefixo. Trocado por código `AAAAMMDDNNNN` (ex.:
@@ -613,7 +618,7 @@ de 7/30/90 dias, não um dia específico).
 
 ---
 
-## Plano à parte: CNPJ da pizzaria ✅ IMPLEMENTADO em 2026-09-17 (commit `fafa781`)
+## Sprint 16c — CNPJ da pizzaria ✅ IMPLEMENTADA em 2026-09-17 (commit `fafa781`)
 
 Campo CNPJ em "Informações Básicas", com validação de verdade (dígito verificador via
 algoritmo oficial da Receita Federal), não só formato.
@@ -630,7 +635,7 @@ Suíte e2e completa 165/165 (20 casos novos).
 
 ---
 
-## Plano à parte: redesenho do Financeiro ✅ IMPLEMENTADO (commit `0172cd1`)
+## Sprint 16d — Redesenho do Financeiro ✅ IMPLEMENTADA (commit `0172cd1`)
 
 Protótipo de redesenho da tela `Financial.tsx` (Claude Design), aprovado pelo usuário —
 100% frontend, nenhum endpoint novo, nenhuma migration.
@@ -646,25 +651,47 @@ Protótipo de redesenho da tela `Financial.tsx` (Claude Design), aprovado pelo u
 
 ---
 
-## Plano à parte: `apps/cliente` nas lojas de aplicativo ⏳ não iniciado
+## App nas lojas de aplicativo (Sprints 17-21) — ⏳ não iniciado
 
 Modelo **white-label, um app por pizzaria** (confirmado com o usuário) — cada pizzaria
 contratante ganha o próprio app na loja, com a própria marca, não um app único
 multi-tenant. `apps/cliente` hoje é 100% greenfield pra isso (sem manifest, sem service
-worker, sem ícone real).
+worker, sem ícone real). 5 sprints desenhadas, nenhuma iniciada.
 
-5 sprints desenhadas, nenhuma iniciada:
-- **17** — Contas de desenvolvedor (Apple/Google) + Política de Privacidade/Termos +
-  minuta contratual de uso de marca.
-- **18** — PoC técnica com **Capacitor** (não React Native, não TWA sozinho) — empacota
-  o build do Vite existente numa casca nativa, 1 tenant só.
-- **19** — Pipeline de build white-label (script por tenant, Fastlane, screenshots
-  automatizados) pra N tenants.
-- **20** — Primeiro envio real às lojas — maior risco: guideline 4.3 da Apple
-  (antispam contra "apps molde"), mitigado por diferenciação de negócio real por app
-  (mesmo padrão que ChowNow/Toast/Owner.com já usam, aprovados). Isento de
-  In-App-Purchase (pagamento é sempre na entrega).
-- **21** — Pós-lançamento: decisão OTA vs. reenvio em lote, push notifications.
+---
+
+## Sprint 17 — App nas lojas: contas de desenvolvedor + legal ⏳ não iniciada
+
+Contas de desenvolvedor (Apple/Google) + Política de Privacidade/Termos + minuta
+contratual de uso de marca.
+
+---
+
+## Sprint 18 — App nas lojas: PoC técnica com Capacitor ⏳ não iniciada
+
+PoC técnica com **Capacitor** (não React Native, não TWA sozinho) — empacota o build do
+Vite existente numa casca nativa, 1 tenant só.
+
+---
+
+## Sprint 19 — App nas lojas: pipeline de build white-label ⏳ não iniciada
+
+Pipeline de build white-label (script por tenant, Fastlane, screenshots automatizados)
+pra N tenants.
+
+---
+
+## Sprint 20 — App nas lojas: primeiro envio real às lojas ⏳ não iniciada
+
+Maior risco: guideline 4.3 da Apple (antispam contra "apps molde"), mitigado por
+diferenciação de negócio real por app (mesmo padrão que ChowNow/Toast/Owner.com já
+usam, aprovados). Isento de In-App-Purchase (pagamento é sempre na entrega).
+
+---
+
+## Sprint 21 — App nas lojas: pós-lançamento ⏳ não iniciada
+
+Decisão OTA vs. reenvio em lote, push notifications.
 
 ---
 
@@ -838,7 +865,7 @@ consultar uma pizzaria por vez, sob demanda. A pergunta certa deixou de ser "com
 manter esse agregado sempre atualizado" e virou "por que manter esse agregado, se
 ninguém olha?" — a resposta é remover a consulta cara por completo, não otimizá-la.
 
-## Sprint — Mudança de Dashboard ✅ IMPLEMENTADA, testada e fechada em 2026-09-26 (commits `411f4a7` + `4372e0e`)
+## Sprint 29 — Mudança de Dashboard ✅ IMPLEMENTADA, testada e fechada em 2026-09-26 (commits `411f4a7` + `4372e0e`)
 
 Protótipo clicável validado pelo usuário antes de implementar —
 https://claude.ai/artifact/Y1M1d5pKWUUYd2R2k6p2L8.
@@ -971,7 +998,7 @@ paginação — nenhuma relacionada).
 
 ---
 
-## Sprint — Desempenho Sistema ✅ IMPLEMENTADA (itens 1 e 2) em 2026-09-27
+## Sprint 30 — Desempenho Sistema ✅ IMPLEMENTADA (itens 1 e 2) em 2026-09-27
 
 Auditoria de desempenho de `apps/pizzaria` (`pizzariahk.vercel.app`), pedida pelo
 usuário em 2026-09-27, cobrindo todas as consultas (GET) que o painel da pizzaria faz.
@@ -1070,7 +1097,7 @@ sprint pendente dependa.
 
 ---
 
-# <span style="color:blue">Plano à parte: tema claro/escuro no app Cliente ✅ IMPLEMENTADA em 2026-10-18 (commit `7f62523`, main, CI verde)</span>
+# <span style="color:blue">Sprint 31 — Tema claro/escuro no app Cliente ✅ IMPLEMENTADA em 2026-10-18 (commit `7f62523`, main, CI verde)</span>
 
 Pedido do usuário em 2026-10-13: deixar o cliente final de `apps/cliente` escolher entre
 fundo escuro (o único que existe hoje) ou claro. Protótipo clicável aprovado antes de
@@ -1121,7 +1148,7 @@ usuário confirmou ("ficou mto bom") — ver `docs/TESTES_PENDENTES.md`.
 
 ---
 
-# <span style="color:white">Plano à parte: tela de consulta do audit log ⏳ protótipo aprovado em 2026-10-18, aguardando aprovação pra implementar</span>
+# <span style="color:white">Sprint 32 — Tela de consulta do audit log ⏳ protótipo aprovado em 2026-10-18, aguardando aprovação pra implementar</span>
 
 Separada da Sprint 15 de propósito (2026-10-18) — a escrita do audit log e o expurgo já
 estão implementados e fechados; isso aqui é só a tela de consulta, que ficou pendente
@@ -1166,7 +1193,7 @@ que já existe.
 
 ---
 
-# <span style="color:blue">Plano à parte: App Cliente — moldura, cabeçalho e Meus Pedidos ✅ IMPLEMENTADA em 2026-10-24 (validação manual pendente — ver `docs/TESTES_PENDENTES.md`)</span>
+# <span style="color:blue">Sprint 33 — App Cliente: moldura, cabeçalho e Meus Pedidos ✅ IMPLEMENTADA em 2026-10-24 (validação manual pendente — ver `docs/TESTES_PENDENTES.md`)</span>
 
 **Implementação (2026-10-24, aprovada pelo usuário no mesmo dia)**: 100% frontend, sem
 mudança de backend/schema, exatamente como planejado. `tsc --noEmit` limpo em
@@ -1364,7 +1391,7 @@ claro/escuro.
 
 ---
 
-# <span style="color:blue">Plano à parte: App Cliente — "Pedir de novo" (checagem de preço/disponibilidade) ⏳ AGUARDANDO APROVAÇÃO</span>
+# <span style="color:blue">Sprint 34 — App Cliente: "Pedir de novo" (checagem de preço/disponibilidade) ⏳ AGUARDANDO APROVAÇÃO</span>
 
 Continuação da sprint "App Cliente — moldura, cabeçalho e Meus Pedidos" (acima). A
 decisão 9 daquela sprint deixou **de propósito** fora do escopo recriar o carrinho a
@@ -1501,7 +1528,7 @@ toca em nenhuma tabela/rota nova.
 
 ---
 
-# <span style="color:blue">Plano à parte: Sprint "Equipe" — cadastro de funcionários ✅ IMPLEMENTADA em 2026-10-20 (main, suíte e2e 224/230)</span>
+# <span style="color:blue">Sprint 35 — Equipe: cadastro de funcionários ✅ IMPLEMENTADA em 2026-10-20 (main, suíte e2e 224/230)</span>
 
 Implementada exatamente como desenhada abaixo, incluindo o modelo de permissão por
 funcionário (decisão 9) fechado nesta conversa. Migration (`20261020015423_add_staff_fields_to_users`)

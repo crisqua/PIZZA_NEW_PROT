@@ -54,27 +54,31 @@ Supabase, RLS forçada por tenant. Infra: Supabase (banco) + Render (API,
 
 ## Estado atual (resumo — ver `docs/pizzaria_sprints.md` para detalhe completo)
 
-Sprints 0–10 e boa parte de 11a–27 concluídas. Pendências abertas conhecidas:
+Sprints 0–10 e boa parte de 11a–30 concluídas. Todo "Plano à parte" já virou sprint
+numerada (16a-16d, 17-21, 29-35) em `docs/pizzaria_sprints.md` — não existe mais
+nenhum item "sem número" nesse doc. Pendências abertas conhecidas:
 - **Sprint 11b** — fechar o piloto com tenant real (ainda não escolhido).
 - **Sprint 15** — ✅ completa (rate limiting, gitleaks, audit log append-only; secrets
   `API_BASE_URL`/`AUDIT_LOG_RETENTION_SECRET` já cadastrados no GitHub desde
-  2026-10-03). Falta só, opcionalmente, a tela de consulta do audit log no
-  `admin-pizzarias` (protótipo aprovado, plano escrito, não implementada).
+  2026-10-03). Falta só, opcionalmente, a **Sprint 32** (tela de consulta do audit log
+  no `admin-pizzarias` — protótipo aprovado, plano escrito, não implementada).
 - **Sprint 25** — 🟡 parcial: concorrência no checkout (pedido fantasma) parcialmente
   mitigada; falta mover o upsert do contador sequencial pro fim da transação e
   testar `pool_timeout` do Prisma.
-- **App nas lojas (Sprints 17-21)** — plano escrito, nada implementado ainda.
-- **Sprint "Equipe"** — ✅ implementada em 2026-10-20 (cadastro de funcionários pelo
+- **Sprints 17-21 (App nas lojas)** — plano escrito, nada implementado ainda.
+- **Sprint 35 "Equipe"** — ✅ implementada em 2026-10-20 (cadastro de funcionários pelo
   dono + permissão por módulo via `User.permissions`). `GET/POST /tenants/me/staff`,
   `PATCH /tenants/me/staff/:id`, tela "Equipe" em `apps/pizzaria`.
-- **App Cliente — moldura, cabeçalho e Meus Pedidos** — ✅ implementada em 2026-10-24
-  (frontend only: moldura em tela larga, drawer hambúrguer, histórico/acompanhe/"Peça
-  novamente", polling que para em estado final). Falta a validação manual (ver
-  `docs/TESTES_PENDENTES.md`).
-- **App Cliente — "Pedir de novo"** — ⏳ plano escrito, aguardando aprovação do
-  usuário (ver `docs/pizzaria_sprints.md`). Checagem de preço/disponibilidade atual
-  antes de somar itens de um pedido antigo ao carrinho; frontend only, zero mudança de
-  backend.
+- **Sprint 33 — App Cliente: moldura, cabeçalho e Meus Pedidos** — ✅ implementada em
+  2026-10-24 (frontend only: moldura em tela larga, drawer hambúrguer,
+  histórico/acompanhe/"Peça novamente" — agora um carrossel de 2 em 2 com barra de
+  progresso arrastável, commits até `977910d` —, polling que para em estado final).
+  Falta a validação manual (ver `docs/TESTES_PENDENTES.md`).
+- **Sprint 34 — App Cliente: "Pedir de novo"** — ⏳ plano escrito, aguardando
+  aprovação do usuário (ver `docs/pizzaria_sprints.md`). Checagem de
+  preço/disponibilidade atual antes de somar itens de um pedido antigo ao carrinho;
+  frontend only, zero mudança de backend. Entrada confirmada: botão no rodapé do
+  detalhe do pedido (`OrderConfirmation.tsx`), ao lado do "Voltar".
 - Backlog sem sprint definida: pagamento online, WhatsApp, MFA, WebSocket/realtime,
   LGPD formal, pentest externo, observabilidade completa, particionamento de
   `orders`, Redis real em produção, vault de secrets dedicado, code-splitting.
