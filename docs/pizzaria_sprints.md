@@ -72,6 +72,7 @@ antes.
 | 34 | App Cliente — "Pedir de novo" (preço/disponibilidade) | ⏳ (aguardando aprovação) |
 | 35 | Equipe (cadastro de funcionários) | ✅ |
 | 36 | Painel Pizzaria — identidade do usuário + "Loja Aberta" única na sidebar | ✅ |
+| 37 | Dashboard — "Vendas Hoje"/"Ticket Médio" restritos a Dono/Financeiro | ⏳ (protótipo, aguardando aprovação) |
 
 Backlog sem sprint definida: pagamento online, notificações WhatsApp, MFA,
 WebSocket/realtime, exportação/exclusão LGPD formal, pentest externo, observabilidade
@@ -1897,6 +1898,63 @@ mês tem mais de 31 dias, então continua corretamente excluído pela nova regra
 desde a Sprint "Equipe"); o adendo da permissão "loja" só adiciona uma checagem a mais
 dentro de `PATCH /tenants/me`, não cria rota nova nem toca em `orders`/`catalog`/
 `financial`/`inventory`.
+
+---
+
+# <span style="color:blue">Sprint 37 — Dashboard: "Vendas Hoje"/"Ticket Médio" restritos a Dono/Financeiro ⏳ PROTÓTIPO, AGUARDANDO APROVAÇÃO</span>
+
+Pedido do usuário olhando o Dashboard logado como funcionário: achou "não legal" um
+Atendente ver o faturamento do dia — quer que **"Vendas Hoje"** e **"Ticket Médio"**
+apareçam só pra Dono ou "Gerente". Protótipo (3 visões lado a lado: Dono / Gerente com
+Financeiro / Atendente sem Financeiro, mesma paleta/Sidebar/Dashboard reais) —
+`https://claude.ai/artifact/8FwqZcSRKFqfBnvTpdTbuH`.
+
+**Decisão de design**: "Gerente" é só um cargo de texto livre (`position`), não dá pra
+usar como gate (mesmo raciocínio já aplicado na Sprint 36 pro "loja"). Reaproveita a
+permissão **"financeiro"** que já existe (mesma da tela Financeiro, Sprint "Equipe") —
+não cria permissão nova. O dono marca "Financeiro" pra quem quiser (o Gerente, por
+exemplo) na tela Equipe; `hasStaffPermission('financeiro')` (já exportado de
+`repository.ts`) já resolve "dono sempre vê, funcionário só vê se tiver a permissão".
+
+**O que fica de fora de propósito (ponto em aberto, não decidido ainda)**: o gráfico
+"Vendas da Semana" e o card "Produtos Mais Vendidos" (mostra receita por produto)
+também expõem faturamento, mas foram deixados visíveis pra qualquer funcionário por
+uma decisão **anterior e explícita** (Sprint 35: "Dashboard é visível pra qualquer
+funcionário", já que receita ali é só um agregado de `Order.total`, dado que um
+funcionário com a permissão "pedidos" já vê linha a linha no painel de Pedidos). Esta
+sprint restringe **só os 2 cards que o usuário apontou**; se quiser estender a
+restrição aos 2 gráficos também, é uma decisão separada a confirmar antes de
+implementar.
+
+**Pedidos Hoje" e "Tempo Médio" continuam visíveis pra todo mundo** (contagem/duração,
+não valor em dinheiro — mesma lógica já usada pra "pedidos" no restante do sistema).
+
+## Arquivos a alterar (quando aprovado)
+
+- `apps/pizzaria/src/components/Dashboard.tsx` — único arquivo. Marcar `stats` com
+  `sensitive: true` em "Vendas Hoje"/"Ticket Médio"; filtrar o array por
+  `!stat.sensitive || hasStaffPermission('financeiro')`; grid passa a ter classe
+  dinâmica (2 colunas quando só 2 cards sobram, em vez de 4 colunas com buraco).
+  Importa `hasStaffPermission` de `../data/repository` (já existe, já usado em
+  `Sidebar.tsx`/`Financial.tsx`).
+
+Frontend only — zero mudança de backend/schema (a permissão "financeiro" já existe e
+já viaja no JWT desde a Sprint "Equipe").
+
+## Cenários de teste (quando implementado)
+
+1. Dono loga → vê os 4 cards.
+2. Funcionário COM "financeiro" marcada → vê os 4 cards (igual dono).
+3. Funcionário SEM "financeiro" marcada → vê só "Pedidos Hoje" e "Tempo Médio", em
+   grid de 2 colunas (não 4 com espaço vazio).
+4. Gráfico "Vendas da Semana" e card "Produtos Mais Vendidos" continuam aparecendo
+   pra todo mundo, sem mudança (confirmar que ninguém tentou "consertar" isso também
+   sem pedir).
+
+## Dependência com outras sprints
+
+**Nenhuma.** Reaproveita a permissão "financeiro" e o helper `hasStaffPermission` já
+existentes desde a Sprint "Equipe"/Sprint 36 — não cria rota, não muda schema.
 
 ---
 

@@ -89,6 +89,10 @@ nenhum item "sem número" nesse doc. Pendências abertas conhecidas:
   próprio usuário depois de ver o recurso já no ar. **2º adendo**: "Produtos Mais
   Vendidos (Mensal)" no Dashboard virou mês-calendário atual (era janela deslizante
   de 30 dias) — `OrdersService.topProducts`.
+- **Sprint 37 — Dashboard: "Vendas Hoje"/"Ticket Médio" restritos a Dono/Financeiro** —
+  ⏳ protótipo escrito, aguardando aprovação do usuário (ver `docs/pizzaria_sprints.md`).
+  Reaproveita a permissão "financeiro" já existente; "Vendas da Semana" e "Produtos
+  Mais Vendidos" continuam visíveis pra todo mundo (fora de escopo por ora).
 - Backlog sem sprint definida: pagamento online, WhatsApp, MFA, WebSocket/realtime,
   LGPD formal, pentest externo, observabilidade completa, particionamento de
   `orders`, Redis real em produção, vault de secrets dedicado, code-splitting.
