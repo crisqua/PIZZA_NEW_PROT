@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { DollarSign, ShoppingBag, Users, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, formatCurrency } from '@pizza/ui';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { getOrders, getRevenue, getTopProducts, ApiOrder, DailyRevenue, TopProduct, currentUser } from '../data/repository';
+import { getOrders, getRevenue, getTopProducts, hasStaffPermission, ApiOrder, DailyRevenue, TopProduct, currentUser } from '../data/repository';
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -60,11 +60,21 @@ export function Dashboard() {
     : null;
 
   const stats = [
-    { title: 'Vendas Hoje', value: formatCurrency(salesToday), icon: DollarSign, color: 'text-success' },
-    { title: 'Pedidos Hoje', value: String(todayOrders.length), icon: ShoppingBag, color: 'text-primary' },
-    { title: 'Ticket Médio', value: formatCurrency(averageTicket), icon: Users, color: 'text-info' },
-    { title: 'Tempo Médio', value: averageMinutes !== null ? `${Math.round(averageMinutes)} min` : '—', icon: Clock, color: 'text-warning' },
+    { title: 'Vendas Hoje', value: formatCurrency(salesToday), icon: DollarSign, color: 'text-success', sensitive: true },
+    { title: 'Pedidos Hoje', value: String(todayOrders.length), icon: ShoppingBag, color: 'text-primary', sensitive: false },
+    { title: 'Ticket Médio', value: formatCurrency(averageTicket), icon: Users, color: 'text-info', sensitive: true },
+    { title: 'Tempo Médio', value: averageMinutes !== null ? `${Math.round(averageMinutes)} min` : '—', icon: Clock, color: 'text-warning', sensitive: false },
   ];
+
+  // Sprint 37 -- "Vendas Hoje"/"Ticket Medio" expoem faturamento, so' aparecem pro dono
+  // ou funcionario com a permissao "financeiro" marcada (mesma permissao da tela
+  // Financeiro, Sprint "Equipe" -- nao cria permissao nova). "Pedidos Hoje"/"Tempo
+  // Medio" sao contagem/duracao, continuam visiveis pra qualquer funcionario. O
+  // grafico "Vendas da Semana" e "Produtos Mais Vendidos" ficam de fora de proposito --
+  // decisao anterior e explicita da Sprint 35 (Dashboard visivel pra qualquer
+  // funcionario, receita ali e' so' um agregado que quem tem "pedidos" ja ve linha a
+  // linha no painel de Pedidos).
+  const visibleStats = stats.filter((stat) => !stat.sensitive || hasStaffPermission('financeiro'));
 
   const salesData = revenue.map((d) => ({
     day: WEEKDAY_LABELS[new Date(`${d.date}T12:00:00Z`).getDay()],
@@ -100,8 +110,8 @@ export function Dashboard() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => {
+      <div className={`grid grid-cols-1 gap-4 ${visibleStats.length < stats.length ? 'md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-4'}`}>
+        {visibleStats.map((stat) => {
           const Icon = stat.icon;
           return (
             <Card key={stat.title}>

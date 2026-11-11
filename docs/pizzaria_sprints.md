@@ -72,7 +72,7 @@ antes.
 | 34 | App Cliente — "Pedir de novo" (preço/disponibilidade) | ⏳ (aguardando aprovação) |
 | 35 | Equipe (cadastro de funcionários) | ✅ |
 | 36 | Painel Pizzaria — identidade do usuário + "Loja Aberta" única na sidebar | ✅ |
-| 37 | Dashboard — "Vendas Hoje"/"Ticket Médio" restritos a Dono/Financeiro | ⏳ (protótipo, aguardando aprovação) |
+| 37 | Dashboard — "Vendas Hoje"/"Ticket Médio" restritos a Dono/Financeiro | ✅ |
 
 Backlog sem sprint definida: pagamento online, notificações WhatsApp, MFA,
 WebSocket/realtime, exportação/exclusão LGPD formal, pentest externo, observabilidade
@@ -1901,7 +1901,7 @@ dentro de `PATCH /tenants/me`, não cria rota nova nem toca em `orders`/`catalog
 
 ---
 
-# <span style="color:blue">Sprint 37 — Dashboard: "Vendas Hoje"/"Ticket Médio" restritos a Dono/Financeiro ⏳ PROTÓTIPO, AGUARDANDO APROVAÇÃO</span>
+# <span style="color:blue">Sprint 37 — Dashboard: "Vendas Hoje"/"Ticket Médio" restritos a Dono/Financeiro ✅ IMPLEMENTADA em 2026-11-11</span>
 
 Pedido do usuário olhando o Dashboard logado como funcionário: achou "não legal" um
 Atendente ver o faturamento do dia — quer que **"Vendas Hoje"** e **"Ticket Médio"**
@@ -1925,6 +1925,13 @@ funcionário com a permissão "pedidos" já vê linha a linha no painel de Pedid
 sprint restringe **só os 2 cards que o usuário apontou**; se quiser estender a
 restrição aos 2 gráficos também, é uma decisão separada a confirmar antes de
 implementar.
+
+**Implementado exatamente como desenhado** — único arquivo alterado,
+`apps/pizzaria/src/components/Dashboard.tsx`: `stats` ganhou `sensitive: boolean`
+(`true` em "Vendas Hoje"/"Ticket Médio"); `visibleStats = stats.filter(s => !s.sensitive
+|| hasStaffPermission('financeiro'))`; grid vira `md:grid-cols-2` (sem
+`lg:grid-cols-4`) quando sobram só 2 cards. `npx tsc --noEmit` e `npx vite build`
+limpos em `apps/pizzaria`.
 
 **Pedidos Hoje" e "Tempo Médio" continuam visíveis pra todo mundo** (contagem/duração,
 não valor em dinheiro — mesma lógica já usada pra "pedidos" no restante do sistema).
