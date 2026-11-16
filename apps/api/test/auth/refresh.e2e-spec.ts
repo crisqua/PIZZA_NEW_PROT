@@ -23,16 +23,19 @@ describe('POST /v1/auth/refresh', () => {
   let prisma: PrismaService;
   let tenantContext: TenantContextService;
   let user: SeededTenantUser;
+  let customer: SeededTenantUser;
 
   beforeAll(async () => {
     app = await createTestApp();
     prisma = app.get(PrismaService);
     tenantContext = app.get(TenantContextService);
     user = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'refresh', role: 'tenant_owner' });
+    customer = await seedTenantWithUser(prisma, tenantContext, { slugPrefix: 'refresh-customer', role: 'customer' });
   });
 
   afterAll(async () => {
     await cleanupTenantWithUser(prisma, tenantContext, user);
+    await cleanupTenantWithUser(prisma, tenantContext, customer);
     await app.close();
   });
 
@@ -113,5 +116,46 @@ describe('POST /v1/auth/refresh', () => {
       tx.refreshToken.findUnique({ where: { id: tokenRow.id } }),
     );
     expect(reloaded?.revokedAt).toBeNull();
+  });
+
+  // Sprint 38 (fechamento do gap) -- o cookie de refresh e' compartilhado pelo dominio da
+  // API entre os 3 frontends; sem isso, uma sessao de staff aberta no Painel Pizzaria
+  // sobrevivia dentro do App Cliente via refresh silencioso mesmo com /auth/login ja
+  // bloqueando login novo (achado real do usuario em producao, 2026-11-16).
+  it('conta tenant_owner com audience "customer" no refresh recebe 403, sem queimar o token', async () => {
+    const rawRefreshToken = await login();
+
+    await request(app.getHttpServer())
+      .post('/v1/auth/refresh')
+      .set('Cookie', `${REFRESH_COOKIE_NAME}=${rawRefreshToken}`)
+      .send({ audience: 'customer' })
+      .expect(403);
+
+    // O mesmo token continua valido pro app certo -- o mismatch acima nao rotacionou nada.
+    await request(app.getHttpServer())
+      .post('/v1/auth/refresh')
+      .set('Cookie', `${REFRESH_COOKIE_NAME}=${rawRefreshToken}`)
+      .send({ audience: 'staff' })
+      .expect(200);
+  });
+
+  it('conta customer com audience "staff" no refresh recebe 403, sem queimar o token', async () => {
+    const loginRes = await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email: customer.email, password: customer.password, tenantSlug: customer.tenantSlug })
+      .expect(200);
+    const rawRefreshToken = extractRefreshCookie(loginRes);
+
+    await request(app.getHttpServer())
+      .post('/v1/auth/refresh')
+      .set('Cookie', `${REFRESH_COOKIE_NAME}=${rawRefreshToken}`)
+      .send({ audience: 'staff' })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .post('/v1/auth/refresh')
+      .set('Cookie', `${REFRESH_COOKIE_NAME}=${rawRefreshToken}`)
+      .send({ audience: 'customer' })
+      .expect(200);
   });
 });

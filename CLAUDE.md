@@ -104,6 +104,13 @@ nenhum item "sem número" nesse doc. Pendências abertas conhecidas:
   quebrar ~31 arquivos de teste e2e que chamam login sem esse campo (trade-off
   registrado na sprint, residual aceito até/se o usuário pedir tornar obrigatório).
   5 cenários novos em `apps/api/test/auth/login.e2e-spec.ts`, 11/11 passando.
+  **Adendo no mesmo dia**: achado real do usuário — mesmo com o login bloqueado, uma
+  sessão de staff aberta no Painel Pizzaria sobrevivia dentro do App Cliente (aba
+  nova, mesmo navegador) via `POST /auth/refresh`, que não checava `audience` (só
+  `/auth/login` checava; o cookie de refresh é compartilhado pelo domínio da API
+  entre os 3 apps). Corrigido: `RefreshDto` + `AuthService.refresh` ganham a mesma
+  checagem (usando `payload.role`, sem schema novo); mismatch não rotaciona o token
+  (só nega aquele refresh). 4 cenários novos em `refresh.e2e-spec.ts`, 18/18 passando.
 - Backlog sem sprint definida: pagamento online, WhatsApp, MFA, WebSocket/realtime,
   LGPD formal, pentest externo, observabilidade completa, particionamento de
   `orders`, Redis real em produção, vault de secrets dedicado, code-splitting.

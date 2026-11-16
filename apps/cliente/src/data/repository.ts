@@ -222,7 +222,7 @@ export function isAuthenticated(): boolean {
 // nunca logou.
 export async function tryRestoreSession(): Promise<void> {
   try {
-    const res = await apiFetch<AuthResponse>('/auth/refresh', { method: 'POST', auth: false });
+    const res = await apiFetch<AuthResponse>('/auth/refresh', { method: 'POST', auth: false, body: { audience: 'customer' } });
     setAccessToken(res.accessToken);
     await loadMe();
   } catch {

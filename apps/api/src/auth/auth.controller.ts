@@ -7,6 +7,7 @@ import { AuthService, TokenPair } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Roles } from './decorators/roles.decorator';
 import { LoginDto } from './dto/login.dto';
+import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -58,12 +59,12 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Req() req: RequestWithTenant, @Res({ passthrough: true }) res: Response) {
+  async refresh(@Body() dto: RefreshDto, @Req() req: RequestWithTenant, @Res({ passthrough: true }) res: Response) {
     const rawRefreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
     if (!rawRefreshToken) {
       throw new UnauthorizedException('Refresh token ausente.');
     }
-    const tokens = await this.authService.refresh(rawRefreshToken);
+    const tokens = await this.authService.refresh(rawRefreshToken, dto.audience);
     this.setRefreshCookie(res, tokens);
     return { accessToken: tokens.accessToken };
   }

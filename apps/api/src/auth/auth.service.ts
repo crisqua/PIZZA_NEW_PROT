@@ -264,7 +264,7 @@ export class AuthService {
     return { accessToken, refreshToken, refreshExpiresAt: expiresAt };
   }
 
-  async refresh(rawRefreshToken: string): Promise<TokenPair> {
+  async refresh(rawRefreshToken: string, audience?: 'customer' | 'staff'): Promise<TokenPair> {
     const payload = await this.verifyRefreshPayload(rawRefreshToken);
     const tokenHash = hashRefreshToken(rawRefreshToken);
 
@@ -288,6 +288,21 @@ export class AuthService {
     if (stored.expiresAt.getTime() < Date.now()) {
       // Expirado, nao roubado — nao revoga a familia, so nega este refresh.
       throw new UnauthorizedException('Refresh token expirado.');
+    }
+
+    // Sprint 38 (fechamento do gap) -- o cookie de refresh e' compartilhado pelo dominio
+    // da API entre os 3 frontends (SameSite=None, mesmo path /v1/auth): sem isso, uma
+    // sessao de staff aberta no Painel Pizzaria sobrevivia dentro do App Cliente via
+    // refresh silencioso, mesmo com /auth/login ja bloqueando login novo. Checado ANTES
+    // de revokeOne de proposito: um mismatch aqui nao pode queimar/rotacionar o token --
+    // ele continua valido pro app certo, so' este refresh especifico e' negado.
+    if (audience) {
+      const isCustomerAccount = payload.role === 'customer';
+      const isStaffAccount = payload.role === 'tenant_owner' || payload.role === 'tenant_staff';
+      const audienceMatches = (audience === 'customer' && isCustomerAccount) || (audience === 'staff' && isStaffAccount);
+      if (!audienceMatches) {
+        throw new ForbiddenException('Esta conta nao tem acesso a este aplicativo.');
+      }
     }
 
     await this.revokeOne(payload.tenantId, stored.id);

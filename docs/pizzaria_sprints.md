@@ -2069,6 +2069,35 @@ Os 5 cenários de teste listados acima foram adicionados a
 continua idêntica). `tsc --noEmit` + build limpos em `apps/api`, `apps/cliente` e
 `apps/pizzaria`.
 
+## Adendo no mesmo dia (2026-11-16) — gap do refresh
+
+**Achado real do usuário**, horas depois do deploy acima: logou a Maria
+(`tenant_staff`) de propósito no Painel Pizzaria real (login legítimo, correto),
+abriu o App Cliente real numa aba nova do MESMO navegador — e ela apareceu logada lá
+também, SEM passar pela tela de login. O fix de login (acima) está correto e já
+confirmado ao vivo (tentar logar a Maria direto pelo App Cliente dá o 403 esperado)
+— o buraco é outro: **o cookie de refresh é compartilhado pelo domínio da API entre
+os 3 frontends** (`SameSite=None`, mesmo path `/v1/auth`, Sprint 2). `POST
+/auth/refresh` nunca checava `audience` — só `/auth/login` checava. Resultado: uma
+sessão de staff aberta no Pizzaria sobrevive (via refresh silencioso, que todo
+frontend dispara sozinho ao carregar a página) dentro do Cliente, mesmo com o login
+direto já bloqueado.
+
+**Correção**: mesmo campo opcional `audience`, agora também em `POST /auth/refresh`:
+- `apps/api/src/auth/dto/refresh.dto.ts` (novo) — `audience?: 'customer' | 'staff'`.
+- `AuthController.refresh` passa `dto.audience` pra `AuthService.refresh`.
+- `AuthService.refresh` — mesma checagem de `validateCredentials`, usando
+  `payload.role` (já vinha no JWT do refresh token, não precisou de schema novo).
+  Checado ANTES de `revokeOne` de propósito: um mismatch aqui NÃO rotaciona/queima o
+  token — ele continua válido pro app certo, só aquele refresh específico é negado
+  (diferente do reuso detectado como roubo, que revoga a família inteira).
+- `apps/cliente`/`apps/pizzaria` (`tryRestoreSession()`) — passam a mandar
+  `audience` também no refresh, não só no login. `apps/admin-pizzarias` sem mudança.
+
+4 cenários novos em `apps/api/test/auth/refresh.e2e-spec.ts` — 18/18 passaram
+(login+refresh+logout juntos) contra o homolog real. `tsc --noEmit` + build limpos
+nos 3 pacotes de novo.
+
 - ~~**Desempenho Sistema**~~ — ✅ implementada por completo em 2026-09-27 (itens 1 e 2).
 - **Sprint 15** — 🟡 código 100% implementado em 2026-10-01 (rate limiting, gitleaks,
   audit log), mas **pendência real do usuário, não automatizável**: cadastrar os

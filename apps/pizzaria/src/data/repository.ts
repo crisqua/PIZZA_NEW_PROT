@@ -103,7 +103,7 @@ export function isAuthenticated(): boolean {
 
 export async function tryRestoreSession(): Promise<void> {
   try {
-    const res = await apiFetch<AuthResponse>('/auth/refresh', { method: 'POST', auth: false });
+    const res = await apiFetch<AuthResponse>('/auth/refresh', { method: 'POST', auth: false, body: { audience: 'staff' } });
     setAccessToken(res.accessToken);
   } catch {
     setAccessToken(null);
