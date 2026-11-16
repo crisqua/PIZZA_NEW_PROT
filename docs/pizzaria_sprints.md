@@ -73,6 +73,7 @@ antes.
 | 35 | Equipe (cadastro de funcionários) | ✅ |
 | 36 | Painel Pizzaria — identidade do usuário + "Loja Aberta" única na sidebar | ✅ |
 | 37 | Dashboard — "Vendas Hoje"/"Ticket Médio" restritos a Dono/Financeiro | ✅ |
+| 38 | Auth — separar login por app (audience customer/staff), achado de segurança | ⏳ (plano, aguardando aprovação) |
 
 Backlog sem sprint definida: pagamento online, notificações WhatsApp, MFA,
 WebSocket/realtime, exportação/exclusão LGPD formal, pentest externo, observabilidade
@@ -1965,7 +1966,86 @@ existentes desde a Sprint "Equipe"/Sprint 36 — não cria rota, não muda schem
 
 ---
 
-# Pendências consolidadas (visão geral, atualizada em 2026-10-01)
+# <span style="color:red">Sprint 38 — Auth: separar login por app (audience customer/staff) ⏳ PLANO, AGUARDANDO APROVAÇÃO</span>
+
+**Achado do usuário** (não foi pedido, surgiu validando a Sprint 33 no app Cliente
+real): logou no app Cliente (`pizza-new-prot-cliente.vercel.app`) como "Maria", viu a
+saudação + "Peça novamente" normalmente e perguntou "isso pode?". Investigação (só
+leitura, consulta direta no Supabase homolog) confirmou: **"Maria Costa"
+(`mariacosta@pizzaqa.com.br`) não é cliente cadastrada — é conta `tenant_staff`**
+(criada em 2026-11-11, mesmo dia dos testes de permissão "financeiro"/Sprint 37). Ela
+conseguiu logar e navegar no app do cliente usando a credencial de funcionária.
+
+## Causa raiz
+
+`POST /v1/auth/login` (`apps/api/src/auth/auth.controller.ts:41` +
+`auth.service.ts:61`, `validateCredentials`) é **um único endpoint compartilhado**
+pelos 3 frontends — valida e-mail+senha+tenantSlug e devolve o token de QUALQUER papel
+que a conta tiver (customer/tenant_owner/tenant_staff), sem checar se aquele papel faz
+sentido pro app que está chamando. Nem backend nem `apps/cliente`
+(`Auth.tsx`/`App.tsx`) nunca checaram `role === 'customer'` depois do login.
+
+**Até onde vaza** (mais grave que só "logar errado"): `GET /orders`
+(`orders.service.ts`, usado por "Peça novamente"/"Histórico de pedidos") só filtra por
+`customerId` quando `role === 'customer'`:
+```ts
+const where: Prisma.OrderWhereInput = {
+  createdAt: createdAtRange,
+  ...(user.role === 'customer' ? { customerId: user.id } : {}),
+};
+```
+Pra `tenant_staff`/`tenant_owner` isso é intencional (o painel da pizzaria precisa ver
+TODOS os pedidos do tenant) — mas se esse mesmo papel loga no app Cliente, a tela
+"Meus Pedidos" mostraria pedidos de **outros clientes**, não só os dela. `POST /orders`
+(finalizar pedido de verdade) já está protegido (`@Roles('customer')` só, 403 pra
+qualquer outro papel) — só a parte de LEITURA vaza.
+
+## Correção proposta
+
+1. **`apps/api/src/auth/dto/login.dto.ts`** — novo campo opcional
+   `audience?: 'customer' | 'staff'` (`@IsIn(['customer','staff'])`).
+2. **`apps/api/src/auth/auth.service.ts`** (`validateCredentials`) — depois dos
+   checks de senha + `user.active` (mesma posição, mesmo raciocínio de não vazar nada
+   antes da senha provada): se `dto.audience` veio e não bate com o papel da conta
+   (`'customer'` exige `role==='customer'`; `'staff'` exige `tenant_owner`/
+   `tenant_staff`), 403 "Esta conta não tem acesso a este aplicativo."
+3. **`apps/cliente/src/data/repository.ts`** (`login()`) — sempre manda
+   `audience: 'customer'`.
+4. **`apps/pizzaria/src/data/repository.ts`** (`login()`) — sempre manda
+   `audience: 'staff'`.
+5. **`apps/admin-pizzarias`** — sem mudança (login de `platform_superadmin` nunca
+   manda `tenantSlug`, já cai num branch totalmente separado, nunca cruza com conta
+   de tenant).
+
+### Trade-off aceito (decisão registrada, não implementar diferente sem revisitar)
+
+`audience` fica **opcional** no DTO, não obrigatório — a suíte e2e
+(`apps/api/test`) chama `/auth/login` em ~31 arquivos, provavelmente 100+ vezes, sem
+nenhum helper central, nenhuma delas mandando esse campo hoje. Deixar opcional:
+- Fecha o buraco pros 3 apps reais (o único jeito que alguém de verdade usa o
+  sistema) sem tocar em nenhum teste existente.
+- Residual aceito: uma chamada direta à API (curl/Postman) sem mandar `audience`
+  ainda loga sem essa checagem — mas exige credencial válida de alguém daquele
+  tenant, risco bem menor e diferente do achado original (vazamento pelo link real
+  do app). Tornar `audience` obrigatório (fechando esse residual) é um 2º passo
+  separado, que exigiria migrar a suíte de testes — avaliar só se o usuário pedir.
+
+## Testes a adicionar (`apps/api/test/auth/...`)
+
+1. Conta `tenant_staff` + `audience:'customer'` → 403.
+2. Conta `customer` + `audience:'staff'` → 403.
+3. Conta `tenant_owner`/`tenant_staff` + `audience:'staff'` → 200 (continua
+   funcionando).
+4. Conta `customer` + `audience:'customer'` → 200 (continua funcionando).
+5. Qualquer conta, sem mandar `audience` → 200, idêntico a hoje (prova que a suíte
+   existente não quebra).
+
+## Dependência com outras sprints
+
+**Nenhuma.** Não muda schema nem dado existente (a conta da Maria está correta, só
+o login não checava o app certo). Não precisa mexer em `OrdersService.list` —
+bloqueando o login errado na origem, o cenário de vazamento de pedido nem chega a
+acontecer.
 
 - ~~**Desempenho Sistema**~~ — ✅ implementada por completo em 2026-09-27 (itens 1 e 2).
 - **Sprint 15** — 🟡 código 100% implementado em 2026-10-01 (rate limiting, gitleaks,
