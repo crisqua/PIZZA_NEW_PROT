@@ -73,7 +73,7 @@ antes.
 | 35 | Equipe (cadastro de funcionários) | ✅ |
 | 36 | Painel Pizzaria — identidade do usuário + "Loja Aberta" única na sidebar | ✅ |
 | 37 | Dashboard — "Vendas Hoje"/"Ticket Médio" restritos a Dono/Financeiro | ✅ |
-| 38 | Auth — separar login por app (audience customer/staff), achado de segurança | ⏳ (plano, aguardando aprovação) |
+| 38 | Auth — separar login por app (audience customer/staff), achado de segurança | ✅ |
 
 Backlog sem sprint definida: pagamento online, notificações WhatsApp, MFA,
 WebSocket/realtime, exportação/exclusão LGPD formal, pentest externo, observabilidade
@@ -1966,7 +1966,7 @@ existentes desde a Sprint "Equipe"/Sprint 36 — não cria rota, não muda schem
 
 ---
 
-# <span style="color:red">Sprint 38 — Auth: separar login por app (audience customer/staff) ⏳ PLANO, AGUARDANDO APROVAÇÃO</span>
+# <span style="color:blue">Sprint 38 — Auth: separar login por app (audience customer/staff) ✅ IMPLEMENTADA em 2026-11-16</span>
 
 **Achado do usuário** (não foi pedido, surgiu validando a Sprint 33 no app Cliente
 real): logou no app Cliente (`pizza-new-prot-cliente.vercel.app`) como "Maria", viu a
@@ -2046,6 +2046,28 @@ nenhum helper central, nenhuma delas mandando esse campo hoje. Deixar opcional:
 o login não checava o app certo). Não precisa mexer em `OrdersService.list` —
 bloqueando o login errado na origem, o cenário de vazamento de pedido nem chega a
 acontecer.
+
+## Implementação (2026-11-16)
+
+Exatamente como planejado, sem desvio:
+- `apps/api/src/auth/dto/login.dto.ts` — campo `audience?: 'customer' | 'staff'`
+  (`@IsOptional() @IsIn(['customer','staff'])`).
+- `apps/api/src/auth/auth.service.ts` (`validateCredentials`) — checagem inserida
+  depois de senha + `user.active`, só dentro do branch com `tenantSlug` (login de
+  `platform_superadmin` nunca manda `audience`): `'customer'` exige
+  `role==='customer'`; `'staff'` exige `tenant_owner`/`tenant_staff`; descasamento ->
+  403 "Esta conta não tem acesso a este aplicativo." + log de falha de login (mesmo
+  padrão dos outros rejects dessa função).
+- `apps/cliente/src/data/repository.ts` (`login()`) — manda `audience: 'customer'`.
+- `apps/pizzaria/src/data/repository.ts` (`login()`) — manda `audience: 'staff'`.
+- `apps/admin-pizzarias` — sem mudança, como previsto.
+
+Os 5 cenários de teste listados acima foram adicionados a
+`apps/api/test/auth/login.e2e-spec.ts` (reaproveitando os fixtures `owner`/`staff`/
+`customer` que já existiam nesse arquivo) — 11/11 passaram contra o homolog real
+(os 6 testes pré-existentes seguem verdes, provando que a suíte sem `audience`
+continua idêntica). `tsc --noEmit` + build limpos em `apps/api`, `apps/cliente` e
+`apps/pizzaria`.
 
 - ~~**Desempenho Sistema**~~ — ✅ implementada por completo em 2026-09-27 (itens 1 e 2).
 - **Sprint 15** — 🟡 código 100% implementado em 2026-10-01 (rate limiting, gitleaks,

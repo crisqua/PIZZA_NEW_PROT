@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class LoginDto {
   @IsEmail()
@@ -17,4 +17,11 @@ export class LoginDto {
   @MinLength(2)
   @MaxLength(60)
   tenantSlug?: string;
+
+  // Sprint 38 -- opcional de proposito (ver docs/pizzaria_sprints.md, trade-off aceito):
+  // cada frontend real manda o seu ('cliente'->'customer', 'pizzaria'->'staff'); ausente =
+  // sem checagem de audiencia (comportamento antigo, usado pela suite e2e).
+  @IsOptional()
+  @IsIn(['customer', 'staff'])
+  audience?: 'customer' | 'staff';
 }

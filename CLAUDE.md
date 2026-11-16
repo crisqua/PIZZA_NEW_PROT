@@ -93,15 +93,17 @@ nenhum item "sem número" nesse doc. Pendências abertas conhecidas:
   ✅ implementada em 2026-11-11 (`Dashboard.tsx`, reaproveita a permissão "financeiro"
   já existente). "Vendas da Semana" e "Produtos Mais Vendidos" continuam visíveis pra
   todo mundo (fora de escopo por ora, decisão explícita).
-- **Sprint 38 — Auth: separar login por app (audience customer/staff)** — ⏳ plano
-  escrito, aguardando aprovação (ver `docs/pizzaria_sprints.md`). **Achado de
-  segurança real**: `POST /auth/login` é compartilhado pelos 3 apps sem checar se o
-  papel da conta faz sentido pro app que chama — uma conta `tenant_staff` logou (e
-  navegou normalmente) no app Cliente real. Correção: campo `audience` opcional no
-  login, cada app manda o seu (`cliente`→`customer`, `pizzaria`→`staff`); opcional de
-  propósito pra não quebrar ~31 arquivos de teste e2e que chamam login sem esse campo
-  (trade-off registrado na sprint, residual aceito até/se o usuário pedir fechar de
-  vez).
+- **Sprint 38 — Auth: separar login por app (audience customer/staff)** — ✅
+  implementada em 2026-11-16 (ver `docs/pizzaria_sprints.md`). **Achado de segurança
+  real**: `POST /auth/login` era compartilhado pelos 3 apps sem checar se o papel da
+  conta fazia sentido pro app que chama — uma conta `tenant_staff` logou (e navegou
+  normalmente) no app Cliente real, o que vazava pedidos de outros clientes via
+  `GET /orders` (não filtrado por papel não-customer). Correção: campo `audience`
+  opcional no login (`LoginDto` + `AuthService.validateCredentials`), cada app manda
+  o seu (`cliente`→`customer`, `pizzaria`→`staff`); opcional de propósito pra não
+  quebrar ~31 arquivos de teste e2e que chamam login sem esse campo (trade-off
+  registrado na sprint, residual aceito até/se o usuário pedir tornar obrigatório).
+  5 cenários novos em `apps/api/test/auth/login.e2e-spec.ts`, 11/11 passando.
 - Backlog sem sprint definida: pagamento online, WhatsApp, MFA, WebSocket/realtime,
   LGPD formal, pentest externo, observabilidade completa, particionamento de
   `orders`, Redis real em produção, vault de secrets dedicado, code-splitting.

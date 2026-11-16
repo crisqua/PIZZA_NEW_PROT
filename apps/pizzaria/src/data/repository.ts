@@ -87,7 +87,7 @@ export async function login(email: string, password: string): Promise<void> {
   const res = await apiFetch<AuthResponse>('/auth/login', {
     method: 'POST',
     auth: false,
-    body: { email, password, tenantSlug: getTenantSlug() },
+    body: { email, password, tenantSlug: getTenantSlug(), audience: 'staff' },
   });
   setAccessToken(res.accessToken);
 }

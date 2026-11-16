@@ -97,6 +97,20 @@ export class AuthService {
         throw new ForbiddenException('Conta desativada.');
       }
 
+      // Sprint 38 -- checado DEPOIS de senha + active (mesmo raciocinio: so' quem ja
+      // provou credencial valida descobre que esta logando no app errado). "audience"
+      // e' opcional (ver DTO) -- so' bloqueia quando o frontend manda o campo.
+      if (dto.audience) {
+        const isCustomerAccount = user.role === 'customer';
+        const isStaffAccount = user.role === 'tenant_owner' || user.role === 'tenant_staff';
+        const audienceMatches =
+          (dto.audience === 'customer' && isCustomerAccount) || (dto.audience === 'staff' && isStaffAccount);
+        if (!audienceMatches) {
+          await this.logLoginFailed(tenant.id, dto.email, dto.tenantSlug, meta);
+          throw new ForbiddenException('Esta conta nao tem acesso a este aplicativo.');
+        }
+      }
+
       await this.logLoginSuccess(tenant.id, user, meta);
       return { id: user.id, tenantId: user.tenantId, role: user.role as UserRole, email: user.email, permissions: user.permissions };
     }

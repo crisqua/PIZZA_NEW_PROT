@@ -83,4 +83,38 @@ describe('POST /v1/auth/login', () => {
       .send({ email: owner.email, password: owner.password, tenantSlug: 'slug-que-nao-existe' })
       .expect(401);
   });
+
+  // Sprint 38 -- "audience" opcional (ver docs/pizzaria_sprints.md): cada app real manda
+  // o seu, mas a suite inteira acima (sem o campo) continua passando identico.
+  it('conta tenant_staff com audience "customer" recebe 403', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email: staff.email, password: staff.password, tenantSlug: staff.tenantSlug, audience: 'customer' })
+      .expect(403);
+  });
+
+  it('conta customer com audience "staff" recebe 403', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email: customer.email, password: customer.password, tenantSlug: customer.tenantSlug, audience: 'staff' })
+      .expect(403);
+  });
+
+  it.each([
+    ['tenant_owner', () => owner],
+    ['tenant_staff', () => staff],
+  ])('conta %s com audience "staff" continua funcionando', async (_label, getUser) => {
+    const user = getUser();
+    await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email: user.email, password: user.password, tenantSlug: user.tenantSlug, audience: 'staff' })
+      .expect(200);
+  });
+
+  it('conta customer com audience "customer" continua funcionando', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email: customer.email, password: customer.password, tenantSlug: customer.tenantSlug, audience: 'customer' })
+      .expect(200);
+  });
 });
